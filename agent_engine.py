@@ -5,11 +5,11 @@ from PySide6.QtCore import QThread, Signal
 from browser_use import Agent, Browser, ChatGoogle
 
 from agent_state_manager import AgentStateManager
-
+from agent_result_parser import AgentResultParser
 
 class AgentExecutionWorker(QThread):
     step_updated = Signal(str)
-    task_finished = Signal(str)
+    task_finished = Signal(object)
     error_occurred = Signal(str)
 
     def __init__(
@@ -60,56 +60,131 @@ class AgentExecutionWorker(QThread):
         self.step_updated.emit(formatted_step_msg)
 
     def run(self):
-        # Create a clean asyncio event loop for this QThread
+        """
+        QThread entry point.
+
+        Creates and owns the asyncio event loop for this worker thread.
+        The worker thread never shares an event loop with the Qt main thread.
+        """
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+
         try:
-            loop.run_until_complete(self._execute_agent_task())
+            loop.run_until_complete(
+                self._execute_agent_task()
+            )
+
         except Exception as e:
-            err_msg = str(e)
+            err_msg = f"Agent worker failure: {e}"
+
             self.state_manager.mark_failed(err_msg)
             self.error_occurred.emit(err_msg)
+
         finally:
+            try:
+                loop.run_until_complete(
+                    asyncio.sleep(0)
+                )
+            except Exception:
+                pass
+
+            asyncio.set_event_loop(None)
             loop.close()
 
+
     async def _execute_agent_task(self):
+        """
+        Execute the browser agent and convert its raw execution history
+        into our application-level AgentResult.
+
+        """
+
+        browser = None
+
         try:
+            # ---------------------------------------------------------
+            # 1. Start canonical task lifecycle
+            # ---------------------------------------------------------
+
             self.state_manager.start_task()
+
             self.step_updated.emit(
                 f"🚀 Starting task: '{self.task.prompt}'"
             )
 
-            # Pass API key into environment for ChatGoogle
+            # ---------------------------------------------------------
+            # 2. Configure API credentials
+            # ---------------------------------------------------------
+
+            if not self.api_key:
+                raise ValueError(
+                "   Google API key is missing."
+                )
+
             os.environ["GOOGLE_API_KEY"] = self.api_key
 
-            # Initialize LLM with high-throughput free-tier model
-            llm = ChatGoogle(model="gemini-3.5-flash-lite")
+            # ---------------------------------------------------------
+            # 3. Initialize LLM
+            # ---------------------------------------------------------
 
-            # Connect to existing embedded Qt WebEngine browser via CDP if provided
+            llm = ChatGoogle(
+                model="gemini-3.5-flash-lite"
+            )
+
+            # ---------------------------------------------------------
+            # 4. Connect to browser
+            # ---------------------------------------------------------
+
             if self.cdp_url:
-                browser = Browser(cdp_url=self.cdp_url)
-            else:
-                browser = Browser(headless=self.headless)
+                self.step_updated.emit(
+                    f"🌐 Connecting to embedded browser via CDP "
+                    f"({self.cdp_url})..."
+                )
 
-            # Instantiate Agent with fail-safes and step hooks
+                browser = Browser(
+                    cdp_url=self.cdp_url
+                )
+
+            else:
+                self.step_updated.emit(
+                    "🌐 Starting standalone browser..."
+                )
+
+                browser = Browser(
+                    headless=self.headless
+                )
+
+            # ---------------------------------------------------------
+            # 5. Create agent
+            # ---------------------------------------------------------
+
             agent = Agent(
                 task=self.task.prompt,
                 llm=llm,
                 browser=browser,
-                llm_timeout=30,  # Max 30s for LLM API response
-                step_timeout=60,  # Max 60s per DOM action
-                max_failures=3,  # Max consecutive retries on error
-                final_response_after_failure=True,  # Return best-effort summary if max_failures reached
+                llm_timeout=30,
+                step_timeout=60,
+                max_failures=3,
+                final_response_after_failure=True,
             )
 
             self.step_updated.emit(
-                f"🚀 Initializing Agent for task: '{self.task.prompt}'"
+                f"🚀 Initializing Agent for task: "
+                f"'{self.task.prompt}'"
             )
 
-            # Run loop with step monitoring callback
-            result = await agent.run(
+            # ---------------------------------------------------------
+            # 6. Execute agent
+            # ---------------------------------------------------------
+
+            history = await agent.run(
                 on_step_end=self._on_step_end_callback
             )
+
+            # ---------------------------------------------------------
+            # 7. Check cancellation before processing result
+            # ---------------------------------------------------------
 
             if self._cancel_requested:
                 self.state_manager.mark_cancelled()
@@ -120,16 +195,105 @@ class AgentExecutionWorker(QThread):
 
                 return
 
-            self.state_manager.mark_completed(result)
+            # ---------------------------------------------------------
+            # 8. Convert browser-use history into our domain result
+            # ---------------------------------------------------------
 
-            self.task_finished.emit(str(result))
+            parsed_result = AgentResultParser.parse(
+                history
+            )
+
+            # ---------------------------------------------------------
+            # 9. Determine actual execution outcome
+            # ---------------------------------------------------------
+
+            if parsed_result.succeeded:
+
+                self.state_manager.mark_completed(
+                    parsed_result.final_text
+                )
+
+                self.task_finished.emit(
+                    parsed_result
+                )
+
+                return
+
+            # ---------------------------------------------------------
+            # 10. Agent finished but did not report success
+            # ---------------------------------------------------------
+
+            error_message = (
+                parsed_result.errors[-1]
+                if parsed_result.errors
+                else (
+                    "The browser agent finished without "
+                    "reporting successful completion."
+                )
+            )
+
+            self.state_manager.mark_failed(
+                error_message
+            )
+
+            self.error_occurred.emit(
+                error_message
+            )
 
         except asyncio.TimeoutError:
-            err_msg = "Agent execution timed out while waiting for model or browser response."
-            self.state_manager.mark_failed(err_msg)
-            self.error_occurred.emit(err_msg)
+
+            err_msg = (
+                "Agent execution timed out while waiting "
+                "for the model or browser response."
+            )
+
+            self.state_manager.mark_failed(
+                err_msg
+            )
+
+            self.error_occurred.emit(
+                err_msg
+            )
+
+        except asyncio.CancelledError:
+
+            self.state_manager.mark_cancelled(
+                "Agent execution was cancelled."
+            )
+
+            self.error_occurred.emit(
+                "Agent execution was cancelled."
+            )
+
+            raise
 
         except Exception as e:
-            err_msg = f"Agent Execution Failure: {str(e)}"
-            self.state_manager.mark_failed(err_msg)
-            self.error_occurred.emit(err_msg)
+
+            err_msg = (
+                f"Agent execution failure: "
+                f"{type(e).__name__}: {e}"
+            )
+
+            self.state_manager.mark_failed(
+                err_msg
+            )
+
+            self.error_occurred.emit(
+                err_msg
+            )
+
+        finally:
+
+            # ---------------------------------------------------------
+            # 11. Browser cleanup
+            # ---------------------------------------------------------
+
+            if browser is not None:
+
+                try:
+                    await browser.stop()
+                except Exception as cleanup_error:
+                    self.step_updated.emit(
+                        "⚠️ Browser cleanup warning: "
+                        f"{cleanup_error}"
+                    )

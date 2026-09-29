@@ -128,9 +128,11 @@ class MainWindow(QMainWindow):
         agent_html = ChatMessageFormatter.format_message("agent", step_msg)
         self.chat_window.chat_display.append(agent_html)
 
-    def on_agent_finished(self, result: str):
+    def on_agent_finished(self, result):
         # 1. Generate formatted HTML block from response parser
-        parsed_content = AgentResponseParser.parse_and_format(result)
+        parsed_content = AgentResponseParser.parse_and_format(
+            result
+        )
 
         # 2. Wrap system header card around parsed_content without escaping inner HTML
         header_html = ChatMessageFormatter.format_message(
