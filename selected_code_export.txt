@@ -1,0 +1,364 @@
+================================================================================
+COWORK AI AGENT SUITE - SELECTED CODE EXPORT
+================================================================================
+
+
+================================================================================
+FILE: task_graph.py
+================================================================================
+
+# task_graph.py
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+@dataclass
+class TaskStep:
+    step_id: int
+    description: str
+    action_type: str  # e.g., 'navigate', 'click', 'type', 'extract'
+    status: str = "PENDING"  # PENDING, EXECUTING, COMPLETED, FAILED
+    risk_score: float = 0.0
+
+class TaskGraph:
+    def __init__(self, task_id: str, prompt: str):
+        self.task_id = task_id
+        self.prompt = prompt
+        self.steps: List[TaskStep] = []
+        self.current_step_index: int = 0
+
+    def add_step(self, description: str, action_type: str):
+        step_id = len(self.steps) + 1
+        self.steps.append(TaskStep(step_id, description, action_type))
+
+    def get_current_step(self) -> Optional[TaskStep]:
+        if self.current_step_index < len(self.steps):
+            return self.steps[self.current_step_index]
+        return None
+
+    def advance(self):
+        self.current_step_index += 1
+
+
+================================================================================
+FILE: agent_state_manager.py
+================================================================================
+
+# agent_state_manager.py
+from typing import Any, Dict, Optional
+
+
+class AgentStateManager:
+    """Standalone, testable state monitor for browser agent execution."""
+
+    def __init__(self):
+        self._state: Dict[str, Any] = {
+            "status": "idle",  # "idle", "running", "completed", "failed"
+            "current_step": 0,
+            "last_action": "Not started",
+            "error": None,
+        }
+
+    def start_task(self) -> None:
+        """Resets and transitions state to running."""
+        self._state["status"] = "running"
+        self._state["current_step"] = 0
+        self._state["last_action"] = "Initializing..."
+        self._state["error"] = None
+
+    def record_step(self, agent_instance: Optional[Any] = None) -> str:
+        """Parses the latest action from the agent history and increments step count."""
+        self._state["current_step"] += 1
+        last_action_desc = "Processing step..."
+
+        if agent_instance and hasattr(agent_instance, "history"):
+            history = agent_instance.history
+            if history and hasattr(history, "model_actions") and history.model_actions():
+                last_action_desc = str(history.model_actions()[-1])
+
+        self._state["last_action"] = last_action_desc
+        return f"Step {self._state['current_step']}: {last_action_desc[:80]}..."
+
+    def mark_completed(self) -> None:
+        """Transitions state to completed."""
+        self._state["status"] = "completed"
+
+    def mark_failed(self, error_message: str) -> None:
+        """Transitions state to failed with error details."""
+        self._state["status"] = "failed"
+        self._state["error"] = error_message
+
+    def get_status(self) -> Dict[str, Any]:
+        """Returns a copy of the current state snapshot for UI / API endpoints."""
+        return self._state.copy()
+
+
+# --- Standalone Unit Tests ---
+if __name__ == "__main__":
+    print("🧪 Running AgentStateManager Unit Tests...")
+
+    # 1. Test Initial State
+    manager = AgentStateManager()
+    assert manager.get_status()["status"] == "idle"
+    print("✅ Initial State Test Passed")
+
+    # 2. Test Task Start
+    manager.start_task()
+    assert manager.get_status()["status"] == "running"
+    print("✅ Task Start Test Passed")
+
+    # 3. Test Step Recording
+    class MockHistory:
+        def model_actions(self):
+            return ["click(index=12)"]
+
+    class MockAgent:
+        history = MockHistory()
+
+    formatted_msg = manager.record_step(MockAgent())
+    status = manager.get_status()
+    assert status["current_step"] == 1
+    assert "click(index=12)" in status["last_action"]
+    print(f"✅ Step Recording Test Passed ({formatted_msg})")
+
+    # 4. Test Completion
+    manager.mark_completed()
+    assert manager.get_status()["status"] == "completed"
+    print("✅ Completion Test Passed")
+
+    # 5. Test Failure
+    manager.mark_failed("Timeout error")
+    assert manager.get_status()["status"] == "failed"
+    assert manager.get_status()["error"] == "Timeout error"
+    print("✅ Failure Test Passed")
+
+    print("\n🎉 All AgentStateManager tests passed successfully!")
+
+
+================================================================================
+FILE: agent_engine.py
+================================================================================
+
+# agent_engine.py
+import asyncio
+import os
+from PySide6.QtCore import QThread, Signal
+from browser_use import Agent, Browser, ChatGoogle
+
+from agent_state_manager import AgentStateManager
+
+
+class AgentExecutionWorker(QThread):
+    step_updated = Signal(str)
+    task_finished = Signal(str)
+    error_occurred = Signal(str)
+
+    def __init__(
+        self,
+        task_description,
+        api_key,
+        headless=False,
+        cdp_url="http://127.0.0.1:9222",
+    ):
+        super().__init__()
+        self.task_description = task_description
+        self.api_key = api_key
+        self.headless = headless
+        self.cdp_url = cdp_url
+
+        # Delegate state tracking to independent state manager
+        self.state_manager = AgentStateManager()
+
+    def get_status(self) -> dict:
+        """API/UI Endpoint method to query current agent state at any time."""
+        return self.state_manager.get_status()
+
+    async def _on_step_end_callback(self, agent: Agent):
+        """Lifecycle hook executed after every single agent step."""
+        formatted_step_msg = self.state_manager.record_step(agent)
+        self.step_updated.emit(formatted_step_msg)
+
+    def run(self):
+        # Create a clean asyncio event loop for this QThread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self._execute_agent_task())
+        except Exception as e:
+            err_msg = str(e)
+            self.state_manager.mark_failed(err_msg)
+            self.error_occurred.emit(err_msg)
+        finally:
+            loop.close()
+
+    async def _execute_agent_task(self):
+        try:
+            self.state_manager.start_task()
+
+            # Pass API key into environment for ChatGoogle
+            os.environ["GOOGLE_API_KEY"] = self.api_key
+
+            # Initialize LLM with high-throughput free-tier model
+            llm = ChatGoogle(model="gemini-3.5-flash-lite")
+
+            # Connect to existing embedded Qt WebEngine browser via CDP if provided
+            if self.cdp_url:
+                browser = Browser(cdp_url=self.cdp_url)
+            else:
+                browser = Browser(headless=self.headless)
+
+            # Instantiate Agent with fail-safes and step hooks
+            agent = Agent(
+                task=self.task_description,
+                llm=llm,
+                browser=browser,
+                llm_timeout=30,  # Max 30s for LLM API response
+                step_timeout=60,  # Max 60s per DOM action
+                max_failures=3,  # Max consecutive retries on error
+                final_response_after_failure=True,  # Return best-effort summary if max_failures reached
+            )
+
+            self.step_updated.emit(
+                f"🚀 Initializing Agent for task: '{self.task_description}'"
+            )
+
+            # Run loop with step monitoring callback
+            result = await agent.run(on_step_end=self._on_step_end_callback)
+
+            self.state_manager.mark_completed()
+            self.task_finished.emit(str(result))
+
+        except asyncio.TimeoutError:
+            err_msg = "Agent execution timed out while waiting for model or browser response."
+            self.state_manager.mark_failed(err_msg)
+            self.error_occurred.emit(err_msg)
+
+        except Exception as e:
+            err_msg = f"Agent Execution Failure: {str(e)}"
+            self.state_manager.mark_failed(err_msg)
+            self.error_occurred.emit(err_msg)
+
+
+================================================================================
+FILE: main.py
+================================================================================
+
+# main.py
+import os
+import sys
+
+# MUST set CDP remote debugging port before initializing QApplication or importing QWebEngineView
+CDP_PORT = 9222
+os.environ["QTWEBENGINE_REMOTE_DEBUGGING"] = str(CDP_PORT)
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QMainWindow,
+    QSplitter,
+    QWidget,
+)
+
+from agent_engine import AgentExecutionWorker
+from agent_response_parser import AgentResponseParser
+from app_menu_bar import AppMenuBar
+from browser_window import BrowserWindowWidget
+from chat_formatter import ChatMessageFormatter
+from chat_window import ChatWindowWidget
+from task_bar import TaskBarWidget
+
+
+class MainWindow(QMainWindow):
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Cowork AI Agent Suite")
+        self.resize(1200, 750)
+
+        # 1. Attach Custom Menu Bar
+        self.menu_bar = AppMenuBar(self)
+        self.setMenuBar(self.menu_bar)
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+
+        splitter = QSplitter(Qt.Horizontal)
+
+        self.task_bar = TaskBarWidget()
+        self.chat_window = ChatWindowWidget()
+        self.browser_window = BrowserWindowWidget()
+
+        splitter.addWidget(self.task_bar)
+        splitter.addWidget(self.chat_window)
+        splitter.addWidget(self.browser_window)
+        splitter.setSizes([220, 500, 480])
+
+        main_layout.addWidget(splitter)
+
+        self.agent_worker = None
+
+        # Connect Signal Routing
+        self.chat_window.task_created_signal.connect(self.handle_new_task)
+
+    def get_agent_status(self) -> dict:
+        """Endpoint called by AppMenuBar or UI widgets to query live agent state."""
+        if hasattr(self, "agent_worker") and self.agent_worker is not None:
+            return self.agent_worker.get_status()
+        return {
+            "status": "idle",
+            "current_step": 0,
+            "last_action": "No agent running",
+            "error": None,
+        }
+
+    def handle_new_task(self, task_prompt: str):
+        self.task_bar.task_list.addItem(f"📌 {task_prompt}")
+        sys_msg = ChatMessageFormatter.format_message(
+            "system",
+            f"Connecting browser agent to embedded Qt WebEngine over CDP (`http://127.0.0.1:{CDP_PORT}`)...",
+        )
+        self.chat_window.chat_display.append(sys_msg)
+
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            err_msg = ChatMessageFormatter.format_message(
+                "error", "GEMINI_API_KEY environment variable is missing."
+            )
+            self.chat_window.chat_display.append(err_msg)
+            return
+
+        # Pass cdp_url pointing to local Qt WebEngine instance
+        cdp_url = f"http://127.0.0.1:{CDP_PORT}"
+        self.agent_worker = AgentExecutionWorker(
+            task_prompt, api_key, cdp_url=cdp_url
+        )
+        self.agent_worker.step_updated.connect(self.on_agent_step)
+        self.agent_worker.task_finished.connect(self.on_agent_finished)
+        self.agent_worker.start()
+
+    def on_agent_step(self, step_msg: str):
+        agent_html = ChatMessageFormatter.format_message("agent", step_msg)
+        self.chat_window.chat_display.append(agent_html)
+
+    def on_agent_finished(self, result: str):
+        # 1. Generate formatted HTML block from response parser
+        parsed_content = AgentResponseParser.parse_and_format(result)
+
+        # 2. Wrap system header card around parsed_content without escaping inner HTML
+        header_html = ChatMessageFormatter.format_message(
+            "system", "**Task completed successfully!**"
+        )
+
+        # 3. Append header and pre-rendered parsed HTML into chat window
+        self.chat_window.chat_display.append(header_html)
+        self.chat_window.chat_display.append(parsed_content)
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())

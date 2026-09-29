@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IntentClassificationSchema",
+  "type": "object",
+  "properties": {
+    "intent": {
+      "type": "string",
+      "enum": ["CHAT", "BROWSER_TASK"],
+      "description": "Classification of the user input: 'BROWSER_TASK' if it requires opening a browser, searching, navigating, clicking, or scraping the web; 'CHAT' if it is conversational, informational, or code/math related."
+    },
+    "reasoning": {
+      "type": "string",
+      "description": "Brief explanation of why this intent was selected."
+    },
+    "task_description": {
+      "type": "string",
+      "description": "Cleaned up task description for the browser agent if intent is BROWSER_TASK, else empty."
+    }
+  },
+  "required": ["intent", "reasoning", "task_description"]
+}
