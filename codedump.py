@@ -9,7 +9,9 @@ FILES_TO_EXPORT = [
     "task_graph.py",
     "agent_state_manager.py",
     "agent_engine.py",
+    "chat_window.py",
     "main.py",
+    "intent_schema.json",
 ]
 
 
