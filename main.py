@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
 
         self.agent_worker = None
         self.current_task = None
+        self.pending_approval_task = None
 
         # ---------------------------------------------------------
         # 4. Approval layer
@@ -114,6 +115,9 @@ class MainWindow(QMainWindow):
         # ---------------------------------------------------------
 
         self.chat_window.task_created_signal.connect(self.handle_new_task)
+        self.chat_window.approval_granted.connect(self.on_approval_granted)
+
+        self.chat_window.approval_denied.connect(self.on_approval_denied)
 
     # =============================================================
     # Agent status
@@ -156,6 +160,17 @@ class MainWindow(QMainWindow):
             error_html = ChatMessageFormatter.format_message(
                 "error",
                 "A task is already running. " "Cancel it before starting another task.",
+            )
+
+            self.chat_window.chat_display.append(error_html)
+
+            return
+
+        if self.pending_approval_task is not None:
+            error_html = ChatMessageFormatter.format_message(
+                "error",
+                "A task is waiting for human approval. "
+                "Approve or deny it before starting another task.",
             )
 
             self.chat_window.chat_display.append(error_html)
@@ -260,12 +275,16 @@ class MainWindow(QMainWindow):
             )
 
             return
-
         # ---------------------------------------------------------
         # 9. REVIEW
         # ---------------------------------------------------------
 
         if decision.status == ApprovalStatus.REVIEW:
+
+            # Keep the canonical Task object alive while the
+            # human approval UI is displayed.
+            self.pending_approval_task = task
+
             self.chat_window.chat_display.append(
                 ChatMessageFormatter.format_message(
                     "system",
@@ -275,10 +294,17 @@ class MainWindow(QMainWindow):
                 )
             )
 
+            # Display the actual approval controls.
+            #
+            # The ChatWindow owns the presentation.
+            # MainWindow remains responsible for deciding what
+            # happens after Approve / Deny.
+            self.chat_window.show_approval_request(decision)
+
             return
 
         # ---------------------------------------------------------
-        # 10. APPROVED
+        # 10. APPROVED WITHOUT HUMAN REVIEW
         # ---------------------------------------------------------
 
         self.chat_window.chat_display.append(
@@ -288,8 +314,53 @@ class MainWindow(QMainWindow):
             )
         )
 
+        self.start_browser_task(task)
+
+    # =============================================================
+    # Browser task execution
+    # =============================================================
+
+    def start_browser_task(self, task: Task):
+        """
+        Start the browser agent for an approved Task.
+
+        This method is intentionally separate from the approval
+        system.
+
+        It can be called by:
+
+        1. The automatic ALLOW path.
+        2. The human APPROVE path.
+
+        Approval decisions are made before this method is called.
+        """
+
+        if task is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Cannot start browser task: task is missing.",
+                )
+            )
+
+            return
+
         # ---------------------------------------------------------
-        # 11. Existing browser execution path
+        # Prevent concurrent browser execution
+        # ---------------------------------------------------------
+
+        if self.agent_worker is not None and self.agent_worker.isRunning():
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "A browser task is already running.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Inform UI
         # ---------------------------------------------------------
 
         sys_msg = ChatMessageFormatter.format_message(
@@ -301,7 +372,7 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(sys_msg)
 
         # ---------------------------------------------------------
-        # 12. Gemini API key for browser agent
+        # Gemini API key
         # ---------------------------------------------------------
 
         api_key = os.getenv("GEMINI_API_KEY")
@@ -317,13 +388,13 @@ class MainWindow(QMainWindow):
             return
 
         # ---------------------------------------------------------
-        # 13. Connect browser-use to embedded Qt WebEngine
+        # Connect browser-use to embedded Qt WebEngine
         # ---------------------------------------------------------
 
         cdp_url = f"http://127.0.0.1:{CDP_PORT}"
 
         # ---------------------------------------------------------
-        # 14. Start browser agent worker
+        # Start browser agent worker
         # ---------------------------------------------------------
 
         self.agent_worker = AgentExecutionWorker(
@@ -337,6 +408,55 @@ class MainWindow(QMainWindow):
         self.agent_worker.task_finished.connect(self.on_agent_finished)
 
         self.agent_worker.start()
+
+    # =============================================================
+    # Human approval
+    # =============================================================
+
+    def on_approval_granted(self):
+        """
+        Continue execution after the human presses Approve.
+        """
+
+        task = self.pending_approval_task
+
+        if task is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Approval was granted, but no pending task exists.",
+                )
+            )
+
+            return
+
+        # Clear the pending state before starting execution.
+        self.pending_approval_task = None
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "✅ Human approval granted. " "Starting browser agent...",
+            )
+        )
+
+        self.start_browser_task(task)
+
+    def on_approval_denied(self):
+        """
+        Stop the pending task after the human presses Deny.
+        """
+
+        self.pending_approval_task = None
+
+        self.current_task = None
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "🛑 Human approval denied. " "The browser task will not be executed.",
+            )
+        )
 
     # =============================================================
     # Agent step updates

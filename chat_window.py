@@ -11,10 +11,14 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from chat_formatter import ChatMessageFormatter
 from PySide6.QtGui import QTextCursor
+from approval.approval_widget import ApprovalWidget
+from approval.models import ApprovalDecision
+
 
 class GeminiWorker(QThread):
     chat_chunk = Signal(str)
@@ -42,9 +46,7 @@ class GeminiWorker(QThread):
             )
 
             # Load JSON schema structure
-            schema_path = os.path.join(
-                os.path.dirname(__file__), "intent_schema.json"
-            )
+            schema_path = os.path.join(os.path.dirname(__file__), "intent_schema.json")
             response_schema = None
             if os.path.exists(schema_path):
                 with open(schema_path, "r") as f:
@@ -88,6 +90,8 @@ class GeminiWorker(QThread):
 
 class ChatWindowWidget(QFrame):
     task_created_signal = Signal(str)
+    approval_granted = Signal()
+    approval_denied = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -103,6 +107,16 @@ class ChatWindowWidget(QFrame):
         self.chat_display.setStyleSheet("border: none; font-size: 14px;")
         main_layout.addWidget(self.chat_display, stretch=1)
 
+        self.approval_container = QWidget()
+        self.approval_container.setVisible(False)
+
+        self.approval_layout = QVBoxLayout(self.approval_container)
+
+        self.approval_layout.setContentsMargins(0, 5, 0, 5)
+
+        main_layout.addWidget(self.approval_container)
+        self.current_approval_widget = None
+
         # Bottom Input Toolbar
         input_box = QFrame()
         input_box.setFrameShape(QFrame.Box)
@@ -115,9 +129,7 @@ class ChatWindowWidget(QFrame):
 
         self.add_btn = QPushButton("+")
         self.add_btn.setFixedSize(35, 35)
-        self.add_btn.setStyleSheet(
-            "font-size: 20px; border: none; font-weight: bold;"
-        )
+        self.add_btn.setStyleSheet("font-size: 20px; border: none; font-weight: bold;")
 
         self.input_field = QLineEdit()
         self.input_field.setPlaceholderText("Send Another Message...")
@@ -194,7 +206,9 @@ class ChatWindowWidget(QFrame):
 
     def on_chat_chunk(self, chunk_text: str):
         self.current_response_text += chunk_text
-        formatted_html = ChatMessageFormatter.format_message("assistant", self.current_response_text)
+        formatted_html = ChatMessageFormatter.format_message(
+            "assistant", self.current_response_text
+        )
 
         if self.is_first_chunk:
             self.chat_display.append(formatted_html)
@@ -227,3 +241,80 @@ class ChatWindowWidget(QFrame):
         self.input_field.setEnabled(True)
         self.send_btn.setEnabled(True)
         self.input_field.setFocus()
+
+    def show_approval_request(
+        self,
+        decision: ApprovalDecision,
+    ):
+        """
+        Display the human approval UI for a REVIEW decision.
+        """
+
+        self.clear_approval_request()
+
+        approval_widget = ApprovalWidget(
+            decision,
+            parent=self.approval_container,
+        )
+
+        approval_widget.approved.connect(self._on_approval_approved)
+
+        approval_widget.denied.connect(self._on_approval_denied)
+
+        self.approval_layout.addWidget(approval_widget)
+
+        self.current_approval_widget = approval_widget
+
+        self.approval_container.setVisible(True)
+
+        # Prevent starting another task while approval is pending.
+        self.input_field.setEnabled(False)
+        self.send_btn.setEnabled(False)
+
+    def clear_approval_request(self):
+        """
+        Remove the current approval UI.
+        """
+
+        while self.approval_layout.count():
+            item = self.approval_layout.takeAt(0)
+
+            widget = item.widget()
+
+            if widget is not None:
+                widget.deleteLater()
+
+        self.current_approval_widget = None
+        self.approval_container.setVisible(False)
+
+    def _on_approval_approved(self):
+        """
+        Forward the approval decision to MainWindow.
+        """
+
+        self.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "✅ Approval granted. Continuing with browser execution...",
+            )
+        )
+
+        self.clear_approval_request()
+
+        self.approval_granted.emit()
+
+    def _on_approval_denied(self):
+        """
+        Forward the denial decision to MainWindow.
+        """
+
+        self.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "🛑 Task denied. Browser execution cancelled.",
+            )
+        )
+
+        self.clear_approval_request()
+
+        self.approval_denied.emit()
