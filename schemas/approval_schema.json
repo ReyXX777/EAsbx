@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "properties": {
+    "operation_type": {
+      "type": "string",
+      "enum": [
+        "browser_read",
+        "browser_interaction",
+        "browser_external_action",
+        "filesystem_read",
+        "filesystem_modify",
+        "filesystem_destructive",
+        "unknown"
+      ]
+    },
+    "data_sensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "normal",
+        "personal",
+        "sensitive",
+        "financial",
+        "private",
+        "authentication",
+        "unknown"
+      ]
+    },
+    "external_side_effect": {
+      "type": "boolean"
+    },
+    "destructive": {
+      "type": "boolean"
+    },
+    "credential_use": {
+      "type": "boolean"
+    },
+    "reasoning": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "operation_type",
+    "data_sensitivity",
+    "external_side_effect",
+    "destructive",
+    "credential_use",
+    "reasoning"
+  ]
+}

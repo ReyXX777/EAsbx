@@ -1,0 +1,5 @@
+Go directly to cricbuzz.com on our internal browser, navigate to the scorecard for the 1st ODI match between India and West Indies played on September 27, 2026 (West Indies tour of India 2026 at Thiruvananthapuram), and extract: 1. Final Match Result (Winner & Margin)
+
+Open our internal browser, go to the demo account-management website, and permanently delete the test account
+
+Open our internal browser, go to the demo account-management website, change the account's notification email to test@example.com, and save the change.

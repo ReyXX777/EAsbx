@@ -1,105 +1,81 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 
-class TaskKind(str, Enum):
+class ApprovalStatus(str, Enum):
     """
-    High-level capability involved in a task.
-    """
-
-    BROWSER = "browser"
-    FILESYSTEM = "filesystem"
-    OTHER = "other"
-
-
-class RiskLevel(str, Enum):
-    """
-    Application-level risk classification.
-
-    This is deliberately independent from JEV.
-    """
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class ApprovalDecision(str, Enum):
-    """
-    Final authorization decision made by our application.
+    Final authorization state produced by the local policy engine.
     """
 
     ALLOW = "allow"
-    REQUIRE_APPROVAL = "require_approval"
+    REVIEW = "review"
     DENY = "deny"
 
 
 @dataclass(frozen=True)
-class TaskRequest:
+class TaskClassification:
     """
-    Normalized representation of a task entering the approval layer.
+    Structured facts about what a task is asking the agent to do.
 
-    This object contains no Qt or browser-use objects.
+    This object contains classification facts only.
+    It does not decide whether the task should execute.
     """
 
-    prompt: str
-    kind: TaskKind
+    operation_type: str
+    data_sensitivity: str
+    external_side_effect: bool
+    destructive: bool
+    credential_use: bool
 
-    target: str | None = None
-    requested_action: str | None = None
+    reasoning: str = ""
 
-    risk_level: RiskLevel = RiskLevel.LOW
-
-    metadata: dict[str, Any] = field(
-        default_factory=dict
-    )
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TaskClassification":
+        return cls(
+            operation_type=str(
+                data.get("operation_type", "unknown")
+            ),
+            data_sensitivity=str(
+                data.get("data_sensitivity", "unknown")
+            ),
+            external_side_effect=bool(
+                data.get("external_side_effect", False)
+            ),
+            destructive=bool(
+                data.get("destructive", False)
+            ),
+            credential_use=bool(
+                data.get("credential_use", False)
+            ),
+            reasoning=str(
+                data.get("reasoning", "")
+            ),
+        )
 
 
 @dataclass(frozen=True)
-class JevDecision:
+class ApprovalDecision:
     """
-    Raw normalized decision returned by the JEV adapter.
+    Result of the complete approval evaluation.
 
-    JEV-specific response objects never escape jev_client.py.
-    """
-
-    decision: ApprovalDecision
-    confidence: float | None = None
-
-    metadata: dict[str, Any] = field(
-        default_factory=dict
-    )
-
-
-@dataclass(frozen=True)
-class ApprovalResult:
-    """
-    Final application-level authorization result.
+    Classification and authorization are deliberately kept separate.
     """
 
-    decision: ApprovalDecision
-
-    reason_code: str
-
-    requires_human: bool
-
-    risk_level: RiskLevel
-
-    confidence: float | None = None
-
-    source: str = "policy"
-
-    metadata: dict[str, Any] = field(
-        default_factory=dict
-    )
+    status: ApprovalStatus
+    classification: TaskClassification
+    reasons: tuple[str, ...] = ()
 
     @property
     def allowed(self) -> bool:
-        return (
-            self.decision
-            == ApprovalDecision.ALLOW
-        )
+        return self.status == ApprovalStatus.ALLOW
+
+    @property
+    def requires_human_review(self) -> bool:
+        return self.status == ApprovalStatus.REVIEW
+
+    @property
+    def denied(self) -> bool:
+        return self.status == ApprovalStatus.DENY

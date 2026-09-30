@@ -4,238 +4,101 @@ COWORK AI AGENT SUITE - SELECTED CODE EXPORT
 
 
 ================================================================================
-FILE: chat_window.py
+FILE: task_graph.py
 ================================================================================
 
-import json
-import os
-from google import genai
-from google.genai import types
-from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtWidgets import (
-    QComboBox,
-    QFrame,
-    QHBoxLayout,
-    QLineEdit,
-    QPushButton,
-    QTextEdit,
-    QVBoxLayout,
-)
+# task_graph.py
 
-from chat_formatter import ChatMessageFormatter
-from PySide6.QtGui import QTextCursor
+from __future__ import annotations
 
-class GeminiWorker(QThread):
-    chat_chunk = Signal(str)
-    chat_finished = Signal()
-    task_response = Signal(str)
-    error_occurred = Signal(str)
+from typing import Optional
 
-    def __init__(self, prompt, api_key, chat_session=None):
-        super().__init__()
-        self.prompt = prompt
-        self.api_key = api_key
-        self.chat_session = chat_session
+from task_models import Task, TaskStatus, TaskStep
 
-    def run(self):
-        try:
-            client = genai.Client(api_key=self.api_key)
+class TaskGraph:
+    """
+    Execution-oriented view of a Task.
 
-            # System instruction enforcing JSON intent classification
-            system_instruction = (
-                "You are an intent classification system for an AI assistant. "
-                "Classify the user prompt as either 'BROWSER_TASK' or 'CHAT'.\n"
-                "- Use 'BROWSER_TASK' if the prompt involves web navigation, searching online, clicking, scraping, opening URLs, or interacting with web applications.\n"
-                "- Use 'CHAT' if the user is asking general questions, chatting, coding, or summarizing without needing live web actions.\n"
-                "Return JSON matching the schema."
-            )
+    TaskGraph manages the logical sequence of TaskStep objects,
+    while Task remains the canonical owner of task state.
 
-            # Load JSON schema structure
-            schema_path = os.path.join(
-                os.path.dirname(__file__), "intent_schema.json"
-            )
-            response_schema = None
-            if os.path.exists(schema_path):
-                with open(schema_path, "r") as f:
-                    response_schema = json.load(f)
+    This class contains no Qt, browser-use, Gemini, or UI logic.
+    """
 
-            config = types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-            )
+    def __init__(self, task: Task):
+        self.task = task
 
-            # Fast single turn call to classify intent
-            classification_prompt = f"Analyze intent for: '{self.prompt}'"
-            response = client.models.generate_content(
-                model="gemini-3.5-flash-lite",
-                contents=classification_prompt,
-                config=config,
-            )
+    @property
+    def steps(self) -> list[TaskStep]:
+        """Return the task's steps."""
 
-            data = json.loads(response.text)
-            intent = data.get("intent", "CHAT")
-            task_desc = data.get("task_description", self.prompt)
+        return self.task.steps
 
-            if intent == "BROWSER_TASK":
-                self.task_response.emit(task_desc)
-            else:
-                # Handle general chat session with streaming
-                if self.chat_session is None:
-                    chat = client.chats.create(model="gemini-3.5-flash-lite")
-                else:
-                    chat = self.chat_session
+    def add_step(
+        self,
+        description: str,
+        action_type: str,
+        risk_score: float = 0.0,
+    ) -> TaskStep:
+        """Add a new step to the task."""
 
-                response_stream = chat.send_message_stream(self.prompt)
-                for chunk in response_stream:
-                    if chunk.text:
-                        self.chat_chunk.emit(chunk.text)
-                self.chat_finished.emit()
-
-        except Exception as e:
-            self.error_occurred.emit(str(e))
-
-
-class ChatWindowWidget(QFrame):
-    task_created_signal = Signal(str)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFrameShape(QFrame.Box)
-        self.setLineWidth(1)
-
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-
-        # Chat display area
-        self.chat_display = QTextEdit()
-        self.chat_display.setReadOnly(True)
-        self.chat_display.setStyleSheet("border: none; font-size: 14px;")
-        main_layout.addWidget(self.chat_display, stretch=1)
-
-        # Bottom Input Toolbar
-        input_box = QFrame()
-        input_box.setFrameShape(QFrame.Box)
-        input_box.setFixedHeight(60)
-        input_box.setStyleSheet("background-color: white;")
-
-        input_layout = QHBoxLayout(input_box)
-        input_layout.setContentsMargins(8, 5, 8, 5)
-        input_layout.setSpacing(8)
-
-        self.add_btn = QPushButton("+")
-        self.add_btn.setFixedSize(35, 35)
-        self.add_btn.setStyleSheet(
-            "font-size: 20px; border: none; font-weight: bold;"
+        return self.task.add_step(
+            description=description,
+            action_type=action_type,
+            risk_score=risk_score,
         )
 
-        self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText("Send Another Message...")
-        self.input_field.setStyleSheet("border: none; font-size: 13px;")
-        self.input_field.returnPressed.connect(self.send_message)
+    def get_current_step(self) -> Optional[TaskStep]:
+        """Return the currently executing step."""
 
-        self.mode_dropdown = QComboBox()
-        self.mode_dropdown.addItems(["Auto", "Manual", "Step-by-Step"])
-        self.mode_dropdown.setStyleSheet("""
-            QComboBox {
-                border: 1px solid black;
-                padding: 2px 8px;
-                font-weight: bold;
-                background-color: white;
-            }
-        """)
+        return self.task.get_current_step()
 
-        self.mic_btn = QPushButton("🎤")
-        self.mic_btn.setFixedSize(35, 35)
-        self.mic_btn.setStyleSheet("border: none; font-size: 16px;")
+    def start_step(self, step_index: int) -> TaskStep:
+        """Start a specific step."""
 
-        self.send_btn = QPushButton("➔")
-        self.send_btn.setFixedSize(35, 35)
-        self.send_btn.setStyleSheet("""
-            QPushButton {
-                background-color: black;
-                color: white;
-                border-radius: 17px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #333333;
-            }
-        """)
-        self.send_btn.clicked.connect(self.send_message)
+        return self.task.start_step(step_index)
 
-        input_layout.addWidget(self.add_btn)
-        input_layout.addWidget(self.input_field, stretch=1)
-        input_layout.addWidget(self.mode_dropdown)
-        input_layout.addWidget(self.mic_btn)
-        input_layout.addWidget(self.send_btn)
+    def advance(self) -> Optional[TaskStep]:
+        """
+        Complete the current step and move to the next pending step.
 
-        main_layout.addWidget(input_box)
+        Returns the next step, or None if there are no more steps.
+        """
 
-    def send_message(self):
-        user_text = self.input_field.text().strip()
-        if not user_text:
-            return
+        current_step = self.get_current_step()
 
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            err_html = ChatMessageFormatter.format_message(
-                "error", "GEMINI_API_KEY environment variable is not set!"
-            )
-            self.chat_display.append(err_html)
-            return
+        if current_step is not None:
+            current_step.complete()
 
-        user_html = ChatMessageFormatter.format_message("user", user_text)
-        self.chat_display.append(user_html)
-        self.input_field.clear()
-        self.input_field.setEnabled(False)
-        self.send_btn.setEnabled(False)
-
-        self.current_response_text = ""
-        self.is_first_chunk = True
-
-        self.worker = GeminiWorker(user_text, api_key)
-        self.worker.chat_chunk.connect(self.on_chat_chunk)
-        self.worker.chat_finished.connect(self.on_chat_finished)
-        self.worker.task_response.connect(self.on_task_response)
-        self.worker.error_occurred.connect(self.on_error)
-        self.worker.start()
-
-    def on_chat_chunk(self, chunk_text: str):
-        self.current_response_text += chunk_text
-        formatted_html = ChatMessageFormatter.format_message("assistant", self.current_response_text)
-
-        if self.is_first_chunk:
-            self.chat_display.append(formatted_html)
-            self.is_first_chunk = False
-        else:
-            cursor = self.chat_display.textCursor()
-            cursor.movePosition(QTextCursor.MoveOperation.End)
-            cursor.select(QTextCursor.SelectionType.BlockUnderCursor)
-            cursor.removeSelectedText()
-            cursor.insertHtml(formatted_html)
-
-    def on_chat_finished(self):
-        self._reset_input_state()
-
-    def on_task_response(self, task_desc):
-        sys_html = ChatMessageFormatter.format_message(
-            "system",
-            f"Intent classified as **BROWSER_TASK**. Dispatching task to browser agent:\n`{task_desc}`",
+        next_index = (
+            0
+            if self.task.current_step_index is None
+            else self.task.current_step_index + 1
         )
-        self.chat_display.append(sys_html)
-        self.task_created_signal.emit(task_desc)
-        self._reset_input_state()
 
-    def on_error(self, error_msg):
-        err_html = ChatMessageFormatter.format_message("error", error_msg)
-        self.chat_display.append(err_html)
-        self._reset_input_state()
+        if next_index >= len(self.steps):
+            self.task.current_step_index = None
+            return None
 
-    def _reset_input_state(self):
-        self.input_field.setEnabled(True)
-        self.send_btn.setEnabled(True)
-        self.input_field.setFocus()
+        self.task.current_step_index = next_index
+
+        next_step = self.steps[next_index]
+        next_step.start()
+
+        return next_step
+
+    def reset(self) -> None:
+        """Reset the graph to its initial pending state."""
+        
+        self.task.current_step_index = None
+        self.task.status = TaskStatus.PENDING
+
+        for step in self.steps:
+            step.status = step.status.PENDING
+            step.result = None
+            step.error = None
+            step.started_at = None
+            step.finished_at = None
 
 
 ================================================================================
@@ -343,27 +206,6 @@ class AgentStateManager:
             ),
             "error": self.task.error,
         }
-
-
-================================================================================
-FILE: approval_models.py
-================================================================================
-
-[ERROR] File not found: X:\MOCKAPP\approval_models.py
-
-
-================================================================================
-FILE: jev_client.py
-================================================================================
-
-[ERROR] File not found: X:\MOCKAPP\jev_client.py
-
-
-================================================================================
-FILE: approval_policy.py
-================================================================================
-
-[ERROR] File not found: X:\MOCKAPP\approval_policy.py
 
 
 ================================================================================
@@ -672,17 +514,238 @@ class AgentExecutionWorker(QThread):
 
 
 ================================================================================
-FILE: approval_service.py
+FILE: chat_window.py
 ================================================================================
 
-[ERROR] File not found: X:\MOCKAPP\approval_service.py
+import json
+import os
+from google import genai
+from google.genai import types
+from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+)
+
+from chat_formatter import ChatMessageFormatter
+from PySide6.QtGui import QTextCursor
+
+class GeminiWorker(QThread):
+    chat_chunk = Signal(str)
+    chat_finished = Signal()
+    task_response = Signal(str)
+    error_occurred = Signal(str)
+
+    def __init__(self, prompt, api_key, chat_session=None):
+        super().__init__()
+        self.prompt = prompt
+        self.api_key = api_key
+        self.chat_session = chat_session
+
+    def run(self):
+        try:
+            client = genai.Client(api_key=self.api_key)
+
+            # System instruction enforcing JSON intent classification
+            system_instruction = (
+                "You are an intent classification system for an AI assistant. "
+                "Classify the user prompt as either 'BROWSER_TASK' or 'CHAT'.\n"
+                "- Use 'BROWSER_TASK' if the prompt involves web navigation, searching online, clicking, scraping, opening URLs, or interacting with web applications.\n"
+                "- Use 'CHAT' if the user is asking general questions, chatting, coding, or summarizing without needing live web actions.\n"
+                "Return JSON matching the schema."
+            )
+
+            # Load JSON schema structure
+            schema_path = os.path.join(
+                os.path.dirname(__file__), "intent_schema.json"
+            )
+            response_schema = None
+            if os.path.exists(schema_path):
+                with open(schema_path, "r") as f:
+                    response_schema = json.load(f)
+
+            config = types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                response_mime_type="application/json",
+            )
+
+            # Fast single turn call to classify intent
+            classification_prompt = f"Analyze intent for: '{self.prompt}'"
+            response = client.models.generate_content(
+                model="gemini-3.5-flash-lite",
+                contents=classification_prompt,
+                config=config,
+            )
+
+            data = json.loads(response.text)
+            intent = data.get("intent", "CHAT")
+            task_desc = data.get("task_description", self.prompt)
+
+            if intent == "BROWSER_TASK":
+                self.task_response.emit(task_desc)
+            else:
+                # Handle general chat session with streaming
+                if self.chat_session is None:
+                    chat = client.chats.create(model="gemini-3.5-flash-lite")
+                else:
+                    chat = self.chat_session
+
+                response_stream = chat.send_message_stream(self.prompt)
+                for chunk in response_stream:
+                    if chunk.text:
+                        self.chat_chunk.emit(chunk.text)
+                self.chat_finished.emit()
+
+        except Exception as e:
+            self.error_occurred.emit(str(e))
 
 
-================================================================================
-FILE: __init__.pyintent_schema.json
-================================================================================
+class ChatWindowWidget(QFrame):
+    task_created_signal = Signal(str)
 
-[ERROR] File not found: X:\MOCKAPP\__init__.pyintent_schema.json
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFrameShape(QFrame.Box)
+        self.setLineWidth(1)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+
+        # Chat display area
+        self.chat_display = QTextEdit()
+        self.chat_display.setReadOnly(True)
+        self.chat_display.setStyleSheet("border: none; font-size: 14px;")
+        main_layout.addWidget(self.chat_display, stretch=1)
+
+        # Bottom Input Toolbar
+        input_box = QFrame()
+        input_box.setFrameShape(QFrame.Box)
+        input_box.setFixedHeight(60)
+        input_box.setStyleSheet("background-color: white;")
+
+        input_layout = QHBoxLayout(input_box)
+        input_layout.setContentsMargins(8, 5, 8, 5)
+        input_layout.setSpacing(8)
+
+        self.add_btn = QPushButton("+")
+        self.add_btn.setFixedSize(35, 35)
+        self.add_btn.setStyleSheet(
+            "font-size: 20px; border: none; font-weight: bold;"
+        )
+
+        self.input_field = QLineEdit()
+        self.input_field.setPlaceholderText("Send Another Message...")
+        self.input_field.setStyleSheet("border: none; font-size: 13px;")
+        self.input_field.returnPressed.connect(self.send_message)
+
+        self.mode_dropdown = QComboBox()
+        self.mode_dropdown.addItems(["Auto", "Manual", "Step-by-Step"])
+        self.mode_dropdown.setStyleSheet("""
+            QComboBox {
+                border: 1px solid black;
+                padding: 2px 8px;
+                font-weight: bold;
+                background-color: white;
+            }
+        """)
+
+        self.mic_btn = QPushButton("🎤")
+        self.mic_btn.setFixedSize(35, 35)
+        self.mic_btn.setStyleSheet("border: none; font-size: 16px;")
+
+        self.send_btn = QPushButton("➔")
+        self.send_btn.setFixedSize(35, 35)
+        self.send_btn.setStyleSheet("""
+            QPushButton {
+                background-color: black;
+                color: white;
+                border-radius: 17px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #333333;
+            }
+        """)
+        self.send_btn.clicked.connect(self.send_message)
+
+        input_layout.addWidget(self.add_btn)
+        input_layout.addWidget(self.input_field, stretch=1)
+        input_layout.addWidget(self.mode_dropdown)
+        input_layout.addWidget(self.mic_btn)
+        input_layout.addWidget(self.send_btn)
+
+        main_layout.addWidget(input_box)
+
+    def send_message(self):
+        user_text = self.input_field.text().strip()
+        if not user_text:
+            return
+
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            err_html = ChatMessageFormatter.format_message(
+                "error", "GEMINI_API_KEY environment variable is not set!"
+            )
+            self.chat_display.append(err_html)
+            return
+
+        user_html = ChatMessageFormatter.format_message("user", user_text)
+        self.chat_display.append(user_html)
+        self.input_field.clear()
+        self.input_field.setEnabled(False)
+        self.send_btn.setEnabled(False)
+
+        self.current_response_text = ""
+        self.is_first_chunk = True
+
+        self.worker = GeminiWorker(user_text, api_key)
+        self.worker.chat_chunk.connect(self.on_chat_chunk)
+        self.worker.chat_finished.connect(self.on_chat_finished)
+        self.worker.task_response.connect(self.on_task_response)
+        self.worker.error_occurred.connect(self.on_error)
+        self.worker.start()
+
+    def on_chat_chunk(self, chunk_text: str):
+        self.current_response_text += chunk_text
+        formatted_html = ChatMessageFormatter.format_message("assistant", self.current_response_text)
+
+        if self.is_first_chunk:
+            self.chat_display.append(formatted_html)
+            self.is_first_chunk = False
+        else:
+            cursor = self.chat_display.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            cursor.select(QTextCursor.SelectionType.BlockUnderCursor)
+            cursor.removeSelectedText()
+            cursor.insertHtml(formatted_html)
+
+    def on_chat_finished(self):
+        self._reset_input_state()
+
+    def on_task_response(self, task_desc):
+        sys_html = ChatMessageFormatter.format_message(
+            "system",
+            f"Intent classified as **BROWSER_TASK**. Dispatching task to browser agent:\n`{task_desc}`",
+        )
+        self.chat_display.append(sys_html)
+        self.task_created_signal.emit(task_desc)
+        self._reset_input_state()
+
+    def on_error(self, error_msg):
+        err_html = ChatMessageFormatter.format_message("error", error_msg)
+        self.chat_display.append(err_html)
+        self._reset_input_state()
+
+    def _reset_input_state(self):
+        self.input_field.setEnabled(True)
+        self.send_btn.setEnabled(True)
+        self.input_field.setFocus()
 
 
 ================================================================================
@@ -850,3 +913,30 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
+
+================================================================================
+FILE: intent_schema.json
+================================================================================
+
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IntentClassificationSchema",
+  "type": "object",
+  "properties": {
+    "intent": {
+      "type": "string",
+      "enum": ["CHAT", "BROWSER_TASK"],
+      "description": "Classification of the user input: 'BROWSER_TASK' if it requires opening a browser, searching, navigating, clicking, or scraping the web; 'CHAT' if it is conversational, informational, or code/math related."
+    },
+    "reasoning": {
+      "type": "string",
+      "description": "Brief explanation of why this intent was selected."
+    },
+    "task_description": {
+      "type": "string",
+      "description": "Cleaned up task description for the browser agent if intent is BROWSER_TASK, else empty."
+    }
+  },
+  "required": ["intent", "reasoning", "task_description"]
+}
