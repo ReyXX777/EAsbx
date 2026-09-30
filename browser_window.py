@@ -1,74 +1,934 @@
 # browser_window.py
-from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QWidget
-)
-from PySide6.QtCore import QUrl
 
-# Fallback to standard webview if WebEngine is not bundled
+from __future__ import annotations
+
+from PySide6.QtCore import (
+    QUrl,
+    Qt,
+    Signal,
+)
+from PySide6.QtGui import (
+    QAction,
+    QIcon,
+    QKeySequence,
+)
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QPushButton,
+    QSizePolicy,
+    QStackedWidget,
+    QTabBar,
+    QTabWidget,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+# ---------------------------------------------------------
+# Qt WebEngine
+# ---------------------------------------------------------
+
 try:
-    from PySide6.QtWebEngineWidgets import QWebEngineView as WebViewer
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+
+    WEBENGINE_AVAILABLE = True
 except ImportError:
-    from PySide6.QtWidgets import QTextEdit as WebViewer
+    QWebEngineView = None
+    WEBENGINE_AVAILABLE = False
+
+
+class BrowserTab(QWidget):
+    """
+    Individual browser tab.
+
+    Keeps the browser page and its navigation state together.
+    """
+
+    title_changed = Signal(str)
+    url_changed = Signal(QUrl)
+    loading_changed = Signal(bool)
+
+    def __init__(
+        self,
+        initial_url: str = "https://www.google.com",
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        if WEBENGINE_AVAILABLE:
+            self.browser_view = QWebEngineView()
+
+            self.browser_view.titleChanged.connect(self._on_title_changed)
+
+            self.browser_view.urlChanged.connect(self._on_url_changed)
+
+            self.browser_view.loadStarted.connect(
+                lambda: self.loading_changed.emit(True)
+            )
+
+            self.browser_view.loadFinished.connect(
+                lambda _: self.loading_changed.emit(False)
+            )
+
+            self.browser_view.setUrl(QUrl(initial_url))
+
+            layout.addWidget(self.browser_view)
+
+        else:
+            # Development fallback only.
+            #
+            # The actual application should run with Qt WebEngine.
+            from PySide6.QtWidgets import QTextEdit
+
+            self.browser_view = QTextEdit()
+            self.browser_view.setReadOnly(True)
+            self.browser_view.setPlainText(
+                "Qt WebEngine is not available.\n\n"
+                "Install PySide6-WebEngine to enable "
+                "the embedded browser."
+            )
+
+            layout.addWidget(self.browser_view)
+
+    def load_url(self, url: str):
+        if not WEBENGINE_AVAILABLE:
+            return
+
+        self.browser_view.setUrl(QUrl(url))
+
+    def reload_page(self):
+        if WEBENGINE_AVAILABLE:
+            self.browser_view.reload()
+
+    def stop_loading(self):
+        if WEBENGINE_AVAILABLE:
+            self.browser_view.stop()
+
+    def go_back(self):
+        if WEBENGINE_AVAILABLE:
+            self.browser_view.back()
+
+    def go_forward(self):
+        if WEBENGINE_AVAILABLE:
+            self.browser_view.forward()
+
+    def _on_title_changed(self, title: str):
+        if not title:
+            title = "New Tab"
+
+        self.title_changed.emit(title)
+
+    def _on_url_changed(self, url: QUrl):
+        self.url_changed.emit(url)
+
 
 class BrowserWindowWidget(QFrame):
+    """
+    Main browser workspace used by MOCKAPP.
+
+    Responsibilities:
+        - browser workspace navigation
+        - browser tab management
+        - URL navigation
+        - browser state presentation
+        - agent connection/status presentation
+
+    It does NOT execute browser-agent tasks.
+    """
+
+    workspace_changed = Signal(str)
+    url_navigated = Signal(str)
+
+    browser_ready = Signal()
+    browser_error = Signal(str)
+
+    tab_created = Signal(int)
+    tab_closed = Signal(int)
+
+    # -----------------------------------------------------
+    # Constructor
+    # -----------------------------------------------------
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFrameShape(QFrame.Box)
-        self.setLineWidth(1)
-        
+
+        self.setObjectName("browserWorkspace")
+
+        self._tabs: list[BrowserTab] = []
+
+        self._build_ui()
+        self._apply_style()
+        self._connect_signals()
+
+        self._create_initial_tab()
+
+    # =====================================================
+    # UI
+    # =====================================================
+
+    def _build_ui(self):
+
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(8, 8, 8, 8)
-        main_layout.setSpacing(6)
-        
-        # Top Row: Mode Toggle Tabs (Browser / Files)
-        top_tabs = QHBoxLayout()
-        self.browser_tab_btn = QPushButton("Browser 🌐")
-        self.files_tab_btn = QPushButton("Files 📁")
-        
-        tab_style = """
-            QPushButton {
-                border: 1px solid black;
-                background-color: white;
-                font-weight: bold;
-                padding: 6px;
-            }
-        """
-        self.browser_tab_btn.setStyleSheet(tab_style)
-        self.files_tab_btn.setStyleSheet(tab_style)
-        
-        top_tabs.addWidget(self.browser_tab_btn)
-        top_tabs.addWidget(self.files_tab_btn)
-        main_layout.addLayout(top_tabs)
-        
-        # Sub Row: New Tab Button
-        self.new_tab_btn = QPushButton("New Tab +")
-        self.new_tab_btn.setFixedWidth(90)
-        self.new_tab_btn.setStyleSheet("border: 1px solid black; background: white; font-size: 11px;")
-        main_layout.addWidget(self.new_tab_btn)
-        
-        # Navigation Bar (Back/Forward/Refresh & URL bar)
-        nav_bar = QHBoxLayout()
-        self.nav_btn = QPushButton("⇆ 🔄")
-        self.nav_btn.setStyleSheet("border: none; font-size: 14px;")
-        
+
+        main_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        main_layout.setSpacing(0)
+
+        # -------------------------------------------------
+        # Workspace header
+        # -------------------------------------------------
+
+        workspace_header = QFrame()
+        workspace_header.setObjectName("workspaceHeader")
+
+        header_layout = QHBoxLayout(workspace_header)
+
+        header_layout.setContentsMargins(
+            10,
+            6,
+            10,
+            6,
+        )
+
+        header_layout.setSpacing(8)
+
+        self.workspace_tabs = QTabBar()
+
+        self.workspace_tabs.setExpanding(False)
+        self.workspace_tabs.setDrawBase(False)
+        self.workspace_tabs.setDocumentMode(True)
+
+        self.browser_workspace_index = self.workspace_tabs.addTab("🌐  Browser")
+
+        self.files_workspace_index = self.workspace_tabs.addTab("📁  Files")
+
+        header_layout.addWidget(self.workspace_tabs)
+
+        header_layout.addStretch()
+
+        # Agent status indicator
+
+        self.agent_status_dot = QLabel("●")
+        self.agent_status_dot.setObjectName("agentStatusDot")
+
+        self.agent_status_label = QLabel("Agent Ready")
+
+        self.agent_status_label.setObjectName("agentStatusLabel")
+
+        header_layout.addWidget(self.agent_status_dot)
+
+        header_layout.addWidget(self.agent_status_label)
+
+        main_layout.addWidget(workspace_header)
+
+        # -------------------------------------------------
+        # Browser workspace
+        # -------------------------------------------------
+
+        self.workspace_stack = QStackedWidget()
+
+        # Browser page
+
+        self.browser_workspace = QWidget()
+
+        browser_layout = QVBoxLayout(self.browser_workspace)
+
+        browser_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        browser_layout.setSpacing(0)
+
+        # -------------------------------------------------
+        # Navigation toolbar
+        # -------------------------------------------------
+
+        navigation_bar = QFrame()
+        navigation_bar.setObjectName("navigationBar")
+
+        navigation_layout = QHBoxLayout(navigation_bar)
+
+        navigation_layout.setContentsMargins(
+            8,
+            6,
+            8,
+            6,
+        )
+
+        navigation_layout.setSpacing(4)
+
+        self.back_btn = self._create_tool_button(
+            "‹",
+            "Go Back",
+        )
+
+        self.forward_btn = self._create_tool_button(
+            "›",
+            "Go Forward",
+        )
+
+        self.reload_btn = self._create_tool_button(
+            "↻",
+            "Reload",
+        )
+
+        self.stop_btn = self._create_tool_button(
+            "×",
+            "Stop Loading",
+        )
+
+        navigation_layout.addWidget(self.back_btn)
+
+        navigation_layout.addWidget(self.forward_btn)
+
+        navigation_layout.addWidget(self.reload_btn)
+
+        navigation_layout.addWidget(self.stop_btn)
+
+        # -------------------------------------------------
+        # Address bar
+        # -------------------------------------------------
+
         self.url_bar = QLineEdit()
-        self.url_bar.setPlaceholderText("Search or Enter Address")
-        self.url_bar.setStyleSheet("border: 1px solid black; padding: 4px; font-size: 12px;")
+
+        self.url_bar.setObjectName("addressBar")
+
+        self.url_bar.setPlaceholderText("Search or enter a URL...")
+
+        self.url_bar.setClearButtonEnabled(True)
+
+        self.url_bar.setMinimumHeight(34)
+
         self.url_bar.returnPressed.connect(self.load_url)
-        
-        nav_bar.addWidget(self.nav_btn)
-        nav_bar.addWidget(self.url_bar, stretch=1)
-        main_layout.addLayout(nav_bar)
-        
-        # Browser View Context
-        self.browser_view = WebViewer()
-        if hasattr(self.browser_view, 'setUrl'):
-            self.browser_view.setUrl(QUrl("https://www.google.com"))
-        main_layout.addWidget(self.browser_view, stretch=1)
+
+        navigation_layout.addWidget(
+            self.url_bar,
+            stretch=1,
+        )
+
+        # Security / page menu
+
+        self.page_menu_btn = QToolButton()
+
+        self.page_menu_btn.setText("⋮")
+
+        self.page_menu_btn.setToolTip("Page options")
+
+        self.page_menu_btn.setAutoRaise(True)
+
+        self.page_menu_btn.clicked.connect(self._show_page_menu)
+
+        navigation_layout.addWidget(self.page_menu_btn)
+
+        # New tab
+
+        self.new_tab_btn = QToolButton()
+
+        self.new_tab_btn.setText("+")
+
+        self.new_tab_btn.setToolTip("New browser tab")
+
+        self.new_tab_btn.setAutoRaise(True)
+
+        self.new_tab_btn.clicked.connect(self.create_tab)
+
+        navigation_layout.addWidget(self.new_tab_btn)
+
+        browser_layout.addWidget(navigation_bar)
+
+        # -------------------------------------------------
+        # Browser tabs
+        # -------------------------------------------------
+
+        self.browser_tabs = QTabWidget()
+
+        self.browser_tabs.setObjectName("browserTabs")
+
+        self.browser_tabs.setDocumentMode(True)
+
+        self.browser_tabs.setTabsClosable(True)
+
+        self.browser_tabs.setMovable(True)
+
+        self.browser_tabs.tabCloseRequested.connect(self.close_tab)
+
+        self.browser_tabs.currentChanged.connect(self._on_current_tab_changed)
+
+        browser_layout.addWidget(
+            self.browser_tabs,
+            stretch=1,
+        )
+
+        # -------------------------------------------------
+        # Files workspace
+        # -------------------------------------------------
+
+        self.files_workspace = QWidget()
+
+        files_layout = QVBoxLayout(self.files_workspace)
+
+        files_layout.setContentsMargins(
+            20,
+            20,
+            20,
+            20,
+        )
+
+        files_label = QLabel("📁  Files workspace")
+
+        files_label.setObjectName("workspacePlaceholder")
+
+        files_description = QLabel("File-agent capabilities will appear here.")
+
+        files_description.setObjectName("workspaceDescription")
+
+        files_layout.addWidget(files_label)
+
+        files_layout.addWidget(files_description)
+
+        files_layout.addStretch()
+
+        self.workspace_stack.addWidget(self.browser_workspace)
+
+        self.workspace_stack.addWidget(self.files_workspace)
+
+        main_layout.addWidget(
+            self.workspace_stack,
+            stretch=1,
+        )
+
+        # -------------------------------------------------
+        # Browser status bar
+        # -------------------------------------------------
+
+        status_bar = QFrame()
+        status_bar.setObjectName("browserStatusBar")
+
+        status_layout = QHBoxLayout(status_bar)
+
+        status_layout.setContentsMargins(
+            10,
+            4,
+            10,
+            4,
+        )
+
+        status_layout.setSpacing(8)
+
+        self.connection_indicator = QLabel("●")
+
+        self.connection_indicator.setObjectName("connectionIndicator")
+
+        self.connection_label = QLabel("Browser connected")
+
+        self.connection_label.setObjectName("statusText")
+
+        self.page_status_label = QLabel("Ready")
+
+        self.page_status_label.setObjectName("statusText")
+
+        self.agent_activity_label = QLabel("Agent: Idle")
+
+        self.agent_activity_label.setObjectName("statusText")
+
+        status_layout.addWidget(self.connection_indicator)
+
+        status_layout.addWidget(self.connection_label)
+
+        status_layout.addStretch()
+
+        status_layout.addWidget(self.page_status_label)
+
+        status_layout.addWidget(self.agent_activity_label)
+
+        main_layout.addWidget(status_bar)
+
+    # =====================================================
+    # Styling
+    # =====================================================
+
+    def _apply_style(self):
+
+        self.setStyleSheet("""
+            QFrame#browserWorkspace {
+                background: #ffffff;
+                border: 1px solid #d6d6d6;
+                border-radius: 8px;
+            }
+
+            QFrame#workspaceHeader {
+                background: #f7f7f7;
+                border-bottom: 1px solid #dedede;
+            }
+
+            QTabBar::tab {
+                background: transparent;
+                color: #666666;
+                padding: 7px 14px;
+                border: none;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            QTabBar::tab:selected {
+                color: #111111;
+                background: #ffffff;
+                border-radius: 5px;
+            }
+
+            QLabel#agentStatusLabel {
+                color: #444444;
+                font-size: 11px;
+                font-weight: 600;
+            }
+
+            QLabel#agentStatusDot {
+                color: #666666;
+                font-size: 10px;
+            }
+
+            QFrame#navigationBar {
+                background: #ffffff;
+                border-bottom: 1px solid #dedede;
+            }
+
+            QToolButton {
+                border: none;
+                background: transparent;
+                color: #333333;
+                font-size: 18px;
+                padding: 4px 8px;
+                border-radius: 5px;
+            }
+
+            QToolButton:hover {
+                background: #eeeeee;
+            }
+
+            QToolButton:pressed {
+                background: #dddddd;
+            }
+
+            QLineEdit#addressBar {
+                background: #f3f3f3;
+                border: 1px solid #dedede;
+                border-radius: 17px;
+                padding: 6px 14px;
+                font-size: 12px;
+                color: #222222;
+            }
+
+            QLineEdit#addressBar:focus {
+                background: #ffffff;
+                border: 1px solid #999999;
+            }
+
+            QTabWidget#browserTabs::pane {
+                border: none;
+                background: #ffffff;
+            }
+
+            QTabWidget#browserTabs QTabBar {
+                background: #f4f4f4;
+                border-bottom: 1px solid #dedede;
+            }
+
+            QTabWidget#browserTabs QTabBar::tab {
+                background: #eeeeee;
+                color: #555555;
+                padding: 7px 14px;
+                margin-right: 2px;
+                border-right: 1px solid #dddddd;
+            }
+
+            QTabWidget#browserTabs QTabBar::tab:selected {
+                background: #ffffff;
+                color: #111111;
+            }
+
+            QFrame#browserStatusBar {
+                background: #f7f7f7;
+                border-top: 1px solid #dedede;
+            }
+
+            QLabel#connectionIndicator {
+                color: #555555;
+                font-size: 8px;
+            }
+
+            QLabel#statusText {
+                color: #777777;
+                font-size: 10px;
+            }
+
+            QLabel#workspacePlaceholder {
+                font-size: 18px;
+                font-weight: 600;
+                color: #222222;
+            }
+
+            QLabel#workspaceDescription {
+                font-size: 12px;
+                color: #777777;
+            }
+            """)
+
+    # =====================================================
+    # Signals
+    # =====================================================
+
+    def _connect_signals(self):
+
+        self.workspace_tabs.currentChanged.connect(self._on_workspace_changed)
+        self.back_btn.clicked.connect(self._go_back)
+
+        self.forward_btn.clicked.connect(self._go_forward)
+
+        self.reload_btn.clicked.connect(self._reload)
+
+        self.stop_btn.clicked.connect(self._stop)
+
+    # =====================================================
+    # Tabs
+    # =====================================================
+
+    def _create_initial_tab(self):
+
+        self.create_tab("https://www.google.com")
+
+    def create_tab(
+        self,
+        url: str = "https://www.google.com",
+    ):
+
+        browser_tab = BrowserTab(
+            initial_url=url,
+            parent=self.browser_tabs,
+        )
+
+        index = self.browser_tabs.addTab(
+            browser_tab,
+            "New Tab",
+        )
+
+        self.browser_tabs.setCurrentIndex(index)
+
+        self._tabs.append(browser_tab)
+
+        browser_tab.title_changed.connect(
+            lambda title, tab=browser_tab: self._update_tab_title(
+                tab,
+                title,
+            )
+        )
+
+        browser_tab.url_changed.connect(
+            lambda page_url, tab=browser_tab: self._on_tab_url_changed(
+                tab,
+                page_url,
+            )
+        )
+
+        browser_tab.loading_changed.connect(self._on_loading_changed)
+
+        self.tab_created.emit(index)
+
+        return browser_tab
+
+    def close_tab(self, index: int):
+
+        if self.browser_tabs.count() <= 1:
+            return
+
+        widget = self.browser_tabs.widget(index)
+
+        if widget in self._tabs:
+            self._tabs.remove(widget)
+
+        self.browser_tabs.removeTab(index)
+
+        if widget:
+            widget.deleteLater()
+
+        self.tab_closed.emit(index)
+
+    # =====================================================
+    # Navigation
+    # =====================================================
+
+    def current_browser_tab(
+        self,
+    ) -> BrowserTab | None:
+
+        widget = self.browser_tabs.currentWidget()
+
+        if isinstance(
+            widget,
+            BrowserTab,
+        ):
+            return widget
+
+        return None
 
     def load_url(self):
+
         url_text = self.url_bar.text().strip()
-        if not url_text.startswith("http://") and not url_text.startswith("https://"):
+
+        if not url_text:
+            return
+
+        if "://" not in url_text:
             url_text = "https://" + url_text
-        if hasattr(self.browser_view, 'setUrl'):
-            self.browser_view.setUrl(QUrl(url_text))
+
+        tab = self.current_browser_tab()
+
+        if tab is None:
+            return
+
+        tab.load_url(url_text)
+
+        self.url_navigated.emit(url_text)
+
+    # =====================================================
+    # Navigation button handlers
+    # =====================================================
+
+    def _go_back(self):
+
+        tab = self.current_browser_tab()
+
+        if tab:
+            tab.go_back()
+
+    def _go_forward(self):
+
+        tab = self.current_browser_tab()
+
+        if tab:
+            tab.go_forward()
+
+    def _reload(self):
+
+        tab = self.current_browser_tab()
+
+        if tab:
+            tab.reload_page()
+
+    def _stop(self):
+
+        tab = self.current_browser_tab()
+
+        if tab:
+            tab.stop_loading()
+
+    # =====================================================
+    # Browser events
+    # =====================================================
+
+    def _on_current_tab_changed(
+        self,
+        index: int,
+    ):
+
+        tab = self.current_browser_tab()
+
+        if tab is None:
+            return
+
+        current_url = tab.browser_view.url() if WEBENGINE_AVAILABLE else QUrl()
+
+        self._on_tab_url_changed(
+            tab,
+            current_url,
+        )
+
+    def _on_tab_url_changed(
+        self,
+        tab: BrowserTab,
+        url: QUrl,
+    ):
+
+        if tab != self.current_browser_tab():
+            return
+
+        self.url_bar.setText(url.toString())
+
+        self.page_status_label.setText("Ready")
+
+    def _on_title_changed(
+        self,
+        title: str,
+    ):
+        self.browser_ready.emit()
+
+    def _update_tab_title(
+        self,
+        tab: BrowserTab,
+        title: str,
+    ):
+
+        index = self.browser_tabs.indexOf(tab)
+
+        if index < 0:
+            return
+
+        if len(title) > 22:
+            title = title[:22] + "…"
+
+        self.browser_tabs.setTabText(
+            index,
+            title or "New Tab",
+        )
+
+    def _on_loading_changed(
+        self,
+        loading: bool,
+    ):
+
+        if loading:
+            self.page_status_label.setText("Loading...")
+
+            self.connection_label.setText("Browser connected")
+
+        else:
+            self.page_status_label.setText("Ready")
+
+    # =====================================================
+    # Workspace
+    # =====================================================
+
+    def _on_workspace_changed(
+        self,
+        index: int,
+    ):
+
+        self.workspace_stack.setCurrentIndex(index)
+
+        if index == self.browser_workspace_index:
+            self.workspace_changed.emit("browser")
+
+        elif index == self.files_workspace_index:
+            self.workspace_changed.emit("files")
+
+    # =====================================================
+    # Agent state
+    # =====================================================
+
+    def set_agent_status(
+        self,
+        status: str,
+    ):
+
+        status = status.lower()
+
+        labels = {
+            "idle": "Agent Ready",
+            "running": "Agent Working",
+            "waiting": "Waiting for approval",
+            "completed": "Agent Completed",
+            "error": "Agent Error",
+        }
+
+        self.agent_status_label.setText(
+            labels.get(
+                status,
+                status.title(),
+            )
+        )
+
+        self.agent_activity_label.setText(
+            f"Agent: {labels.get(status, status.title())}"
+        )
+
+    def set_browser_connection_status(
+        self,
+        connected: bool,
+        message: str | None = None,
+    ):
+
+        if connected:
+            self.connection_indicator.setText("●")
+
+            self.connection_label.setText(message or "Browser connected")
+
+        else:
+            self.connection_indicator.setText("●")
+
+            self.connection_label.setText(message or "Browser disconnected")
+
+    # =====================================================
+    # Context menu
+    # =====================================================
+
+    def _show_page_menu(self):
+
+        menu = QMenu(self)
+
+        reload_action = QAction(
+            "Reload",
+            self,
+        )
+
+        reload_action.triggered.connect(self._reload)
+
+        menu.addAction(reload_action)
+
+        stop_action = QAction(
+            "Stop Loading",
+            self,
+        )
+
+        stop_action.triggered.connect(self._stop)
+
+        menu.addAction(stop_action)
+
+        menu.addSeparator()
+
+        new_tab_action = QAction(
+            "New Tab",
+            self,
+        )
+
+        new_tab_action.triggered.connect(self.create_tab)
+
+        menu.addAction(new_tab_action)
+
+        menu.exec(
+            self.page_menu_btn.mapToGlobal(self.page_menu_btn.rect().bottomLeft())
+        )
+
+    # =====================================================
+    # Helpers
+    # =====================================================
+
+    @staticmethod
+    def _create_tool_button(
+        text: str,
+        tooltip: str,
+    ) -> QToolButton:
+
+        button = QToolButton()
+
+        button.setText(text)
+
+        button.setToolTip(tooltip)
+
+        button.setAutoRaise(True)
+
+        return button
