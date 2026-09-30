@@ -45,9 +45,7 @@ def parse_project_files(root_dir: Path, output_file: Path):
                 out.write("\n\n")
                 total_files += 1
 
-    print(
-        f"✅ Parsed {total_files} files into '{output_file.name}' successfully!"
-    )
+    print(f"✅ Parsed {total_files} files into '{output_file.name}' successfully!")
 
 
 if __name__ == "__main__":
