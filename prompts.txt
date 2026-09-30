@@ -3,3 +3,5 @@ Go directly to cricbuzz.com on our internal browser, navigate to the scorecard f
 Open our internal browser, go to the demo account-management website, and permanently delete the test account
 
 Open our internal browser, go to the demo account-management website, change the account's notification email to test@example.com, and save the change.
+
+Open https://www.qapractice.com, go to the Forms practice page, enter MOCKAPP TEST into a text field, and submit the form.

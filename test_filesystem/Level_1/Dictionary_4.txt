@@ -1,0 +1,16 @@
+﻿MOCKAPP Filesystem Agent Test File
+==================================
+
+Level: 1
+File: 4
+
+Dictionary Entries
+------------------
+
+Pragmatic - dealing with problems realistically
+Resilient - able to recover quickly from difficulty
+Serene - calm, peaceful, and untroubled
+Tenacious - persistent and determined
+Ubiquitous - present or found everywhere
+
+End of dictionary entries.

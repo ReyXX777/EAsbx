@@ -35,18 +35,24 @@ class GeminiWorker(QThread):
     Background Gemini worker.
 
     Responsibilities:
-        1. Classify the user's message as CHAT or BROWSER_TASK.
+        1. Classify the user's message as CHAT, BROWSER_TASK,
+           or FILESYSTEM_TASK.
         2. Stream normal chat responses.
-        3. Emit browser tasks to the main application.
-
-    The worker performs no UI operations directly.
+        3. Emit executable tasks to the main application together
+           with their classified intent.
+        4. The worker performs no UI operations directly.
     """
 
+    # Normal conversational response.
     chat_chunk = Signal(str)
     chat_finished = Signal()
 
-    task_response = Signal(str)
+    # Executable task:
+    #   argument 1 -> intent
+    #   argument 2 -> task description
+    task_response = Signal(str, str)
 
+    # Worker-level errors.
     error_occurred = Signal(str)
 
     def __init__(
@@ -67,7 +73,9 @@ class GeminiWorker(QThread):
             # 1. Create Gemini client
             # ==============================================================
 
-            client = genai.Client(api_key=self.api_key)
+            client = genai.Client(
+                api_key=self.api_key,
+            )
 
             # ==============================================================
             # 2. Load intent schema
@@ -95,9 +103,12 @@ class GeminiWorker(QThread):
             system_instruction = (
                 "You are an intent classification system for an AI assistant.\n"
                 "\n"
-                "Your ONLY job is to classify the user's message as either "
-                "'CHAT' or 'BROWSER_TASK'.\n"
+                "Your ONLY job is to classify the user's message as exactly "
+                "one of: 'CHAT', 'BROWSER_TASK', or 'FILESYSTEM_TASK'.\n"
                 "\n"
+                # ----------------------------------------------------------
+                # Browser tasks
+                # ----------------------------------------------------------
                 "Use 'BROWSER_TASK' when the request requires the application "
                 "to perform actions in a web browser, including:\n"
                 "- opening a website\n"
@@ -110,6 +121,25 @@ class GeminiWorker(QThread):
                 "- interacting with a web application\n"
                 "- changing information on a website\n"
                 "\n"
+                # ----------------------------------------------------------
+                # Filesystem tasks
+                # ----------------------------------------------------------
+                "Use 'FILESYSTEM_TASK' when the request requires the application "
+                "to operate on files or directories in the application's "
+                "sandboxed filesystem, including:\n"
+                "- listing directories\n"
+                "- searching for files\n"
+                "- reading files\n"
+                "- reading CSV or JSON tables\n"
+                "- calculating values from filesystem data\n"
+                "- creating files or directories\n"
+                "- writing or editing files\n"
+                "- copying or moving files\n"
+                "- deleting files or directories\n"
+                "\n"
+                # ----------------------------------------------------------
+                # Normal chat
+                # ----------------------------------------------------------
                 "Use 'CHAT' when the user is asking for:\n"
                 "- general conversation\n"
                 "- explanations\n"
@@ -117,11 +147,25 @@ class GeminiWorker(QThread):
                 "- summarization\n"
                 "- reasoning\n"
                 "- writing\n"
-                "- questions that do not require live browser interaction\n"
+                "- questions that do not require live browser interaction "
+                "or filesystem operations\n"
                 "\n"
-                "If the request requires both conversation and browser "
-                "interaction, classify it as 'BROWSER_TASK'.\n"
+                # ----------------------------------------------------------
+                # Mixed requests
+                # ----------------------------------------------------------
+                "If the request requires browser interaction, classify it "
+                "as 'BROWSER_TASK'.\n"
                 "\n"
+                "If the request requires filesystem operations, classify it "
+                "as 'FILESYSTEM_TASK'.\n"
+                "\n"
+                "If a request contains both browser interaction and "
+                "filesystem operations, classify it according to the "
+                "primary action explicitly requested by the user.\n"
+                "\n"
+                # ----------------------------------------------------------
+                # Output contract
+                # ----------------------------------------------------------
                 "Return ONLY JSON matching the supplied response schema."
             )
 
@@ -137,7 +181,9 @@ class GeminiWorker(QThread):
             if response_schema is not None:
                 config_kwargs["response_schema"] = response_schema
 
-            config = types.GenerateContentConfig(**config_kwargs)
+            config = types.GenerateContentConfig(
+                **config_kwargs,
+            )
 
             # ==============================================================
             # 5. Ask Gemini to classify the message
@@ -161,7 +207,9 @@ class GeminiWorker(QThread):
                 raise ValueError("Gemini returned an empty intent classification.")
 
             try:
-                data = json.loads(response.text)
+                data = json.loads(
+                    response.text,
+                )
 
             except json.JSONDecodeError as exc:
                 raise ValueError(
@@ -175,12 +223,16 @@ class GeminiWorker(QThread):
             # 7. Extract classification
             # ==============================================================
 
-            intent = str(
-                data.get(
-                    "intent",
-                    "CHAT",
+            intent = (
+                str(
+                    data.get(
+                        "intent",
+                        "CHAT",
+                    )
                 )
-            ).upper()
+                .strip()
+                .upper()
+            )
 
             task_desc = data.get(
                 "task_description",
@@ -190,44 +242,68 @@ class GeminiWorker(QThread):
             if not isinstance(task_desc, str) or not task_desc.strip():
                 task_desc = self.prompt
 
+            task_desc = task_desc.strip()
+
             # ==============================================================
-            # 8. Browser task
+            # 8. Validate intent
             # ==============================================================
 
-            if intent == "BROWSER_TASK":
+            valid_intents = {
+                "CHAT",
+                "BROWSER_TASK",
+                "FILESYSTEM_TASK",
+            }
 
-                self.task_response.emit(task_desc.strip())
+            if intent not in valid_intents:
+                raise ValueError(f"Unknown intent returned by Gemini: {intent}")
+
+            # ==============================================================
+            # 9. Executable task
+            # ==============================================================
+
+            if intent in {
+                "BROWSER_TASK",
+                "FILESYSTEM_TASK",
+            }:
+
+                self.task_response.emit(
+                    intent,
+                    task_desc,
+                )
 
                 return
 
             # ==============================================================
-            # 9. Normal chat
+            # 10. Normal chat
             # ==============================================================
-
-            if intent != "CHAT":
-                raise ValueError(f"Unknown intent returned by Gemini: {intent}")
 
             if self.chat_session is None:
 
-                chat = client.chats.create(model="gemini-3.5-flash-lite")
+                chat = client.chats.create(
+                    model="gemini-3.5-flash-lite",
+                )
 
             else:
 
                 chat = self.chat_session
 
             # ==============================================================
-            # 10. Stream Gemini conversation response
+            # 11. Stream Gemini conversation response
             # ==============================================================
 
-            response_stream = chat.send_message_stream(self.prompt)
+            response_stream = chat.send_message_stream(
+                self.prompt,
+            )
 
             for chunk in response_stream:
 
                 if chunk.text:
-                    self.chat_chunk.emit(chunk.text)
+                    self.chat_chunk.emit(
+                        chunk.text,
+                    )
 
             # ==============================================================
-            # 11. Chat completed
+            # 12. Chat completed
             # ==============================================================
 
             self.chat_finished.emit()
@@ -259,7 +335,7 @@ class ChatWindowWidget(QFrame):
         - Task authorization logic
     """
 
-    task_created_signal = Signal(str)
+    task_created_signal = Signal(str, str)
 
     approval_granted = Signal()
     approval_denied = Signal()
@@ -964,29 +1040,34 @@ class ChatWindowWidget(QFrame):
 
     def on_task_response(
         self,
+        intent: str,
         task_desc: str,
     ):
-        """
-        Browser intent detected.
+        intent_labels = {
+            "BROWSER_TASK": "Browser Agent",
+            "FILESYSTEM_TASK": "Filesystem Agent",
+        }
 
-        MainWindow receives the task and sends it through the
-        approval architecture.
-        """
+        agent_label = intent_labels.get(
+            intent,
+            intent,
+        )
 
         sys_html = ChatMessageFormatter.format_message(
             "system",
             (
-                "Intent classified as **BROWSER_TASK**. "
-                "Dispatching task to browser agent:"
-                f"\n`{task_desc}`"
+                f"Intent classified as **{intent}**.\n"
+                f"Dispatching task to **{agent_label}**:\n"
+                f"`{task_desc}`"
             ),
         )
 
         self.chat_display.append(sys_html)
 
-        self._set_agent_status("Preparing task...")
-
-        self.task_created_signal.emit(task_desc)
+        self.task_created_signal.emit(
+            intent,
+            task_desc,
+        )
 
         self._reset_input_state()
 

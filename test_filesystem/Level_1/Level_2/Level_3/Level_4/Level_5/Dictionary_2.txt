@@ -1,0 +1,16 @@
+﻿MOCKAPP Filesystem Agent Test File
+==================================
+
+Level: 5
+File: 2
+
+Dictionary Entries
+------------------
+
+Deteriorate - become progressively worse
+Endeavor - an attempt or effort to do something
+Formidable - inspiring fear or respect through being powerful
+Inevitable - certain to happen
+Versatile - able to adapt or be used for many purposes
+
+End of dictionary entries.

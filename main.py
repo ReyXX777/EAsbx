@@ -81,6 +81,7 @@ class MainWindow(QMainWindow):
         self.agent_worker = None
         self.current_task = None
         self.pending_approval_task = None
+        self.pending_approval_intent = None
 
         # ---------------------------------------------------------
         # 4. Approval layer
@@ -143,10 +144,13 @@ class MainWindow(QMainWindow):
     # Task creation + approval
     # =============================================================
 
-    def handle_new_task(self, task_prompt: str):
+    def handle_new_task(
+        self,
+        intent: str,
+        task_prompt: str,
+    ):
         """
-        Create a canonical Task and pass it through the approval
-        boundary before browser execution.
+        Route a classified task to the appropriate agent.
 
         MainWindow coordinates the UI and lifecycle routing.
         Authorization itself belongs to ApprovalEngine.
@@ -284,6 +288,7 @@ class MainWindow(QMainWindow):
             # Keep the canonical Task object alive while the
             # human approval UI is displayed.
             self.pending_approval_task = task
+            self.pending_approval_intent = intent
 
             self.chat_window.chat_display.append(
                 ChatMessageFormatter.format_message(
@@ -310,11 +315,54 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                "✅ Task approved for browser execution.\n" f"{reasons}",
+                (
+                    f"✅ Task approved for {intent.replace('_', ' ').title()}.\n"
+                    f"{reasons}"
+                ),
             )
         )
 
-        self.start_browser_task(task)
+        self.dispatch_task(task, intent)
+        # =============================================================
+
+    # Agent dispatch
+    # =============================================================
+
+    def dispatch_task(
+        self,
+        task: Task,
+        intent: str,
+    ):
+        """
+        Route an approved Task to the correct execution worker.
+
+        MainWindow does not implement agent behavior.
+        It only selects the appropriate agent boundary.
+        """
+
+        if task is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Cannot dispatch task: task is missing.",
+                )
+            )
+            return
+
+        if intent == "BROWSER_TASK":
+            self.start_browser_task(task)
+            return
+
+        if intent == "FILESYSTEM_TASK":
+            self.start_filesystem_task(task)
+            return
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "error",
+                f"Unsupported task intent: {intent}",
+            )
+        )
 
     # =============================================================
     # Browser task execution
@@ -419,8 +467,9 @@ class MainWindow(QMainWindow):
         """
 
         task = self.pending_approval_task
+        intent = self.pending_approval_intent
 
-        if task is None:
+        if task is None or intent is None:
             self.chat_window.chat_display.append(
                 ChatMessageFormatter.format_message(
                     "error",
@@ -432,15 +481,22 @@ class MainWindow(QMainWindow):
 
         # Clear the pending state before starting execution.
         self.pending_approval_task = None
+        self.pending_approval_intent = None
 
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                "✅ Human approval granted. " "Starting browser agent...",
+                (
+                    "✅ Human approval granted. "
+                    f"Starting {intent.replace('_', ' ').title()}..."
+                ),
             )
         )
 
-        self.start_browser_task(task)
+        self.dispatch_task(
+            task,
+            intent,
+        )
 
     def on_approval_denied(self):
         """

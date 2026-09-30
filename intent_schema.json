@@ -5,9 +5,10 @@
       "type": "string",
       "enum": [
         "CHAT",
-        "BROWSER_TASK"
+        "BROWSER_TASK",
+        "FILESYSTEM_TASK"
       ],
-      "description": "Classification of the user input: BROWSER_TASK if it requires opening a browser, searching, navigating, clicking, or scraping the web; CHAT if it is conversational, informational, or code/math related."
+      "description": "Classification of the user input. Use 'BROWSER_TASK' for web navigation, searching, clicking, scraping, opening URLs, or interacting with web applications. Use 'FILESYSTEM_TASK' for operations involving files or directories such as listing, searching, reading, writing, editing, creating, moving, copying, deleting, or analyzing local sandbox files. Use 'CHAT' for conversational, informational, coding, reasoning, or writing requests that do not require browser or filesystem execution."
     },
     "reasoning": {
       "type": "string",

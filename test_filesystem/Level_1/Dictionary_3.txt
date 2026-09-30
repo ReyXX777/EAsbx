@@ -1,0 +1,16 @@
+﻿MOCKAPP Filesystem Agent Test File
+==================================
+
+Level: 1
+File: 3
+
+Dictionary Entries
+------------------
+
+Keen - having an eager interest or enthusiasm
+Lucid - expressed clearly and easy to understand
+Meticulous - showing great attention to detail
+Novice - a person new to a particular activity
+Obsolete - no longer produced or used
+
+End of dictionary entries.

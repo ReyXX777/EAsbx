@@ -1,0 +1,16 @@
+﻿MOCKAPP Filesystem Agent Test File
+==================================
+
+Level: 4
+File: 5
+
+Dictionary Entries
+------------------
+
+Ephemeral - lasting for a very short time
+Frugal - economical with money or resources
+Gregarious - sociable and fond of company
+Impartial - treating all sides fairly
+Jubilant - feeling or expressing great happiness
+
+End of dictionary entries.

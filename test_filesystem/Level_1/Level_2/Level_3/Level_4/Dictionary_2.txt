@@ -1,0 +1,16 @@
+﻿MOCKAPP Filesystem Agent Test File
+==================================
+
+Level: 4
+File: 2
+
+Dictionary Entries
+------------------
+
+Vigilant - keeping careful watch for danger or problems
+Wary - cautious about possible dangers
+Zealous - showing great energy or enthusiasm
+Ambiguous - open to more than one interpretation
+Coherent - logical and consistent
+
+End of dictionary entries.

@@ -1,0 +1,16 @@
+﻿MOCKAPP Filesystem Agent Test File
+==================================
+
+Level: 3
+File: 5
+
+Dictionary Entries
+------------------
+
+Abundant - existing in large quantities
+Benevolent - well meaning and kindly
+Candid - truthful and straightforward
+Diligent - showing careful and persistent effort
+Eloquent - fluent or persuasive in speaking or writing
+
+End of dictionary entries.

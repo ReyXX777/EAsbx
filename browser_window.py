@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from filesystem.filesystem_service import SandboxFilesystemService
+from filesystem.filesystem_workspace import FilesWorkspace
 
 # ---------------------------------------------------------
 # Qt WebEngine
@@ -379,30 +381,18 @@ class BrowserWindowWidget(QFrame):
         # Files workspace
         # -------------------------------------------------
 
-        self.files_workspace = QWidget()
+        filesystem_root = r"X:\MOCKAPP\test_filesystem"
 
-        files_layout = QVBoxLayout(self.files_workspace)
+        self.filesystem_service = SandboxFilesystemService(filesystem_root)
 
-        files_layout.setContentsMargins(
-            20,
-            20,
-            20,
-            20,
+        self.files_workspace = FilesWorkspace(
+            service=self.filesystem_service,
+            parent=self,
         )
 
-        files_label = QLabel("📁  Files workspace")
+        self.files_workspace.file_opened.connect(self._on_file_opened)
 
-        files_label.setObjectName("workspacePlaceholder")
-
-        files_description = QLabel("File-agent capabilities will appear here.")
-
-        files_description.setObjectName("workspaceDescription")
-
-        files_layout.addWidget(files_label)
-
-        files_layout.addWidget(files_description)
-
-        files_layout.addStretch()
+        self.files_workspace.operation_error.connect(self._on_filesystem_error)
 
         self.workspace_stack.addWidget(self.browser_workspace)
 
@@ -808,6 +798,22 @@ class BrowserWindowWidget(QFrame):
 
         else:
             self.page_status_label.setText("Ready")
+
+    # =====================================================
+    # Filesystem workspace
+    # =====================================================
+
+    def _on_file_opened(
+        self,
+        relative_path: str,
+    ):
+        self.set_agent_status("idle")
+
+    def _on_filesystem_error(
+        self,
+        message: str,
+    ):
+        self.browser_error.emit(message)
 
     # =====================================================
     # Workspace

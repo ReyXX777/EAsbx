@@ -27,13 +27,8 @@ class ApprovalPolicyEngine:
 
         if classification.destructive:
             reasons.append(
-                "The task contains a destructive operation."
-            )
-
-            return ApprovalDecision(
-                status=ApprovalStatus.DENY,
-                classification=classification,
-                reasons=tuple(reasons),
+                "The task contains a destructive operation "
+                "and requires explicit human approval."
             )
 
         # ---------------------------------------------------------
@@ -41,14 +36,10 @@ class ApprovalPolicyEngine:
         # ---------------------------------------------------------
 
         if classification.credential_use:
-            reasons.append(
-                "The task requires credential use."
-            )
+            reasons.append("The task requires credential use.")
 
         if classification.external_side_effect:
-            reasons.append(
-                "The task can cause an external side effect."
-            )
+            reasons.append("The task can cause an external side effect.")
 
         if classification.data_sensitivity in {
             "sensitive",
@@ -57,9 +48,7 @@ class ApprovalPolicyEngine:
             "private",
             "authentication",
         }:
-            reasons.append(
-                "The task accesses sensitive information."
-            )
+            reasons.append("The task accesses sensitive information.")
 
         if reasons:
             return ApprovalDecision(
