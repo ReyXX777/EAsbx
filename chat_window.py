@@ -1063,6 +1063,7 @@ class ChatWindowWidget(QFrame):
         )
 
         self.chat_display.append(sys_html)
+        self._set_agent_status("Preparing task...")
 
         self.task_created_signal.emit(
             intent,
@@ -1219,7 +1220,7 @@ class ChatWindowWidget(QFrame):
         self.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                ("✅ Approval granted. " "Continuing with browser execution..."),
+                ("✅ Approval granted. " "Continuing with task execution..."),
             )
         )
 

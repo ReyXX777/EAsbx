@@ -12,8 +12,7 @@ class FilesystemAgentError(RuntimeError):
 
 
 class FilesystemPlanner(Protocol):
-    def plan(self, prompt: str) -> Iterable[FilesystemOperation]:
-        ...
+    def plan(self, prompt: str) -> Iterable[FilesystemOperation]: ...
 
 
 @dataclass
@@ -26,7 +25,9 @@ class FilesystemAgent:
     """
 
     service: SandboxFilesystemService
-    planner: FilesystemPlanner | Callable[[str], Iterable[FilesystemOperation]] | None = None
+    planner: (
+        FilesystemPlanner | Callable[[str], Iterable[FilesystemOperation]] | None
+    ) = None
 
     def execute_operation(self, operation: FilesystemOperation) -> FilesystemResult:
         return self.service.execute(operation)
@@ -64,7 +65,55 @@ class FilesystemAgent:
         else:
             operations = self.planner(prompt)
 
-        return self.execute_operations(operations, on_result=on_result)
+        return self.execute_operations(
+            operations,
+            on_result=on_result,
+        )
+
+    def run_interactive(
+        self,
+        prompt: str,
+        *,
+        on_result=None,
+        should_cancel=None,
+    ) -> tuple[list[FilesystemResult], str]:
+        """
+        Run an interactive planner/tool loop.
+
+        The planner receives the agent's execute_operation callback.
+        This allows Gemini to:
+
+            1. request a filesystem operation
+            2. receive its result
+            3. reason about that result
+            4. request the next operation
+            5. continue until the task is complete
+
+        The actual filesystem operation still goes through
+        SandboxFilesystemService.
+        """
+
+        if self.planner is None:
+            raise FilesystemAgentError("No filesystem planner is configured.")
+
+        interactive_execute = getattr(
+            self.planner,
+            "execute",
+            None,
+        )
+
+        if not callable(interactive_execute):
+            raise FilesystemAgentError(
+                "Configured filesystem planner does not support "
+                "interactive tool execution."
+            )
+
+        return interactive_execute(
+            prompt,
+            self.execute_operation,
+            on_result=on_result,
+            should_cancel=should_cancel,
+        )
 
     @staticmethod
     def operation_to_tool_call(operation: FilesystemOperation) -> dict[str, Any]:

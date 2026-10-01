@@ -19,43 +19,15 @@ from pathlib import Path
 # Both "/" and "\" are accepted on Windows.
 
 FILES_TO_EXPORT = [
-    # ─────────────────────────────────────────────
-    # CORE TASK / AGENT EXECUTION
-    # ─────────────────────────────────────────────
-    "task_models.py",
-    "task_graph.py",
-    "agent_state_manager.py",
-    "agent_engine.py",
-    # Include these if they exist
-    "agent_dispatcher.py",
-    "agent_result.py",
-    "agent_response_parser.py",
-    "agent_result_parser.py",
-    # ─────────────────────────────────────────────
-    # BROWSER / MAIN APPLICATION
-    # ─────────────────────────────────────────────
-    "browser_window.py",
-    "main.py",
-    # ─────────────────────────────────────────────
-    # CHAT
-    # ─────────────────────────────────────────────
-    "chat_window.py",
-    "chat_formatter.py",
-    # ─────────────────────────────────────────────
-    # APPROVAL SYSTEM
-    # ─────────────────────────────────────────────
-    "approval/__init__.py",
-    "approval/models.py",
-    "approval/approval_engine.py",
-    "approval/approval_widget.py",
-    "approval/policy_engine.py",
-    "approval/schema_loader.py",
-    "approval/gemini_classifier.py",
-    # ─────────────────────────────────────────────
-    # SCHEMAS / GEMINI
-    # ─────────────────────────────────────────────
-    "schemas/approval_schema.json",
-    "intent_schema.json",
+    "filesystem/__init__.py",
+    "filesystem/filesystem_agent.py",
+    "filesystem/filesystem_models.py",
+    "filesystem/filesystem_operations.py",
+    "filesystem/filesystem_sandbox.py",
+    "filesystem/filesystem_service.py",
+    "filesystem/filesystem_table.py",
+    "filesystem/filesystem_validator.py",
+    "filesystem/filesystem_workspace.py",
 ]
 
 

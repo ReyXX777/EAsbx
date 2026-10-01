@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from agent_engine import AgentExecutionWorker
 from agent_response_parser import AgentResponseParser
+from filesystem.filesystem_worker import FilesystemExecutionWorker
 from app_menu_bar import AppMenuBar
 from browser_window import BrowserWindowWidget
 from chat_formatter import ChatMessageFormatter
@@ -287,8 +288,10 @@ class MainWindow(QMainWindow):
 
             # Keep the canonical Task object alive while the
             # human approval UI is displayed.
-            self.pending_approval_task = task
-            self.pending_approval_intent = intent
+            self.pending_approval_task = (
+                task,
+                intent,
+            )
 
             self.chat_window.chat_display.append(
                 ChatMessageFormatter.format_message(
@@ -458,6 +461,86 @@ class MainWindow(QMainWindow):
         self.agent_worker.start()
 
     # =============================================================
+    # Filesystem task execution
+    # =============================================================
+
+    def start_filesystem_task(self, task):
+        """
+        Start the filesystem agent for an approved Task.
+
+        The filesystem agent operates exclusively inside the
+        application's sandbox filesystem.
+        """
+
+        if task is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Cannot start filesystem task: task is missing.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Prevent concurrent execution
+        # ---------------------------------------------------------
+
+        if self.agent_worker is not None and self.agent_worker.isRunning():
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Another agent task is already running.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Gemini API key
+        # ---------------------------------------------------------
+
+        api_key = os.getenv("GEMINI_API_KEY")
+
+        if not api_key:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "GEMINI_API_KEY environment variable is missing.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Inform UI
+        # ---------------------------------------------------------
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "🗂️ Starting Filesystem Agent inside " "the sandbox...",
+            )
+        )
+
+        # ---------------------------------------------------------
+        # Start filesystem worker
+        # ---------------------------------------------------------
+
+        self.agent_worker = FilesystemExecutionWorker(
+            task=task,
+            api_key=api_key,
+        )
+
+        self.agent_worker.step_updated.connect(self.on_agent_step)
+
+        self.agent_worker.task_finished.connect(self.on_filesystem_finished)
+
+        self.agent_worker.error_occurred.connect(self.on_filesystem_error)
+
+        self.agent_worker.start()
+
+    # =============================================================
     # Human approval
     # =============================================================
 
@@ -466,10 +549,9 @@ class MainWindow(QMainWindow):
         Continue execution after the human presses Approve.
         """
 
-        task = self.pending_approval_task
-        intent = self.pending_approval_intent
+        pending = self.pending_approval_task
 
-        if task is None or intent is None:
+        if pending is None:
             self.chat_window.chat_display.append(
                 ChatMessageFormatter.format_message(
                     "error",
@@ -479,17 +561,15 @@ class MainWindow(QMainWindow):
 
             return
 
-        # Clear the pending state before starting execution.
         self.pending_approval_task = None
-        self.pending_approval_intent = None
+
+        task, intent = pending
 
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                (
-                    "✅ Human approval granted. "
-                    f"Starting {intent.replace('_', ' ').title()}..."
-                ),
+                "✅ Human approval granted. "
+                f"Starting {intent.replace('_', ' ').title()}...",
             )
         )
 
@@ -510,7 +590,7 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                "🛑 Human approval denied. " "The browser task will not be executed.",
+                "🛑 Human approval denied. " "The task will not be executed.",
             )
         )
 
@@ -552,6 +632,56 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(header_html)
 
         self.chat_window.chat_display.append(parsed_content)
+
+    # =============================================================
+    # Filesystem completion
+    # =============================================================
+
+    def on_filesystem_finished(self, result):
+        """
+        Display the final filesystem-agent response.
+        """
+
+        final_text = ""
+
+        if isinstance(result, dict):
+            final_text = result.get(
+                "final_text",
+                "",
+            )
+
+        if not final_text:
+            final_text = "Filesystem task completed successfully."
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "**Filesystem task finished.**",
+            )
+        )
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "agent",
+                final_text,
+            )
+        )
+
+    # =============================================================
+    # Filesystem errors
+    # =============================================================
+
+    def on_filesystem_error(self, error_message: str):
+        """
+        Display filesystem-agent execution errors.
+        """
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "error",
+                f"Filesystem Agent Error: {error_message}",
+            )
+        )
 
     # =============================================================
     # Task cancellation
