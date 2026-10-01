@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         # ---------------------------------------------------------
 
         self.agent_worker = None
+        self.active_agent_type = None
         self.current_task = None
         self.pending_approval_task = None
         self.pending_approval_intent = None
@@ -453,6 +454,7 @@ class MainWindow(QMainWindow):
             api_key,
             cdp_url=cdp_url,
         )
+        self.active_agent_type = "BROWSER_AGENT"
 
         self.agent_worker.step_updated.connect(self.on_agent_step)
 
@@ -522,7 +524,7 @@ class MainWindow(QMainWindow):
                 "🗂️ Starting Filesystem Agent inside " "the sandbox...",
             )
         )
-
+        self.active_agent_type = "FILESYSTEM_AGENT"
         # ---------------------------------------------------------
         # Start filesystem worker
         # ---------------------------------------------------------
@@ -600,7 +602,10 @@ class MainWindow(QMainWindow):
 
     def on_agent_step(self, step_msg: str):
         """
-        Display live browser-agent execution updates.
+        Display a step update from the active agent.
+
+        Agent workers are responsible for identifying themselves.
+        MainWindow only presents the emitted message.
         """
 
         agent_html = ChatMessageFormatter.format_message(
@@ -632,6 +637,7 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(header_html)
 
         self.chat_window.chat_display.append(parsed_content)
+        self.active_agent_type = None
 
     # =============================================================
     # Filesystem completion
@@ -666,6 +672,7 @@ class MainWindow(QMainWindow):
                 final_text,
             )
         )
+        self.active_agent_type = None
 
     # =============================================================
     # Filesystem errors
@@ -682,6 +689,7 @@ class MainWindow(QMainWindow):
                 f"Filesystem Agent Error: {error_message}",
             )
         )
+        self.active_agent_type = None
 
     # =============================================================
     # Task cancellation
