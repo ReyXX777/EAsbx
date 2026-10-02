@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "task-observation-engine"
+version = "0.1.0"
+description = "Standalone task observation and mathematical approval experimentation package"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "task_observation*",
+    "mathematical_approval*",
+]

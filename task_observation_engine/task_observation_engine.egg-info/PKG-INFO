@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: task-observation-engine
+Version: 0.1.0
+Summary: Standalone task observation and mathematical approval experimentation package
+Requires-Python: >=3.12
