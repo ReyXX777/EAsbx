@@ -1,0 +1,1201 @@
+================================================================================
+COWORK AI AGENT SUITE - SELECTED CODE EXPORT
+================================================================================
+
+PROJECT ROOT: X:\MOCKAPP
+
+TOTAL FILES REQUESTED: 6
+
+
+================================================================================
+FILE: filesystem/tools/__init__.py
+================================================================================
+
+"""
+Generic tool infrastructure for the filesystem agent.
+
+This package provides:
+
+    tool_models.py
+        Generic tool-call and tool-result models.
+
+    tool_registry.py
+        Registration and discovery of available tools.
+
+    tool_dispatcher.py
+        Central routing of tool calls.
+
+    filesystem_tools.py
+        Adapters between generic tools and SandboxFilesystemService.
+
+    compute_tools.py
+        Adapters between generic tools and ComputeService.
+
+The tools package intentionally contains no Gemini API logic.
+"""
+
+from .compute_tools import ComputeToolAdapter
+from .filesystem_tools import FilesystemToolAdapter
+from .tool_dispatcher import ToolDispatcher
+from .tool_models import ToolCall, ToolResult, ToolSpec
+from .tool_registry import ToolRegistry
+
+__all__ = [
+    "ComputeToolAdapter",
+    "FilesystemToolAdapter",
+    "ToolCall",
+    "ToolDispatcher",
+    "ToolRegistry",
+    "ToolResult",
+    "ToolSpec",
+]
+
+
+
+================================================================================
+FILE: filesystem/tools/tool_models.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+ToolHandler = Callable[[dict[str, Any]], "ToolResult"]
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """
+    Generic representation of one tool invocation.
+
+    This model intentionally knows nothing about Gemini,
+    filesystem operations, compute operations, or UI code.
+    """
+
+    name: str
+    arguments: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ToolResult:
+    """
+    Generic result returned by a tool.
+
+    The dispatcher uses this as the common boundary between
+    individual tool implementations and the caller.
+    """
+
+    name: str
+    success: bool
+    data: Any = None
+    message: str = ""
+    error: str | None = None
+
+    @classmethod
+    def ok(
+        cls,
+        name: str,
+        data: Any = None,
+        message: str = "",
+    ) -> "ToolResult":
+        return cls(
+            name=name,
+            success=True,
+            data=data,
+            message=message,
+            error=None,
+        )
+
+    @classmethod
+    def failure(
+        cls,
+        name: str,
+        error: str,
+    ) -> "ToolResult":
+        return cls(
+            name=name,
+            success=False,
+            data=None,
+            message="",
+            error=error,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Return a stable dictionary representation suitable for
+        serialization and passing back to an external caller.
+        """
+
+        return {
+            "tool": self.name,
+            "success": self.success,
+            "data": self.data,
+            "message": self.message,
+            "error": self.error,
+        }
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    """
+    Description of one registered tool.
+
+    `declaration` is intentionally represented as a plain dictionary
+    so the registry remains independent of any particular AI SDK.
+    """
+
+    name: str
+    description: str
+    declaration: dict[str, Any]
+    handler: ToolHandler
+
+    def as_declaration(self) -> dict[str, Any]:
+        """
+        Return the external tool declaration.
+
+        The declaration can later be converted into the format
+        expected by Gemini, another model provider, or another
+        tool-calling system.
+        """
+
+        return self.declaration
+
+
+
+================================================================================
+FILE: filesystem/tools/tool_registry.py
+================================================================================
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+
+from .tool_models import ToolHandler, ToolSpec
+
+
+class ToolRegistryError(RuntimeError):
+    """Raised when a tool registry operation is invalid."""
+
+
+class ToolRegistry:
+    """
+    Central registry of available tools.
+
+    The registry knows which tools exist, but it does not know
+    how Gemini or another model calls them.
+    """
+
+    def __init__(self) -> None:
+        self._tools: dict[str, ToolSpec] = {}
+
+    def register(
+        self,
+        *,
+        name: str,
+        description: str,
+        declaration: dict,
+        handler: ToolHandler,
+    ) -> ToolSpec:
+        """
+        Register one tool.
+        """
+
+        if not name or not name.strip():
+            raise ToolRegistryError("Tool name must be a non-empty string.")
+
+        if name in self._tools:
+            raise ToolRegistryError(f"Tool is already registered: {name}")
+
+        spec = ToolSpec(
+            name=name,
+            description=description,
+            declaration=declaration,
+            handler=handler,
+        )
+
+        self._tools[name] = spec
+        return spec
+
+    def register_spec(self, spec: ToolSpec) -> ToolSpec:
+        """
+        Register an already-created ToolSpec.
+        """
+
+        if spec.name in self._tools:
+            raise ToolRegistryError(f"Tool is already registered: {spec.name}")
+
+        self._tools[spec.name] = spec
+        return spec
+
+    def register_many(self, specs: Iterable[ToolSpec]) -> None:
+        """
+        Register multiple tools.
+        """
+
+        for spec in specs:
+            self.register_spec(spec)
+
+    def get(self, name: str) -> ToolSpec:
+        """
+        Return a registered tool.
+        """
+
+        try:
+            return self._tools[name]
+        except KeyError as exc:
+            raise ToolRegistryError(f"Unknown tool: {name}") from exc
+
+    def contains(self, name: str) -> bool:
+        """
+        Return whether a tool is registered.
+        """
+
+        return name in self._tools
+
+    def names(self) -> list[str]:
+        """
+        Return registered tool names in registration order.
+        """
+
+        return list(self._tools.keys())
+
+    def specs(self) -> list[ToolSpec]:
+        """
+        Return all registered tool specifications.
+        """
+
+        return list(self._tools.values())
+
+    def declarations(self) -> list[dict]:
+        """
+        Return declarations for all registered tools.
+
+        The declarations remain plain dictionaries so this class
+        remains independent of Gemini's SDK.
+        """
+
+        return [spec.as_declaration() for spec in self._tools.values()]
+
+    def __len__(self) -> int:
+        return len(self._tools)
+
+    def __contains__(self, name: str) -> bool:
+        return self.contains(name)
+
+
+
+================================================================================
+FILE: filesystem/tools/tool_dispatcher.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import Any
+
+from .tool_models import ToolCall, ToolResult
+from .tool_registry import ToolRegistry, ToolRegistryError
+
+
+class ToolDispatcherError(RuntimeError):
+    """Raised when a tool cannot be dispatched."""
+
+
+class ToolDispatcher:
+    """
+    Central execution boundary for all registered tools.
+
+    The dispatcher does not implement filesystem or compute logic.
+
+    Its only responsibility is:
+
+        ToolCall
+            ↓
+        ToolRegistry
+            ↓
+        registered handler
+            ↓
+        ToolResult
+    """
+
+    def __init__(self, registry: ToolRegistry) -> None:
+        self.registry = registry
+
+    def dispatch(self, call: ToolCall) -> ToolResult:
+        """
+        Execute one generic tool call.
+        """
+
+        if not isinstance(call, ToolCall):
+            raise TypeError("dispatch() requires a ToolCall.")
+
+        try:
+            spec = self.registry.get(call.name)
+        except ToolRegistryError as exc:
+            return ToolResult.failure(
+                name=call.name,
+                error=str(exc),
+            )
+
+        try:
+            arguments = dict(call.arguments or {})
+
+            result = spec.handler(arguments)
+
+            if not isinstance(result, ToolResult):
+                return ToolResult.failure(
+                    name=call.name,
+                    error=(
+                        f"Tool handler returned an invalid result type: "
+                        f"{type(result).__name__}"
+                    ),
+                )
+
+            return result
+
+        except Exception as exc:
+            return ToolResult.failure(
+                name=call.name,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+
+    def dispatch_name(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> ToolResult:
+        """
+        Convenience wrapper for callers that already have a tool name
+        and argument dictionary.
+        """
+
+        return self.dispatch(
+            ToolCall(
+                name=name,
+                arguments=arguments or {},
+            )
+        )
+
+    def declarations(self) -> list[dict]:
+        """
+        Return all registered tool declarations.
+
+        The caller can adapt these declarations to Gemini or another
+        model provider.
+        """
+
+        return self.registry.declarations()
+
+    def available_tools(self) -> list[str]:
+        """
+        Return the names of all currently available tools.
+        """
+
+        return self.registry.names()
+
+
+
+================================================================================
+FILE: filesystem/tools/filesystem_tools.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import asdict, is_dataclass
+from enum import Enum
+from typing import Any
+
+from ..filesystem_models import (
+    FilesystemOperation,
+    OperationType,
+)
+from ..filesystem_service import SandboxFilesystemService
+from .tool_models import ToolResult
+
+
+class FilesystemToolAdapter:
+    """
+    Adapter between generic tool calls and the sandboxed filesystem service.
+
+    This class does NOT perform filesystem I/O itself.
+
+    Every operation is converted into a FilesystemOperation and passed
+    to SandboxFilesystemService, which remains the security boundary.
+    """
+
+    def __init__(self, service: SandboxFilesystemService) -> None:
+        self.service = service
+
+    def build_tools(self) -> list[tuple[str, str, dict, Any]]:
+        """
+        Return all filesystem tools in registry-ready form.
+        """
+
+        return [
+            (
+                "list_directory",
+                "List the files and folders inside a sandbox-relative directory.",
+                self._declaration_list_directory(),
+                self.list_directory,
+            ),
+            (
+                "search_files",
+                (
+                    "Search files inside a sandbox-relative directory. "
+                    "Can filter by filename pattern and optionally "
+                    "search file contents."
+                ),
+                self._declaration_search_files(),
+                self.search_files,
+            ),
+            (
+                "read_file",
+                (
+                    "Read the complete contents of a text file "
+                    "using a sandbox-relative path."
+                ),
+                self._declaration_read_file(),
+                self.read_file,
+            ),
+            (
+                "read_table",
+                "Read a CSV or JSON file as structured table data.",
+                self._declaration_read_table(),
+                self.read_table,
+            ),
+            (
+                "calculate",
+                "Evaluate a safe arithmetic expression.",
+                self._declaration_calculate(),
+                self.calculate,
+            ),
+            (
+                "write_file",
+                (
+                    "Write or replace a text file. Use only when "
+                    "the user explicitly asks to create or replace "
+                    "file contents."
+                ),
+                self._declaration_write_file(),
+                self.write_file,
+            ),
+            (
+                "append_file",
+                "Append text to an existing file.",
+                self._declaration_append_file(),
+                self.append_file,
+            ),
+            (
+                "create_directory",
+                "Create a directory inside the sandbox.",
+                self._declaration_create_directory(),
+                self.create_directory,
+            ),
+            (
+                "delete_file",
+                "Delete a file inside the sandbox.",
+                self._declaration_delete_file(),
+                self.delete_file,
+            ),
+            (
+                "delete_directory",
+                "Delete a directory inside the sandbox.",
+                self._declaration_delete_directory(),
+                self.delete_directory,
+            ),
+            (
+                "move",
+                "Move a file or directory within the sandbox.",
+                self._declaration_move(),
+                self.move,
+            ),
+            (
+                "copy",
+                "Copy a file or directory within the sandbox.",
+                self._declaration_copy(),
+                self.copy,
+            ),
+        ]
+
+    # ==================================================================
+    # Tool handlers
+    # ==================================================================
+
+    def list_directory(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.LIST_DIRECTORY,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def search_files(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.SEARCH_FILES,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def read_file(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.READ_FILE,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def read_table(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.READ_TABLE,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def calculate(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.CALCULATE,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def write_file(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.WRITE_FILE,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def append_file(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.APPEND_FILE,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def create_directory(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.CREATE_DIRECTORY,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def delete_file(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.DELETE_FILE,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def delete_directory(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.DELETE_DIRECTORY,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def move(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.MOVE,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    def copy(self, arguments: dict[str, Any]) -> ToolResult:
+        operation = self._operation(
+            OperationType.COPY,
+            arguments,
+        )
+
+        return self._execute(operation)
+
+    # ==================================================================
+    # Operation conversion
+    # ==================================================================
+
+    @staticmethod
+    def _operation(
+        operation: OperationType,
+        arguments: dict[str, Any],
+    ) -> FilesystemOperation:
+        """
+        Convert generic tool arguments into the existing filesystem
+        domain model.
+
+        Validation and sandbox enforcement remain downstream in the
+        filesystem service.
+        """
+
+        return FilesystemOperation(
+            operation=operation,
+            path=arguments.get("path"),
+            destination=arguments.get("destination"),
+            pattern=arguments.get("pattern"),
+            query=arguments.get("query"),
+            content=arguments.get("content"),
+            expression=arguments.get("expression"),
+            recursive=bool(arguments.get("recursive", False)),
+            encoding=arguments.get("encoding", "utf-8"),
+            options=arguments.get("options", {}),
+        )
+
+    def _execute(
+        self,
+        operation: FilesystemOperation,
+    ) -> ToolResult:
+        """
+        Execute through SandboxFilesystemService.
+
+        No filesystem Path operation is performed here.
+        """
+
+        result = self.service.execute(operation)
+
+        if not result.success:
+            return ToolResult.failure(
+                name=operation.operation.value,
+                error=result.message,
+            )
+
+        return ToolResult.ok(
+            name=operation.operation.value,
+            data=self._serialize(result.data),
+            message=result.message,
+        )
+
+    # ==================================================================
+    # Serialization
+    # ==================================================================
+
+    @classmethod
+    def _serialize(cls, value: Any) -> Any:
+        if value is None:
+            return None
+
+        if is_dataclass(value):
+            return cls._serialize(asdict(value))
+
+        if isinstance(value, Enum):
+            return value.value
+
+        if isinstance(value, list):
+            return [cls._serialize(item) for item in value]
+
+        if isinstance(value, tuple):
+            return [cls._serialize(item) for item in value]
+
+        if isinstance(value, dict):
+            return {str(key): cls._serialize(item) for key, item in value.items()}
+
+        if isinstance(value, (str, int, float, bool)):
+            return value
+
+        return str(value)
+
+    # ==================================================================
+    # Gemini-neutral declarations
+    # ==================================================================
+
+    @staticmethod
+    def _declaration_list_directory() -> dict:
+        return {
+            "name": "list_directory",
+            "description": (
+                "List the files and folders inside a " "sandbox-relative directory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": (
+                            "Sandbox-relative directory path. "
+                            "Use '.' for the filesystem root."
+                        ),
+                    },
+                },
+                "required": ["path"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_search_files() -> dict:
+        return {
+            "name": "search_files",
+            "description": ("Search files inside a sandbox-relative directory."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": ("Sandbox-relative directory to search."),
+                    },
+                    "pattern": {
+                        "type": "string",
+                        "description": ("Filename pattern such as '*.txt'."),
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": ("Optional text to search for inside files."),
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": ("Whether to search nested directories."),
+                    },
+                },
+                "required": ["path"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_read_file() -> dict:
+        return {
+            "name": "read_file",
+            "description": (
+                "Read the complete contents of a text file "
+                "using a sandbox-relative path."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Sandbox-relative file path.",
+                    },
+                    "encoding": {
+                        "type": "string",
+                        "description": ("Text encoding. Normally use utf-8."),
+                    },
+                },
+                "required": ["path"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_read_table() -> dict:
+        return {
+            "name": "read_table",
+            "description": ("Read a CSV or JSON file as structured table data."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": ("Sandbox-relative CSV or JSON file path."),
+                    },
+                    "encoding": {
+                        "type": "string",
+                        "description": ("Text encoding. Normally use utf-8."),
+                    },
+                },
+                "required": ["path"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_calculate() -> dict:
+        return {
+            "name": "calculate",
+            "description": "Evaluate a safe arithmetic expression.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": ("Arithmetic expression to evaluate."),
+                    },
+                },
+                "required": ["expression"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_write_file() -> dict:
+        return {
+            "name": "write_file",
+            "description": (
+                "Write or replace a text file. Use only when "
+                "the user explicitly asks to create or replace "
+                "file contents."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Sandbox-relative file path.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Complete file contents.",
+                    },
+                    "encoding": {
+                        "type": "string",
+                        "description": "Text encoding.",
+                    },
+                },
+                "required": [
+                    "path",
+                    "content",
+                    "encoding",
+                ],
+            },
+        }
+
+    @staticmethod
+    def _declaration_append_file() -> dict:
+        return {
+            "name": "append_file",
+            "description": "Append text to an existing file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "content": {
+                        "type": "string",
+                    },
+                    "encoding": {
+                        "type": "string",
+                    },
+                },
+                "required": [
+                    "path",
+                    "content",
+                    "encoding",
+                ],
+            },
+        }
+
+    @staticmethod
+    def _declaration_create_directory() -> dict:
+        return {
+            "name": "create_directory",
+            "description": ("Create a directory inside the sandbox."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": ("Sandbox-relative directory path."),
+                    },
+                },
+                "required": ["path"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_delete_file() -> dict:
+        return {
+            "name": "delete_file",
+            "description": "Delete a file inside the sandbox.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                },
+                "required": ["path"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_delete_directory() -> dict:
+        return {
+            "name": "delete_directory",
+            "description": ("Delete a directory inside the sandbox."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                },
+                "required": ["path"],
+            },
+        }
+
+    @staticmethod
+    def _declaration_move() -> dict:
+        return {
+            "name": "move",
+            "description": ("Move a file or directory within the sandbox."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "destination": {
+                        "type": "string",
+                    },
+                },
+                "required": [
+                    "path",
+                    "destination",
+                ],
+            },
+        }
+
+    @staticmethod
+    def _declaration_copy() -> dict:
+        return {
+            "name": "copy",
+            "description": ("Copy a file or directory within the sandbox."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "destination": {
+                        "type": "string",
+                    },
+                },
+                "required": [
+                    "path",
+                    "destination",
+                ],
+            },
+        }
+
+
+
+================================================================================
+FILE: filesystem/tools/compute_tools.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import Any
+
+from ..compute.compute_models import ComputeOperation, ComputeRequest
+from ..compute.compute_service import ComputeService
+from .tool_models import ToolResult
+
+
+class ComputeToolAdapter:
+    """
+    Adapter between generic tool calls and ComputeService.
+
+    This adapter contains no Gemini or UI logic.
+    """
+
+    def __init__(self, service: ComputeService) -> None:
+        self.service = service
+
+    def build_tools(self) -> list[tuple[str, str, dict, Any]]:
+        """
+        Return all compute tools in registry-ready form.
+        """
+
+        return [
+            (
+                "compute_sum",
+                "Calculate the sum of numeric table values.",
+                self._declaration_sum(),
+                self.sum,
+            ),
+            (
+                "compute_average",
+                "Calculate the arithmetic average of numeric table values.",
+                self._declaration_average(),
+                self.average,
+            ),
+            (
+                "compute_min",
+                "Find the minimum numeric value in table data.",
+                self._declaration_min(),
+                self.minimum,
+            ),
+            (
+                "compute_max",
+                "Find the maximum numeric value in table data.",
+                self._declaration_max(),
+                self.maximum,
+            ),
+            (
+                "compute_count",
+                "Count the supplied table values.",
+                self._declaration_count(),
+                self.count,
+            ),
+        ]
+
+    # ==================================================================
+    # Tool handlers
+    # ==================================================================
+
+    def sum(self, arguments: dict[str, Any]) -> ToolResult:
+        return self._execute(
+            tool_name="compute_sum",
+            operation=ComputeOperation.SUM,
+            arguments=arguments,
+        )
+
+    def average(self, arguments: dict[str, Any]) -> ToolResult:
+        return self._execute(
+            tool_name="compute_average",
+            operation=ComputeOperation.AVERAGE,
+            arguments=arguments,
+        )
+
+    def minimum(self, arguments: dict[str, Any]) -> ToolResult:
+        return self._execute(
+            tool_name="compute_min",
+            operation=ComputeOperation.MIN,
+            arguments=arguments,
+        )
+
+    def maximum(self, arguments: dict[str, Any]) -> ToolResult:
+        return self._execute(
+            tool_name="compute_max",
+            operation=ComputeOperation.MAX,
+            arguments=arguments,
+        )
+
+    def count(self, arguments: dict[str, Any]) -> ToolResult:
+        return self._execute(
+            tool_name="compute_count",
+            operation=ComputeOperation.COUNT,
+            arguments=arguments,
+        )
+
+    # ==================================================================
+    # Compute boundary
+    # ==================================================================
+
+    def _execute(
+        self,
+        *,
+        tool_name: str,
+        operation: ComputeOperation,
+        arguments: dict[str, Any],
+    ) -> ToolResult:
+        values = arguments.get("values")
+
+        if not isinstance(values, list):
+            return ToolResult.failure(
+                name=tool_name,
+                error="Tool argument 'values' must be a list.",
+            )
+
+        request = ComputeRequest(
+            operation=operation,
+            values=values,
+        )
+
+        result = self.service.execute(request)
+
+        if not result.success:
+            return ToolResult.failure(
+                name=tool_name,
+                error=result.error or "Compute operation failed.",
+            )
+
+        return ToolResult.ok(
+            name=tool_name,
+            data=result.value,
+        )
+
+    # ==================================================================
+    # Tool declarations
+    # ==================================================================
+
+    @staticmethod
+    def _values_schema() -> dict[str, Any]:
+        return {
+            "type": "array",
+            "description": (
+                "Values to process. Numeric values or numeric strings "
+                "are accepted for arithmetic operations."
+            ),
+            "items": {},
+        }
+
+    @classmethod
+    def _declaration_sum(cls) -> dict:
+        return {
+            "name": "compute_sum",
+            "description": ("Calculate the sum of numeric table values."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "values": cls._values_schema(),
+                },
+                "required": ["values"],
+            },
+        }
+
+    @classmethod
+    def _declaration_average(cls) -> dict:
+        return {
+            "name": "compute_average",
+            "description": (
+                "Calculate the arithmetic average of numeric " "table values."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "values": cls._values_schema(),
+                },
+                "required": ["values"],
+            },
+        }
+
+    @classmethod
+    def _declaration_min(cls) -> dict:
+        return {
+            "name": "compute_min",
+            "description": ("Find the minimum numeric value in table data."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "values": cls._values_schema(),
+                },
+                "required": ["values"],
+            },
+        }
+
+    @classmethod
+    def _declaration_max(cls) -> dict:
+        return {
+            "name": "compute_max",
+            "description": ("Find the maximum numeric value in table data."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "values": cls._values_schema(),
+                },
+                "required": ["values"],
+            },
+        }
+
+    @classmethod
+    def _declaration_count(cls) -> dict:
+        return {
+            "name": "compute_count",
+            "description": ("Count the supplied table values."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "values": {
+                        "type": "array",
+                        "description": ("Values to count."),
+                        "items": {},
+                    },
+                },
+                "required": ["values"],
+            },
+        }
+

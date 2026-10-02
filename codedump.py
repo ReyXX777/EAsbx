@@ -19,15 +19,12 @@ from pathlib import Path
 # Both "/" and "\" are accepted on Windows.
 
 FILES_TO_EXPORT = [
-    "filesystem/__init__.py",
-    "filesystem/filesystem_agent.py",
-    "filesystem/filesystem_models.py",
-    "filesystem/filesystem_operations.py",
-    "filesystem/filesystem_sandbox.py",
-    "filesystem/filesystem_service.py",
-    "filesystem/filesystem_table.py",
-    "filesystem/filesystem_validator.py",
-    "filesystem/filesystem_workspace.py",
+    "filesystem/tools/__init__.py",
+    "filesystem/tools/tool_models.py",
+    "filesystem/tools/tool_registry.py",
+    "filesystem/tools/tool_dispatcher.py",
+    "filesystem/tools/filesystem_tools.py",
+    "filesystem/tools/compute_tools.py",
 ]
 
 
