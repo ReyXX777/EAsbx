@@ -75,6 +75,7 @@ class FilesystemAgent:
         self,
         prompt: str,
         *,
+        on_tool_call: Callable[[ToolCall], None] | None = None,
         on_result: Callable[[ToolCall, ToolResult], None] | None = None,
         should_cancel: Callable[[], bool] | None = None,
     ) -> tuple[list[ToolResult], str]:
@@ -117,6 +118,7 @@ class FilesystemAgent:
 
         return interactive_execute(
             prompt,
+            on_tool_call=on_tool_call,
             on_result=on_result,
             should_cancel=should_cancel,
         )

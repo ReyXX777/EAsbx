@@ -67,6 +67,7 @@ class GeminiFilesystemToolPlanner:
         self,
         prompt: str,
         *,
+        on_tool_call: Callable[[ToolCall], None] | None = None,
         on_result: Callable[[ToolCall, ToolResult], None] | None = None,
         should_cancel: Callable[[], bool] | None = None,
     ) -> tuple[list[ToolResult], str]:
@@ -157,6 +158,8 @@ class GeminiFilesystemToolPlanner:
 
                 tool_call = self._tool_call_from_function_call(function_call)
 
+                if on_tool_call is not None:
+                    on_tool_call(tool_call)
                 if should_cancel is not None and should_cancel():
                     raise GeminiFilesystemPlannerError("Filesystem task was cancelled.")
 

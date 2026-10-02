@@ -15,6 +15,7 @@ from .filesystem_gemini_planner import (
 from .filesystem_service import SandboxFilesystemService
 from .tools.tool_factory import create_tool_dispatcher
 from .tools.tool_models import ToolCall, ToolResult
+from .filesystem_agent_events import FilesystemToolActivity
 
 
 class FilesystemExecutionWorker(QThread):
@@ -50,6 +51,8 @@ class FilesystemExecutionWorker(QThread):
     """
 
     step_updated = Signal(str)
+
+    tool_started = Signal(object)
 
     task_finished = Signal(object)
 
@@ -178,6 +181,7 @@ class FilesystemExecutionWorker(QThread):
 
             results, final_text = self.agent.run_interactive(
                 self.task.prompt,
+                on_tool_call=self._on_tool_call,
                 on_result=self._on_tool_result,
                 should_cancel=self._is_cancelled,
             )
@@ -223,6 +227,29 @@ class FilesystemExecutionWorker(QThread):
             self.state_manager.mark_failed(error_message)
 
             self.error_occurred.emit(error_message)
+
+    # ==============================================================
+    # Generic tool start callback
+    # ==============================================================
+
+    def _on_tool_call(
+        self,
+        call: ToolCall,
+    ) -> None:
+        """
+        Convert a generic ToolCall into an observable agent-activity
+        event and emit it through Qt.
+
+        The worker is the boundary between the framework-independent
+        agent layer and the Qt application layer.
+        """
+
+        activity = FilesystemToolActivity(
+            tool_name=call.name,
+            arguments=dict(call.arguments or {}),
+        )
+
+        self.tool_started.emit(activity)
 
     # ==============================================================
     # Generic tool result callback

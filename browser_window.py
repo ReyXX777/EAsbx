@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 from filesystem.filesystem_service import SandboxFilesystemService
 from filesystem.filesystem_workspace import FilesWorkspace
+from filesystem.filesystem_agent_events import FilesystemToolActivity
 
 # ---------------------------------------------------------
 # Qt WebEngine
@@ -918,6 +919,25 @@ class BrowserWindowWidget(QFrame):
         menu.exec(
             self.page_menu_btn.mapToGlobal(self.page_menu_btn.rect().bottomLeft())
         )
+
+    def show_filesystem_agent_activity(
+        self,
+        activity: FilesystemToolActivity,
+    ) -> None:
+        """
+        Present filesystem-agent activity in the Files workspace.
+
+        BrowserWindowWidget acts as the UI coordinator. It does not
+        execute filesystem operations itself.
+        """
+
+        self.set_agent_status("running")
+
+        self.workspace_tabs.setCurrentIndex(self.files_workspace_index)
+
+        self.workspace_stack.setCurrentIndex(self.files_workspace_index)
+
+        self.files_workspace.show_agent_activity(activity)
 
     # =====================================================
     # Helpers

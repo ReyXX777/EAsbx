@@ -535,7 +535,9 @@ class MainWindow(QMainWindow):
         )
 
         self.agent_worker.step_updated.connect(self.on_agent_step)
-
+        self.agent_worker.tool_started.connect(
+            self.browser_window.show_filesystem_agent_activity
+        )
         self.agent_worker.task_finished.connect(self.on_filesystem_finished)
 
         self.agent_worker.error_occurred.connect(self.on_filesystem_error)

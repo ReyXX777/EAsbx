@@ -10,7 +10,12 @@ import shutil
 from pathlib import Path
 from typing import Any, Iterable
 
-from .filesystem_models import FileEntry, FilesystemOperation, FilesystemResult, OperationType
+from .filesystem_models import (
+    FileEntry,
+    FilesystemOperation,
+    FilesystemResult,
+    OperationType,
+)
 from .filesystem_sandbox import SandboxValidator
 from .filesystem_validator import FilesystemInputValidator
 
@@ -56,7 +61,9 @@ class FilesystemOperations:
         path = self.sandbox.resolve(op.path or ".", must_be_directory=True)
         entries: list[FileEntry] = []
 
-        for item in sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
+        for item in sorted(
+            path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())
+        ):
             stat = item.stat()
             entries.append(
                 FileEntry(
@@ -70,7 +77,9 @@ class FilesystemOperations:
             )
 
         return FilesystemResult.ok(
-            op.operation, data=entries, relative_path=self.sandbox.relative_to_root(path)
+            op.operation,
+            data=entries,
+            relative_path=self.sandbox.relative_to_root(path),
         )
 
     def search_files(self, op: FilesystemOperation) -> FilesystemResult:
