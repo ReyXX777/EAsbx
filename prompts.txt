@@ -9,3 +9,5 @@ Open https://www.qapractice.com, go to the Forms practice page, enter MOCKAPP TE
 Navigate to Level_3 inside the test filesystem. Open Dictionary_4.txt, extract all of its dictionary entries, and return each word together with its meaning. Also report the exact file path you read.
 
 Navigate to Level_4 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read
+
+Navigate to Level_4 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read. 

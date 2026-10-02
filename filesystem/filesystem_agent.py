@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Protocol
+from typing import Any, Callable
 
-from .filesystem_models import FilesystemOperation, FilesystemResult
 from .filesystem_service import SandboxFilesystemService
+from .tools.tool_dispatcher import ToolDispatcher
+from .tools.tool_models import ToolCall, ToolResult
 
 
 class FilesystemAgentError(RuntimeError):
-    pass
-
-
-class FilesystemPlanner(Protocol):
-    def plan(self, prompt: str) -> Iterable[FilesystemOperation]: ...
+    """Raised when the filesystem agent cannot execute a task."""
 
 
 @dataclass
@@ -20,77 +17,87 @@ class FilesystemAgent:
     """
     Tool-mediated filesystem agent.
 
-    The agent does not receive a raw machine path and does not perform direct
-    filesystem I/O. It only submits structured operations to the service.
+    The agent is an orchestration layer between the worker and the
+    Gemini planner.
+
+    Tool execution is delegated to ToolDispatcher.
+
+    The agent itself does not:
+
+        - perform filesystem I/O
+        - perform computation
+        - register tools
+        - implement tool handlers
+        - know individual filesystem/compute tool implementations
+
+    Architecture:
+
+        FilesystemAgent
+              ↓
+        GeminiFilesystemToolPlanner
+              ↓
+        ToolDispatcher
+          ├── FilesystemToolAdapter
+          │       ↓
+          │   SandboxFilesystemService
+          │
+          └── ComputeToolAdapter
+                  ↓
+              ComputeService
     """
 
     service: SandboxFilesystemService
-    planner: (
-        FilesystemPlanner | Callable[[str], Iterable[FilesystemOperation]] | None
-    ) = None
+    planner: Any
+    tool_dispatcher: ToolDispatcher
 
-    def execute_operation(self, operation: FilesystemOperation) -> FilesystemResult:
-        return self.service.execute(operation)
+    # ==============================================================
+    # Generic tool execution
+    # ==============================================================
 
-    def execute_operations(
+    def execute_tool(
         self,
-        operations: Iterable[FilesystemOperation],
-        *,
-        stop_on_error: bool = True,
-        on_result: Callable[[FilesystemResult], None] | None = None,
-    ) -> list[FilesystemResult]:
-        results: list[FilesystemResult] = []
+        call: ToolCall,
+    ) -> ToolResult:
+        """
+        Execute one generic tool call through ToolDispatcher.
 
-        for operation in operations:
-            result = self.execute_operation(operation)
-            results.append(result)
+        The agent does not know whether the tool is a filesystem
+        tool, compute tool, or another future tool type.
+        """
 
-            if on_result is not None:
-                on_result(result)
+        return self.tool_dispatcher.dispatch(call)
 
-            if stop_on_error and not result.success:
-                break
-
-        return results
-
-    def run(self, prompt: str, *, on_result=None) -> list[FilesystemResult]:
-        if self.planner is None:
-            raise FilesystemAgentError(
-                "No filesystem planner is configured. "
-                "Gemini/tool planning must produce FilesystemOperation objects."
-            )
-
-        if hasattr(self.planner, "plan"):
-            operations = self.planner.plan(prompt)
-        else:
-            operations = self.planner(prompt)
-
-        return self.execute_operations(
-            operations,
-            on_result=on_result,
-        )
+    # ==============================================================
+    # Interactive Gemini/tool loop
+    # ==============================================================
 
     def run_interactive(
         self,
         prompt: str,
         *,
-        on_result=None,
-        should_cancel=None,
-    ) -> tuple[list[FilesystemResult], str]:
+        on_result: Callable[[ToolCall, ToolResult], None] | None = None,
+        should_cancel: Callable[[], bool] | None = None,
+    ) -> tuple[list[ToolResult], str]:
         """
-        Run an interactive planner/tool loop.
+        Run the interactive planner/tool loop.
 
-        The planner receives the agent's execute_operation callback.
-        This allows Gemini to:
+        The planner already owns the ToolDispatcher used by the
+        Gemini tool-calling loop.
 
-            1. request a filesystem operation
-            2. receive its result
-            3. reason about that result
-            4. request the next operation
-            5. continue until the task is complete
+        The agent therefore delegates execution to the planner
+        without passing a second dispatcher instance.
 
-        The actual filesystem operation still goes through
-        SandboxFilesystemService.
+        This keeps the tool execution path:
+
+            Gemini
+                ↓
+            ToolDispatcher
+                ↓
+            ToolRegistry
+                ↓
+            ToolAdapter
+                ↓
+            Domain Service
         """
 
         if self.planner is None:
@@ -110,29 +117,45 @@ class FilesystemAgent:
 
         return interactive_execute(
             prompt,
-            self.execute_operation,
             on_result=on_result,
             should_cancel=should_cancel,
         )
 
-    @staticmethod
-    def operation_to_tool_call(operation: FilesystemOperation) -> dict[str, Any]:
-        """Stable serialization boundary for a future Gemini tool adapter."""
-        return {
-            "name": operation.operation.value,
-            "arguments": {
-                key: value
-                for key, value in {
-                    "path": operation.path,
-                    "destination": operation.destination,
-                    "pattern": operation.pattern,
-                    "query": operation.query,
-                    "content": operation.content,
-                    "expression": operation.expression,
-                    "recursive": operation.recursive,
-                    "encoding": operation.encoding,
-                    "options": operation.options,
-                }.items()
-                if value is not None
-            },
-        }
+    # ==============================================================
+    # Generic direct tool execution
+    # ==============================================================
+
+    def execute_tool_call(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> ToolResult:
+        """
+        Convenience method for executing a tool by name.
+        """
+
+        return self.tool_dispatcher.dispatch_name(
+            name=name,
+            arguments=arguments or {},
+        )
+
+    # ==============================================================
+    # Tool information
+    # ==============================================================
+
+    def available_tools(self) -> list[str]:
+        """
+        Return the currently registered tool names.
+        """
+
+        return self.tool_dispatcher.available_tools()
+
+    def tool_declarations(self) -> list[dict[str, Any]]:
+        """
+        Return provider-neutral tool declarations.
+
+        Gemini-specific conversion remains the responsibility of
+        GeminiFilesystemToolPlanner.
+        """
+
+        return self.tool_dispatcher.declarations()

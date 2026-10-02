@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-import json
-from dataclasses import asdict, is_dataclass
 from typing import Any, Callable
 
 from google import genai
 from google.genai import types
 
-from .filesystem_models import (
-    FilesystemOperation,
-    FilesystemResult,
-    OperationType,
-)
+from .tools.tool_dispatcher import ToolDispatcher
+from .tools.tool_models import ToolCall, ToolResult
 
 
 class GeminiFilesystemPlannerError(RuntimeError):
@@ -20,48 +15,70 @@ class GeminiFilesystemPlannerError(RuntimeError):
 
 class GeminiFilesystemToolPlanner:
     """
-    Gemini-powered filesystem tool planner.
+    Gemini-powered tool planner for the MOCKAPP agent suite.
 
-    Gemini never receives the physical sandbox root.
+    Gemini does not perform filesystem or compute operations directly.
 
-    It only sees sandbox-relative filesystem paths and the declared
-    filesystem tools.
+    Instead:
 
-    Tool execution is delegated back to the caller through
-    `execute_operation`, which ultimately reaches SandboxFilesystemService.
+        Gemini
+            ↓
+        ToolCall
+            ↓
+        ToolDispatcher
+            ↓
+        ToolRegistry
+            ↓
+        FilesystemToolAdapter / ComputeToolAdapter
+            ↓
+        SandboxFilesystemService / ComputeService
+
+    Gemini only receives the tool declarations exposed by the
+    ToolDispatcher. Physical filesystem paths are never exposed to Gemini.
     """
 
     MODEL = "gemini-3.5-flash-lite"
 
     MAX_TOOL_ROUNDS = 20
 
-    def __init__(self, api_key: str):
+    def __init__(
+        self,
+        api_key: str,
+        tool_dispatcher: ToolDispatcher,
+    ) -> None:
         if not api_key:
             raise ValueError("Gemini API key is required.")
 
+        if not isinstance(tool_dispatcher, ToolDispatcher):
+            raise TypeError("tool_dispatcher must be a ToolDispatcher instance.")
+
         self.api_key = api_key
+        self.tool_dispatcher = tool_dispatcher
 
         self.client = genai.Client(
             api_key=api_key,
         )
 
-    # ==============================================================
+    # ==================================================================
     # Public execution interface
-    # ==============================================================
+    # ==================================================================
 
     def execute(
         self,
         prompt: str,
-        execute_operation: Callable[
-            [FilesystemOperation],
-            FilesystemResult,
-        ],
         *,
-        on_result: (
-            Callable[[FilesystemOperation, FilesystemResult], None] | None
-        ) = None,
+        on_result: Callable[[ToolCall, ToolResult], None] | None = None,
         should_cancel: Callable[[], bool] | None = None,
-    ) -> tuple[list[FilesystemResult], str]:
+    ) -> tuple[list[ToolResult], str]:
+        """
+        Execute a Gemini-driven tool loop.
+
+        Gemini may request multiple tools across multiple rounds.
+
+        Each function call is converted into a generic ToolCall and sent
+        through ToolDispatcher. The resulting ToolResult is then returned
+        to Gemini.
+        """
 
         contents: list[Any] = [
             types.Content(
@@ -74,7 +91,7 @@ class GeminiFilesystemToolPlanner:
             )
         ]
 
-        results: list[FilesystemResult] = []
+        results: list[ToolResult] = []
 
         config = self._build_config()
 
@@ -113,7 +130,7 @@ class GeminiFilesystemToolPlanner:
                     function_calls.append(function_call)
 
             # ----------------------------------------------------------
-            # No function call = Gemini has produced its final answer.
+            # No function call means Gemini has produced its final answer.
             # ----------------------------------------------------------
 
             if not function_calls:
@@ -138,18 +155,18 @@ class GeminiFilesystemToolPlanner:
 
             for function_call in function_calls:
 
-                operation = self._operation_from_function_call(function_call)
+                tool_call = self._tool_call_from_function_call(function_call)
 
                 if should_cancel is not None and should_cancel():
                     raise GeminiFilesystemPlannerError("Filesystem task was cancelled.")
 
-                result = execute_operation(operation)
+                result = self.tool_dispatcher.dispatch(tool_call)
 
                 results.append(result)
 
                 if on_result is not None:
                     on_result(
-                        operation,
+                        tool_call,
                         result,
                     )
 
@@ -157,7 +174,7 @@ class GeminiFilesystemToolPlanner:
                     types.Part.from_function_response(
                         name=function_call.name,
                         response={
-                            "result": self._serialize_result(result),
+                            "result": result.to_dict(),
                         },
                     )
                 )
@@ -174,21 +191,26 @@ class GeminiFilesystemToolPlanner:
             f"tool-call rounds ({self.MAX_TOOL_ROUNDS})."
         )
 
-    # ==============================================================
+    # ==================================================================
     # Gemini configuration
-    # ==============================================================
+    # ==================================================================
 
     def _build_config(self) -> types.GenerateContentConfig:
+        """
+        Build the Gemini configuration from the registered tools.
+
+        The planner does not define filesystem or compute tools itself.
+        """
 
         system_instruction = """
-You are the filesystem agent for MOCKAPP.
+You are the filesystem and computation agent for MOCKAPP.
 
-You operate ONLY through the filesystem tools supplied to you.
+You operate ONLY through the tools supplied to you.
 
 IMPORTANT SANDBOX RULES:
 
 1. You never receive or need the physical Windows filesystem root.
-2. Every path must be sandbox-relative.
+2. Every filesystem path must be sandbox-relative.
 3. Never use:
    - C:\\
    - X:\\
@@ -201,411 +223,66 @@ IMPORTANT SANDBOX RULES:
    the requested directory and continue from the returned entries.
 7. When the user asks you to read a file, use read_file.
 8. When the user asks you to search for content, use search_files.
-9. Prefer the smallest number of filesystem operations necessary.
-10. Do not perform write, delete, move, copy, or directory-creation
+9. Use read_table when structured CSV or JSON table data is required.
+10. Use compute tools when numerical calculations over supplied values
+    are required.
+11. Prefer the smallest number of tool operations necessary.
+12. Do not perform write, delete, move, copy, or directory-creation
     operations unless the user explicitly requested that operation.
-11. After obtaining the required information, provide a concise final
+13. Do not access files through any mechanism other than the supplied
+    filesystem tools.
+14. After obtaining the required information, provide a concise final
     answer containing the requested information and relevant relative
     file paths.
 
-The filesystem tools are the ONLY mechanism you may use to access files.
+The supplied tools are the ONLY mechanism you may use to access files
+or perform computations.
 """
 
         return types.GenerateContentConfig(
             system_instruction=system_instruction,
-            tools=[types.Tool(function_declarations=self._tool_declarations())],
+            tools=[
+                types.Tool(function_declarations=self.tool_dispatcher.declarations())
+            ],
             thinking_config=types.ThinkingConfig(thinking_level="medium"),
         )
 
-    # ==============================================================
-    # Gemini tool declarations
-    # ==============================================================
+    # ==================================================================
+    # Gemini function call → generic ToolCall
+    # ==================================================================
 
     @staticmethod
-    def _tool_declarations() -> list[dict[str, Any]]:
-
-        return [
-            # ----------------------------------------------------------
-            # LIST DIRECTORY
-            # ----------------------------------------------------------
-            {
-                "name": "list_directory",
-                "description": (
-                    "List the files and folders inside a " "sandbox-relative directory."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": (
-                                "Sandbox-relative directory path. "
-                                "Use '.' for the filesystem root."
-                            ),
-                        }
-                    },
-                    "required": ["path"],
-                },
-            },
-            # ----------------------------------------------------------
-            # SEARCH FILES
-            # ----------------------------------------------------------
-            {
-                "name": "search_files",
-                "description": (
-                    "Search files inside a sandbox-relative directory. "
-                    "Can filter by filename pattern and optionally "
-                    "search file contents."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": ("Sandbox-relative directory to search."),
-                        },
-                        "pattern": {
-                            "type": "string",
-                            "description": ("Filename pattern such as '*.txt'."),
-                        },
-                        "query": {
-                            "type": "string",
-                            "description": (
-                                "Optional text to search for inside files."
-                            ),
-                        },
-                        "recursive": {
-                            "type": "boolean",
-                            "description": ("Whether to search nested directories."),
-                        },
-                    },
-                    "required": [
-                        "path",
-                    ],
-                },
-            },
-            # ----------------------------------------------------------
-            # READ FILE
-            # ----------------------------------------------------------
-            {
-                "name": "read_file",
-                "description": (
-                    "Read the complete contents of a text file "
-                    "using a sandbox-relative path."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": ("Sandbox-relative file path."),
-                        },
-                        "encoding": {
-                            "type": "string",
-                            "description": ("Text encoding. Normally use utf-8."),
-                        },
-                    },
-                    "required": [
-                        "path",
-                    ],
-                },
-            },
-            # ----------------------------------------------------------
-            # READ TABLE
-            # ----------------------------------------------------------
-            {
-                "name": "read_table",
-                "description": ("Read a CSV or JSON file as structured table data."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": ("Sandbox-relative CSV or JSON file path."),
-                        },
-                        "encoding": {
-                            "type": "string",
-                            "description": ("Text encoding. Normally use utf-8."),
-                        },
-                    },
-                    "required": [
-                        "path",
-                    ],
-                },
-            },
-            # ----------------------------------------------------------
-            # CALCULATE
-            # ----------------------------------------------------------
-            {
-                "name": "calculate",
-                "description": ("Evaluate a safe arithmetic expression."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "expression": {
-                            "type": "string",
-                            "description": ("Arithmetic expression to evaluate."),
-                        }
-                    },
-                    "required": ["expression"],
-                },
-            },
-            # ----------------------------------------------------------
-            # WRITE FILE
-            # ----------------------------------------------------------
-            {
-                "name": "write_file",
-                "description": (
-                    "Write or replace a text file. Use only when "
-                    "the user explicitly asks to create or replace "
-                    "file contents."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Sandbox-relative file path.",
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Complete file contents.",
-                        },
-                        "encoding": {
-                            "type": "string",
-                            "description": "Text encoding.",
-                        },
-                    },
-                    "required": [
-                        "path",
-                        "content",
-                        "encoding",
-                    ],
-                },
-            },
-            # ----------------------------------------------------------
-            # APPEND FILE
-            # ----------------------------------------------------------
-            {
-                "name": "append_file",
-                "description": ("Append text to an existing file."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                        },
-                        "content": {
-                            "type": "string",
-                        },
-                        "encoding": {
-                            "type": "string",
-                        },
-                    },
-                    "required": [
-                        "path",
-                        "content",
-                        "encoding",
-                    ],
-                },
-            },
-            # ----------------------------------------------------------
-            # CREATE DIRECTORY
-            # ----------------------------------------------------------
-            {
-                "name": "create_directory",
-                "description": ("Create a directory inside the sandbox."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": ("Sandbox-relative directory path."),
-                        }
-                    },
-                    "required": ["path"],
-                },
-            },
-            # ----------------------------------------------------------
-            # DELETE FILE
-            # ----------------------------------------------------------
-            {
-                "name": "delete_file",
-                "description": ("Delete a file inside the sandbox."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                        }
-                    },
-                    "required": ["path"],
-                },
-            },
-            # ----------------------------------------------------------
-            # DELETE DIRECTORY
-            # ----------------------------------------------------------
-            {
-                "name": "delete_directory",
-                "description": ("Delete a directory inside the sandbox."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                        }
-                    },
-                    "required": ["path"],
-                },
-            },
-            # ----------------------------------------------------------
-            # MOVE
-            # ----------------------------------------------------------
-            {
-                "name": "move",
-                "description": ("Move a file or directory within the sandbox."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                        },
-                        "destination": {
-                            "type": "string",
-                        },
-                    },
-                    "required": [
-                        "path",
-                        "destination",
-                    ],
-                },
-            },
-            # ----------------------------------------------------------
-            # COPY
-            # ----------------------------------------------------------
-            {
-                "name": "copy",
-                "description": ("Copy a file or directory within the sandbox."),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                        },
-                        "destination": {
-                            "type": "string",
-                        },
-                    },
-                    "required": [
-                        "path",
-                        "destination",
-                    ],
-                },
-            },
-        ]
-
-    # ==============================================================
-    # Function-call → domain operation
-    # ==============================================================
-
-    @staticmethod
-    def _operation_from_function_call(
+    def _tool_call_from_function_call(
         function_call: Any,
-    ) -> FilesystemOperation:
+    ) -> ToolCall:
+        """
+        Convert a Gemini function call into the provider-neutral
+        ToolCall model.
 
-        name = function_call.name
-        args = dict(function_call.args or {})
+        No filesystem-specific conversion happens here.
+        """
 
-        try:
-            operation_type = OperationType(name)
-        except ValueError as exc:
+        name = getattr(
+            function_call,
+            "name",
+            None,
+        )
+
+        if not name:
             raise GeminiFilesystemPlannerError(
-                f"Gemini requested unsupported filesystem tool: {name}"
-            ) from exc
-
-        # Never accept physical filesystem paths from Gemini.
-        path = args.get("path")
-
-        destination = args.get("destination")
-
-        pattern = args.get("pattern")
-
-        query = args.get("query")
-
-        content = args.get("content")
-
-        expression = args.get("expression")
-
-        recursive = bool(
-            args.get(
-                "recursive",
-                False,
+                "Gemini returned a function call without a tool name."
             )
+
+        arguments = dict(
+            getattr(
+                function_call,
+                "args",
+                None,
+            )
+            or {}
         )
 
-        encoding = args.get(
-            "encoding",
-            "utf-8",
+        return ToolCall(
+            name=name,
+            arguments=arguments,
         )
-
-        return FilesystemOperation(
-            operation=operation_type,
-            path=path,
-            destination=destination,
-            pattern=pattern,
-            query=query,
-            content=content,
-            expression=expression,
-            recursive=recursive,
-            encoding=encoding,
-        )
-
-    # ==============================================================
-    # Result serialization
-    # ==============================================================
-
-    @classmethod
-    def _serialize_result(
-        cls,
-        result: FilesystemResult,
-    ) -> dict[str, Any]:
-
-        return {
-            "operation": result.operation.value,
-            "success": result.success,
-            "message": result.message,
-            "relative_path": result.relative_path,
-            "data": cls._serialize_value(result.data),
-        }
-
-    @classmethod
-    def _serialize_value(
-        cls,
-        value: Any,
-    ) -> Any:
-
-        if value is None:
-            return None
-
-        if is_dataclass(value):
-            return cls._serialize_value(asdict(value))
-
-        if isinstance(value, list):
-            return [cls._serialize_value(item) for item in value]
-
-        if isinstance(value, tuple):
-            return [cls._serialize_value(item) for item in value]
-
-        if isinstance(value, dict):
-            return {str(key): cls._serialize_value(item) for key, item in value.items()}
-
-        if hasattr(value, "value"):
-            return value.value
-
-        if isinstance(
-            value,
-            (str, int, float, bool),
-        ):
-            return value
-
-        return str(value)
