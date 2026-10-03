@@ -21,7 +21,7 @@ from .models import (
 from .replay import ReplayAPI
 from .session import TaskObservationEngine, TaskObservationSession
 from .simulation import generate_runs
-from .storage import SessionStore
+from .session_store import SessionStore
 from .qt import (
     ObservationBridge,
     ObservationPlot,
