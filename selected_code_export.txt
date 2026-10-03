@@ -4,1300 +4,1395 @@ COWORK AI AGENT SUITE - SELECTED CODE EXPORT
 
 PROJECT ROOT: X:\MOCKAPP
 
-TOTAL FILES REQUESTED: 10
+TOTAL FILES REQUESTED: 5
 
 
 ================================================================================
-FILE: task_observation_engine/task_observation/session.py
+FILE: task_observation_engine/task_observation/qt/__init__.py
+================================================================================
+
+"""Qt presentation layer for the Stage 6 task observation engine.
+
+The Qt layer is intentionally downstream of the observation engine.
+
+Qt widgets display snapshots and requests. They do not own mutable
+observation-session state.
+"""
+
+from .observation_bridge import ObservationBridge
+from .observation_plot import ObservationPlot
+from .observation_thread import ObservationWorker
+from .observation_widget import ObservationWidget
+
+__all__ = [
+    "ObservationBridge",
+    "ObservationPlot",
+    "ObservationWorker",
+    "ObservationWidget",
+]
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/qt/observation_bridge.py
 ================================================================================
 
 from __future__ import annotations
 
-from threading import RLock
-from typing import Any, Mapping
+from typing import Any
 
-from .buckets import BucketManager
-from .collectors import (
-    ContinuousFeatureCollector,
-    DiscreteFeatureCollector,
-    EventTraceCollector,
-)
-from .models import ObservationSnapshot, TaskIdentity, utc_now_iso
-from .storage import SessionStore
+from PySide6.QtCore import QObject, QThread, Signal, Slot
+
+from .observation_thread import ObservationWorker
 
 
-class TaskObservationSession:
-    """Live observation session owned by a separate observation thread/process."""
+class ObservationBridge(QObject):
+    """Thread-safe bridge between Qt UI code and ObservationWorker.
+
+    UI code talks to this class.
+
+    UI code never directly accesses the TaskObservationSession.
+    """
+
+    task_started = Signal(str)
+    observation_updated = Signal(object)
+    task_finished = Signal(object)
+    error = Signal(str)
+
+    request_start = Signal(str)
+    request_discrete = Signal(str, object)
+    request_continuous = Signal(str, object)
+    request_event = Signal(str, object)
+    request_snapshot = Signal()
+    request_finish = Signal()
+    request_shutdown = Signal()
 
     def __init__(
         self,
-        identity: TaskIdentity,
-        store: SessionStore | None = None,
-        buckets: BucketManager | None = None,
-    ) -> None:
-        self.identity = identity
+        storage_root: str,
+        parent: QObject | None = None,
+    ):
+        super().__init__(parent)
 
-        self.discrete = DiscreteFeatureCollector()
-        self.continuous = ContinuousFeatureCollector()
-        self.events = EventTraceCollector()
+        self._thread = QThread(self)
 
-        self.store = store
-        self.buckets = buckets
+        self._worker = ObservationWorker(
+            storage_root,
+        )
 
-        self._started_at = identity.started_at
-        self._finished_at: str | None = None
-        self._status = "running"
-        self._metadata: dict[str, Any] = {}
+        self._worker.moveToThread(
+            self._thread,
+        )
 
-        self._lock = RLock()
+        self.request_start.connect(
+            self._worker.start_task,
+        )
 
-    def set_metadata(self, values: Mapping[str, Any]) -> None:
-        with self._lock:
-            self._metadata.update(values)
+        self.request_discrete.connect(
+            self._worker.record_discrete,
+        )
 
-    def finish(
+        self.request_continuous.connect(
+            self._worker.record_continuous,
+        )
+
+        self.request_event.connect(
+            self._worker.record_event,
+        )
+
+        self.request_snapshot.connect(
+            self._worker.publish_current_state,
+        )
+
+        self.request_finish.connect(
+            self._worker.finish_task,
+        )
+
+        self.request_shutdown.connect(
+            self._worker.shutdown,
+        )
+
+        self._worker.task_started.connect(
+            self.task_started,
+        )
+
+        self._worker.observation_updated.connect(
+            self.observation_updated,
+        )
+
+        self._worker.task_finished.connect(
+            self.task_finished,
+        )
+
+        self._worker.worker_error.connect(
+            self.error,
+        )
+
+        self._thread.start()
+
+    def start_task(self, family_key: str) -> None:
+        self.request_start.emit(
+            family_key,
+        )
+
+    def record_discrete(
         self,
-        status: str = "completed",
-    ) -> ObservationSnapshot:
-        with self._lock:
-            self._finished_at = utc_now_iso()
-            self._status = status
-            snapshot = self.snapshot()
+        name: str,
+        value: Any = None,
+    ) -> None:
+        self.request_discrete.emit(
+            name,
+            value,
+        )
 
-        if self.buckets is not None:
-            self.buckets.add(snapshot)
+    def record_continuous(
+        self,
+        name: str,
+        value: Any = None,
+    ) -> None:
+        self.request_continuous.emit(
+            name,
+            value,
+        )
 
-        if self.store is not None:
-            self.store.save(snapshot)
+    def record_event(
+        self,
+        event_type: str,
+        payload: Any = None,
+    ) -> None:
+        self.request_event.emit(
+            event_type,
+            payload,
+        )
 
-        return snapshot
+    def request_current_snapshot(self) -> None:
+        self.request_snapshot.emit()
 
-    def snapshot(self) -> ObservationSnapshot:
-        with self._lock:
-            return ObservationSnapshot(
-                identity=self.identity,
-                discrete=self.discrete.snapshot(),
-                continuous=self.continuous.snapshot(),
-                events=self.events.events(),
-                traces=self.events.traces(),
-                started_at=self._started_at,
-                finished_at=self._finished_at,
-                status=self._status,
-                metadata=self._metadata,
+    def finish_task(self) -> None:
+        self.request_finish.emit()
+
+    def close(self) -> None:
+        """Stop the observation worker safely."""
+
+        if not self._thread.isRunning():
+            return
+
+        self.request_shutdown.emit()
+
+        self._thread.quit()
+
+        if not self._thread.wait(3000):
+            self._thread.terminate()
+            self._thread.wait(1000)
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/qt/observation_thread.py
+================================================================================
+
+from __future__ import annotations
+
+from typing import Any
+
+from PySide6.QtCore import QObject, Signal, Slot
+
+from ..session import TaskObservationEngine
+
+
+class ObservationWorker(QObject):
+    """Owns mutable observation state on a dedicated worker thread.
+
+    No Qt widget should directly manipulate a TaskObservationSession.
+
+    The worker receives requests through queued Qt signals and emits
+    immutable-ish snapshot objects back to the presentation layer.
+    """
+
+    task_started = Signal(str)
+    observation_updated = Signal(object)
+    task_finished = Signal(object)
+    worker_error = Signal(str)
+
+    def __init__(self, storage_root: str, parent: QObject | None = None):
+        super().__init__(parent)
+
+        self._engine = TaskObservationEngine(storage_root)
+        self._session = None
+
+    @Slot(str)
+    def start_task(self, family_key: str) -> None:
+        """Start a new observation session."""
+
+        try:
+            if self._session is not None:
+                self.worker_error.emit(
+                    "Cannot start a new task while another task is active."
+                )
+                return
+
+            family_key = (family_key or "").strip()
+
+            if not family_key:
+                self.worker_error.emit(
+                    "Cannot start an observation without a task family."
+                )
+                return
+
+            self._session = self._engine.start(family_key)
+
+            self.task_started.emit(family_key)
+
+        except Exception as exc:
+            self.worker_error.emit(f"{type(exc).__name__}: {exc}")
+
+    @Slot(str, object)
+    def record_discrete(self, name: str, value: Any) -> None:
+        """Record one discrete feature.
+
+        Missing values are deliberately allowed.
+        """
+
+        if self._session is None:
+            self.worker_error.emit("No active observation session.")
+            return
+
+        try:
+            self._session.discrete.record(
+                name,
+                value,
             )
 
+        except Exception as exc:
+            self.worker_error.emit(
+                f"Discrete observation error: {type(exc).__name__}: {exc}"
+            )
 
-class TaskObservationEngine:
-    """Public facade used by filesystem, browser, and other adapters."""
+    @Slot(str, object)
+    def record_continuous(self, name: str, value: Any) -> None:
+        """Record one continuous feature.
 
-    def __init__(
-        self,
-        storage_root: str | None = None,
-    ) -> None:
-        self.store = SessionStore(storage_root) if storage_root else None
+        Invalid/missing values are allowed to reach the collector, which
+        already defines the prototype's non-halting behaviour.
+        """
 
-        self.buckets = BucketManager()
+        if self._session is None:
+            self.worker_error.emit("No active observation session.")
+            return
 
-        self._sessions: dict[
-            str,
-            TaskObservationSession,
-        ] = {}
+        try:
+            self._session.continuous.record(
+                name,
+                value,
+            )
 
-        self._lock = RLock()
+        except Exception as exc:
+            self.worker_error.emit(
+                f"Continuous observation error: " f"{type(exc).__name__}: {exc}"
+            )
 
-    def start(
-        self,
-        family_key: str,
-        *,
-        task_key: str = "",
-        metadata: Mapping[str, Any] | None = None,
-    ) -> TaskObservationSession:
-        identity = TaskIdentity.create(
-            family_key,
-            task_key,
-        )
+    @Slot(str, object)
+    def record_event(self, event_type: str, payload: Any = None) -> None:
+        """Record a generic observation event when the session supports it.
 
-        session = TaskObservationSession(
-            identity,
-            self.store,
-            self.buckets,
-        )
+        Stage 6B intentionally does not assume a particular event collector
+        implementation. This keeps the Qt layer compatible with the current
+        collector implementation while allowing richer event models later.
+        """
 
-        if metadata:
-            session.set_metadata(metadata)
+        if self._session is None:
+            self.worker_error.emit("No active observation session.")
+            return
 
-        with self._lock:
-            self._sessions[identity.session_id] = session
+        try:
+            collector = getattr(self._session, "events", None)
 
-        return session
+            if collector is None:
+                collector = getattr(self._session, "trace", None)
 
-    def get(
-        self,
-        session_id: str,
-    ) -> TaskObservationSession | None:
-        with self._lock:
-            return self._sessions.get(session_id)
+            if collector is None:
+                # Event collection is optional at this stage.
+                return
 
-    def finish(
-        self,
-        session_id: str,
-        status: str = "completed",
-    ) -> ObservationSnapshot | None:
-        session = self.get(session_id)
+            record_method = getattr(collector, "record", None)
 
-        if session is None:
-            return None
+            if record_method is None:
+                return
 
-        snapshot = session.finish(status)
+            record_method(
+                event_type,
+                payload,
+            )
 
-        with self._lock:
-            self._sessions.pop(
-                session_id,
+        except Exception as exc:
+            self.worker_error.emit(
+                f"Event observation error: " f"{type(exc).__name__}: {exc}"
+            )
+
+    @Slot()
+    def publish_current_state(self) -> None:
+        """Publish the current state when the session implementation supports it.
+
+        The existing session API guarantees finish(), but not necessarily
+        an intermediate snapshot API. Therefore this method is deliberately
+        conservative.
+        """
+
+        if self._session is None:
+            return
+
+        try:
+            snapshot_method = getattr(
+                self._session,
+                "snapshot",
                 None,
             )
 
-        return snapshot
+            if snapshot_method is None:
+                return
 
-    def replay(
-        self,
-        session_id: str,
-    ) -> ObservationSnapshot:
-        if self.store is None:
-            raise RuntimeError("Persistent storage is not configured.")
+            snapshot = snapshot_method()
 
-        return self.store.replay(session_id)
+            self.observation_updated.emit(snapshot)
 
+        except Exception as exc:
+            self.worker_error.emit(f"Snapshot error: {type(exc).__name__}: {exc}")
 
+    @Slot()
+    def finish_task(self) -> None:
+        """Finish the active observation session."""
 
-================================================================================
-FILE: task_observation_engine/task_observation/models.py
-================================================================================
+        if self._session is None:
+            self.worker_error.emit("No active observation session.")
+            return
 
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from types import MappingProxyType
-from typing import Any, Mapping
-import math
-import uuid
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-class ObservationKind(str, Enum):
-    SESSION_STARTED = "session_started"
-    SESSION_FINISHED = "session_finished"
-    FEATURE = "feature"
-    EVENT = "event"
-    TRACE = "trace"
-    DECISION = "decision"
-    ERROR = "error"
-
-
-@dataclass(frozen=True)
-class TaskIdentity:
-    session_id: str
-    family_key: str
-    task_key: str = ""
-    started_at: str = field(default_factory=utc_now_iso)
-
-    @classmethod
-    def create(cls, family_key: str, task_key: str = "") -> "TaskIdentity":
-        return cls(
-            session_id=uuid.uuid4().hex,
-            family_key=family_key,
-            task_key=task_key,
-        )
-
-
-@dataclass(frozen=True)
-class DiscreteObservation:
-    name: str
-    value: str | int | bool | None
-    timestamp: str = field(default_factory=utc_now_iso)
-    source: str = "unknown"
-    step: int | None = None
-
-
-@dataclass(frozen=True)
-class ContinuousObservation:
-    name: str
-    value: float | None
-    timestamp: str = field(default_factory=utc_now_iso)
-    source: str = "unknown"
-    step: int | None = None
-
-    def __post_init__(self) -> None:
-        if self.value is not None and not math.isfinite(float(self.value)):
-            object.__setattr__(self, "value", None)
-
-
-@dataclass(frozen=True)
-class TaskEvent:
-    name: str
-    timestamp: str = field(default_factory=utc_now_iso)
-    source: str = "unknown"
-    payload: Mapping[str, Any] = field(default_factory=dict)
-    step: int | None = None
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "payload", MappingProxyType(dict(self.payload)))
-
-
-@dataclass(frozen=True)
-class TracePoint:
-    sequence: int
-    timestamp: str
-    phase: str
-    action: str = ""
-    path: str | None = None
-    discrete: Mapping[str, str | int | bool | None] = field(default_factory=dict)
-    continuous: Mapping[str, float | None] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "discrete", MappingProxyType(dict(self.discrete)))
-        object.__setattr__(self, "continuous", MappingProxyType(dict(self.continuous)))
-
-
-@dataclass(frozen=True)
-class ObservationSnapshot:
-    identity: TaskIdentity
-    discrete: tuple[DiscreteObservation, ...]
-    continuous: tuple[ContinuousObservation, ...]
-    events: tuple[TaskEvent, ...]
-    traces: tuple[TracePoint, ...]
-    started_at: str
-    finished_at: str | None
-    status: str
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
-
-    def to_feature_vector(self, names: tuple[str, ...]) -> tuple[float, ...]:
-        latest: dict[str, float] = {}
-        for item in self.continuous:
-            if item.value is not None:
-                latest[item.name] = float(item.value)
-        return tuple(latest.get(name, 0.0) for name in names)
-
-
-@dataclass(frozen=True)
-class BucketKey:
-    name: str
-    value: str
-
-
-@dataclass
-class ObservationBucket:
-    key: BucketKey
-    count: int = 0
-    sessions: list[str] = field(default_factory=list)
-
-    def add(self, session_id: str) -> None:
-        self.count += 1
-        if session_id not in self.sessions:
-            self.sessions.append(session_id)
-
-
-
-================================================================================
-FILE: task_observation_engine/task_observation/collectors.py
-================================================================================
-
-from __future__ import annotations
-
-from threading import Lock
-from typing import Any, Mapping
-from datetime import datetime, timezone
-
-from .models import ContinuousObservation, DiscreteObservation, TaskEvent, TracePoint
-
-
-class DiscreteFeatureCollector:
-    """Thread-safe collector for categorical/state-like task features."""
-
-    def __init__(self) -> None:
-        self._items: list[DiscreteObservation] = []
-        self._lock = Lock()
-
-    def record(self, name: str, value: str | int | bool | None, *, source: str = "unknown", step: int | None = None) -> None:
-        with self._lock:
-            self._items.append(DiscreteObservation(name, value, source=source, step=step))
-
-    def record_many(self, values: Mapping[str, str | int | bool | None], *, source: str = "unknown", step: int | None = None) -> None:
-        with self._lock:
-            for name, value in values.items():
-                self._items.append(DiscreteObservation(name, value, source=source, step=step))
-
-    def snapshot(self) -> tuple[DiscreteObservation, ...]:
-        with self._lock:
-            return tuple(self._items)
-
-    def clear(self) -> None:
-        with self._lock:
-            self._items.clear()
-
-
-class ContinuousFeatureCollector:
-    """Thread-safe collector for numeric task features.
-
-    Missing/invalid numeric values are accepted and represented as None rather
-    than terminating the observation process.
-    """
-
-    def __init__(self) -> None:
-        self._items: list[ContinuousObservation] = []
-        self._lock = Lock()
-
-    def record(self, name: str, value: float | int | None, *, source: str = "unknown", step: int | None = None) -> None:
-        safe_value: float | None
         try:
-            safe_value = None if value is None else float(value)
-        except (TypeError, ValueError):
-            safe_value = None
-        with self._lock:
-            self._items.append(ContinuousObservation(name, safe_value, source=source, step=step))
+            snapshot = self._session.finish()
 
-    def record_many(self, values: Mapping[str, float | int | None], *, source: str = "unknown", step: int | None = None) -> None:
-        for name, value in values.items():
-            self.record(name, value, source=source, step=step)
+            self._session = None
 
-    def snapshot(self) -> tuple[ContinuousObservation, ...]:
-        with self._lock:
-            return tuple(self._items)
+            self.task_finished.emit(snapshot)
+            self.observation_updated.emit(snapshot)
 
-    def clear(self) -> None:
-        with self._lock:
-            self._items.clear()
-
-
-class EventTraceCollector:
-    """Thread-safe event and trace recorder."""
-
-    def __init__(self) -> None:
-        self._events: list[TaskEvent] = []
-        self._traces: list[TracePoint] = []
-        self._lock = Lock()
-
-    def event(self, name: str, *, source: str = "unknown", payload: Mapping[str, Any] | None = None, step: int | None = None) -> None:
-        with self._lock:
-            self._events.append(TaskEvent(name=name, source=source, payload=payload or {}, step=step))
-
-    def trace(
-        self,
-        phase: str,
-        *,
-        action: str = "",
-        path: str | None = None,
-        discrete: Mapping[str, str | int | bool | None] | None = None,
-        continuous: Mapping[str, float | None] | None = None,
-    ) -> int:
-        with self._lock:
-            sequence = len(self._traces)
-            self._traces.append(
-                TracePoint(
-                    sequence=sequence,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
-                    phase=phase,
-                    action=action,
-                    path=path,
-                    discrete=discrete or {},
-                    continuous=continuous or {},
-                )
+        except Exception as exc:
+            self.worker_error.emit(
+                f"Task finalization error: " f"{type(exc).__name__}: {exc}"
             )
-            return sequence
 
-    def events(self) -> tuple[TaskEvent, ...]:
-        with self._lock:
-            return tuple(self._events)
+    @Slot()
+    def shutdown(self) -> None:
+        """Release the active session reference."""
 
-    def traces(self) -> tuple[TracePoint, ...]:
-        with self._lock:
-            return tuple(self._traces)
+        self._session = None
 
 
 
 ================================================================================
-FILE: task_observation_engine/task_observation/observation/tool_observer.py
+FILE: task_observation_engine/task_observation/qt/observation_plot.py
 ================================================================================
 
 from __future__ import annotations
 
-from collections import Counter
-from dataclasses import dataclass
+import math
+
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QPainter, QPen
+from PySide6.QtWidgets import QWidget
+
+
+class ObservationPlot(QWidget):
+    """Small dependency-free Qt plot for continuous observation traces."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setMinimumHeight(220)
+
+        self._values: list[float] = []
+        self._title = "Continuous Feature"
+
+    def set_data(
+        self,
+        values: list[float],
+        title: str = "Continuous Feature",
+    ) -> None:
+        self._values = [
+            float(value)
+            for value in values
+            if value is not None and math.isfinite(float(value))
+        ]
+
+        self._title = title
+
+        self.update()
+
+    def clear(self) -> None:
+        self._values.clear()
+        self.update()
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+
+        try:
+            painter.setRenderHint(
+                QPainter.Antialiasing,
+                True,
+            )
+
+            rect = self.rect().adjusted(
+                45,
+                25,
+                -20,
+                -35,
+            )
+
+            painter.drawText(
+                10,
+                18,
+                self._title,
+            )
+
+            if not self._values:
+                painter.drawText(
+                    rect,
+                    Qt.AlignCenter,
+                    "No numeric observations.",
+                )
+                return
+
+            minimum = min(self._values)
+            maximum = max(self._values)
+
+            if math.isclose(minimum, maximum):
+                minimum -= 1.0
+                maximum += 1.0
+
+            painter.drawRect(rect)
+
+            point_count = len(self._values)
+
+            points: list[QPointF] = []
+
+            for index, value in enumerate(self._values):
+
+                if point_count == 1:
+                    x = rect.center().x()
+                else:
+                    x = rect.left() + (index / (point_count - 1)) * rect.width()
+
+                normalized = (value - minimum) / (maximum - minimum)
+
+                y = rect.bottom() - normalized * rect.height()
+
+                points.append(
+                    QPointF(
+                        x,
+                        y,
+                    )
+                )
+
+            if len(points) >= 2:
+                painter.drawPolyline(
+                    points,
+                )
+            else:
+                painter.drawEllipse(
+                    points[0],
+                    3,
+                    3,
+                )
+
+            painter.drawText(
+                5,
+                rect.top(),
+                f"{maximum:.4g}",
+            )
+
+            painter.drawText(
+                5,
+                rect.bottom(),
+                f"{minimum:.4g}",
+            )
+
+            painter.drawText(
+                rect.left(),
+                rect.bottom() + 25,
+                "start",
+            )
+
+            painter.drawText(
+                rect.right() - 35,
+                rect.bottom() + 25,
+                "end",
+            )
+
+        finally:
+            painter.end()
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/qt/observation_widget.py
+================================================================================
+
+from __future__ import annotations
+
 from typing import Any
 
-from ..models import ObservationSnapshot
-
-
-@dataclass(frozen=True)
-class ToolObservation:
-    """Derived observations about tool usage within a task."""
-
-    total_tool_calls: int
-    successful_tool_calls: int
-    failed_tool_calls: int
-    unique_tools: int
-
-    list_directory_count: int
-    search_files_count: int
-    read_file_count: int
-    read_table_count: int
-    compute_count: int
-
-    tool_counts: dict[str, int]
-
-
-class ToolObserver:
-    """Derives tool-usage observations from an ObservationSnapshot."""
-
-    def observe(self, snapshot: ObservationSnapshot) -> ToolObservation:
-        tool_started = [
-            event for event in snapshot.events if event.name == "tool_started"
-        ]
-
-        tool_completed = [
-            event for event in snapshot.events if event.name == "tool_completed"
-        ]
-
-        tool_counts: Counter[str] = Counter()
-
-        for event in tool_started:
-            tool_name = event.payload.get("tool_name")
-
-            if tool_name:
-                tool_counts[str(tool_name)] += 1
-
-        successful = sum(
-            1 for event in tool_completed if event.payload.get("success") is True
-        )
-
-        failed = sum(
-            1 for event in tool_completed if event.payload.get("success") is False
-        )
-
-        return ToolObservation(
-            total_tool_calls=len(tool_started),
-            successful_tool_calls=successful,
-            failed_tool_calls=failed,
-            unique_tools=len(tool_counts),
-            list_directory_count=tool_counts.get("list_directory", 0),
-            search_files_count=tool_counts.get("search_files", 0),
-            read_file_count=tool_counts.get("read_file", 0),
-            read_table_count=tool_counts.get("read_table", 0),
-            compute_count=sum(
-                count
-                for name, count in tool_counts.items()
-                if name.startswith("compute")
-            ),
-            tool_counts=dict(tool_counts),
-        )
-
-
-
-================================================================================
-FILE: task_observation_engine/task_observation/observation/navigation_observer.py
-================================================================================
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from pathlib import PurePosixPath
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ..models import ObservationSnapshot
+from ..replay import ReplayAPI
+from .observation_bridge import ObservationBridge
+from .observation_plot import ObservationPlot
 
 
-@dataclass(frozen=True)
-class NavigationObservation:
-    """Derived observations about filesystem navigation."""
+class ObservationWidget(QWidget):
+    """Qt visualization surface for task observations.
 
-    unique_paths: int
-    paths_visited: int
-    directory_navigation_count: int
-    file_access_count: int
-    maximum_path_depth: int
+    Responsibilities:
 
-    search_count: int
-    navigation_reversal_count: int
+    - display live/final observation snapshots
+    - display discrete features
+    - display continuous features
+    - display event/trace information when present
+    - load persisted sessions through ReplayAPI
 
-    visited_paths: tuple[str, ...]
-
-
-class NavigationObserver:
-    """Derives navigation-related observations."""
-
-    def observe(self, snapshot: ObservationSnapshot) -> NavigationObservation:
-        traces = [trace for trace in snapshot.traces if trace.path is not None]
-
-        paths = [trace.path for trace in traces if trace.path is not None]
-
-        unique_paths = tuple(dict.fromkeys(paths))
-
-        action_phases = {
-            "tool_started",
-        }
-
-        directory_navigation_count = sum(
-            1
-            for trace in traces
-            if (trace.phase in action_phases and trace.action == "list_directory")
-        )
-
-        file_access_count = sum(
-            1
-            for trace in traces
-            if (
-                trace.phase in action_phases
-                and trace.action
-                in {
-                    "read_file",
-                    "read_table",
-                }
-            )
-        )
-
-        search_count = sum(
-            1
-            for trace in traces
-            if (trace.phase in action_phases and trace.action == "search_files")
-        )
-        maximum_path_depth = 0
-
-        for path in unique_paths:
-            depth = self._path_depth(path)
-            maximum_path_depth = max(maximum_path_depth, depth)
-
-        navigation_reversal_count = self._count_reversals(traces)
-
-        return NavigationObservation(
-            unique_paths=len(unique_paths),
-            paths_visited=len(paths),
-            directory_navigation_count=directory_navigation_count,
-            file_access_count=file_access_count,
-            maximum_path_depth=maximum_path_depth,
-            search_count=search_count,
-            navigation_reversal_count=navigation_reversal_count,
-            visited_paths=unique_paths,
-        )
-
-    @staticmethod
-    def _path_depth(path: str) -> int:
-        normalized = path.replace("\\", "/").strip("/")
-
-        if not normalized or normalized == ".":
-            return 0
-
-        return len(
-            [part for part in PurePosixPath(normalized).parts if part not in {".", ""}]
-        )
-
-    @staticmethod
-    def _count_reversals(traces) -> int:
-        paths = [trace.path for trace in traces if trace.path is not None]
-
-        reversals = 0
-
-        for previous, current in zip(paths, paths[1:]):
-            if previous == current:
-                continue
-
-            previous_parts = previous.replace("\\", "/").strip("/").split("/")
-            current_parts = current.replace("\\", "/").strip("/").split("/")
-
-            if (
-                len(current_parts) < len(previous_parts)
-                and previous_parts[: len(current_parts)] == current_parts
-            ):
-                reversals += 1
-
-        return reversals
-
-
-
-================================================================================
-FILE: task_observation_engine/task_observation/observation/timing_observer.py
-================================================================================
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from datetime import datetime
-
-from ..models import ObservationSnapshot
-
-
-@dataclass(frozen=True)
-class TimingObservation:
-    """Derived timing information."""
-
-    task_duration_seconds: float | None
-    average_tool_duration_seconds: float | None
-    minimum_tool_duration_seconds: float | None
-    maximum_tool_duration_seconds: float | None
-
-
-class TimingObserver:
-    """Derives task and tool timing from event timestamps."""
-
-    def observe(self, snapshot: ObservationSnapshot) -> TimingObservation:
-        task_duration = self._duration(
-            snapshot.started_at,
-            snapshot.finished_at,
-        )
-
-        started: dict[tuple[str, str | None], datetime] = {}
-        durations: list[float] = []
-
-        for event in snapshot.events:
-            tool_name = event.payload.get("tool_name")
-            path = event.payload.get("path")
-
-            key = (str(tool_name), path)
-
-            if event.name == "tool_started" and tool_name:
-                started[key] = self._parse(event.timestamp)
-
-            elif event.name == "tool_completed" and tool_name:
-                start = started.pop(key, None)
-
-                if start is not None:
-                    end = self._parse(event.timestamp)
-                    duration = (end - start).total_seconds()
-
-                    if duration >= 0:
-                        durations.append(duration)
-
-        return TimingObservation(
-            task_duration_seconds=task_duration,
-            average_tool_duration_seconds=(
-                sum(durations) / len(durations) if durations else None
-            ),
-            minimum_tool_duration_seconds=(min(durations) if durations else None),
-            maximum_tool_duration_seconds=(max(durations) if durations else None),
-        )
-
-    @staticmethod
-    def _parse(value: str) -> datetime:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
-    @classmethod
-    def _duration(
-        cls,
-        started_at: str | None,
-        finished_at: str | None,
-    ) -> float | None:
-        if not started_at or not finished_at:
-            return None
-
-        duration = (cls._parse(finished_at) - cls._parse(started_at)).total_seconds()
-
-        return duration if duration >= 0 else None
-
-
-
-================================================================================
-FILE: task_observation_engine/task_observation/observation/outcome_observer.py
-================================================================================
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-from ..models import ObservationSnapshot
-
-
-@dataclass(frozen=True)
-class OutcomeObservation:
-    """Derived observations about task outcome."""
-
-    status: str
-    completed: bool
-    failed: bool
-    cancelled: bool
-
-    approval_label: bool | None
-
-    had_tool_failure: bool
-    recovered_from_failure: bool
-
-
-class OutcomeObserver:
-    """Derives outcome and recovery observations."""
-
-    def observe(self, snapshot: ObservationSnapshot) -> OutcomeObservation:
-        completed = snapshot.status == "completed"
-        failed = snapshot.status == "failed"
-        cancelled = snapshot.status == "cancelled"
-
-        tool_completed = [
-            event for event in snapshot.events if event.name == "tool_completed"
-        ]
-
-        had_tool_failure = any(
-            event.payload.get("success") is False for event in tool_completed
-        )
-
-        recovered_from_failure = self._detect_recovery(snapshot)
-
-        approval_label = self._approval_label(snapshot)
-
-        return OutcomeObservation(
-            status=snapshot.status,
-            completed=completed,
-            failed=failed,
-            cancelled=cancelled,
-            approval_label=approval_label,
-            had_tool_failure=had_tool_failure,
-            recovered_from_failure=recovered_from_failure,
-        )
-
-    @staticmethod
-    def _approval_label(
-        snapshot: ObservationSnapshot,
-    ) -> bool | None:
-        for item in reversed(snapshot.discrete):
-            if item.name in {
-                "approval_label",
-                "approved",
-                "human_approved",
-            }:
-                if item.value is None:
-                    return None
-
-                return bool(item.value)
-
-        return None
-
-    @staticmethod
-    def _detect_recovery(
-        snapshot: ObservationSnapshot,
-    ) -> bool:
-        failure_seen = False
-
-        for event in snapshot.events:
-            if event.name != "tool_completed":
-                continue
-
-            if event.payload.get("success") is False:
-                failure_seen = True
-                continue
-
-            if failure_seen and event.payload.get("success") is True:
-                return True
-
-        return False
-
-
-
-================================================================================
-FILE: task_observation_engine/task_observation/observation/feature_deriver.py
-================================================================================
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-from ..models import ObservationSnapshot
-from .navigation_observer import NavigationObservation, NavigationObserver
-from .outcome_observer import OutcomeObservation, OutcomeObserver
-from .timing_observer import TimingObservation, TimingObserver
-from .tool_observer import ToolObservation, ToolObserver
-
-
-@dataclass(frozen=True)
-class DerivedObservationFeatures:
-    """Complete derived observation set for one task."""
-
-    tool: ToolObservation
-    navigation: NavigationObservation
-    timing: TimingObservation
-    outcome: OutcomeObservation
-
-    def continuous_features(self) -> dict[str, float]:
-        """Return numerical features suitable for the math layer."""
-
-        values: dict[str, float] = {
-            "total_tool_calls": float(self.tool.total_tool_calls),
-            "successful_tool_calls": float(self.tool.successful_tool_calls),
-            "failed_tool_calls": float(self.tool.failed_tool_calls),
-            "unique_tools": float(self.tool.unique_tools),
-            "list_directory_count": float(self.tool.list_directory_count),
-            "search_files_count": float(self.tool.search_files_count),
-            "read_file_count": float(self.tool.read_file_count),
-            "read_table_count": float(self.tool.read_table_count),
-            "compute_count": float(self.tool.compute_count),
-            "unique_paths": float(self.navigation.unique_paths),
-            "paths_visited": float(self.navigation.paths_visited),
-            "directory_navigation_count": float(
-                self.navigation.directory_navigation_count
-            ),
-            "file_access_count": float(self.navigation.file_access_count),
-            "maximum_path_depth": float(self.navigation.maximum_path_depth),
-            "search_count": float(self.navigation.search_count),
-            "navigation_reversal_count": float(
-                self.navigation.navigation_reversal_count
-            ),
-        }
-
-        if self.timing.task_duration_seconds is not None:
-            values["task_duration_seconds"] = self.timing.task_duration_seconds
-
-        if self.timing.average_tool_duration_seconds is not None:
-            values["average_tool_duration_seconds"] = (
-                self.timing.average_tool_duration_seconds
-            )
-
-        if self.timing.minimum_tool_duration_seconds is not None:
-            values["minimum_tool_duration_seconds"] = (
-                self.timing.minimum_tool_duration_seconds
-            )
-
-        if self.timing.maximum_tool_duration_seconds is not None:
-            values["maximum_tool_duration_seconds"] = (
-                self.timing.maximum_tool_duration_seconds
-            )
-
-        return values
-
-    def discrete_features(self) -> dict[str, str | bool]:
-        """Return categorical/state features."""
-
-        values: dict[str, str | bool] = {
-            "task_status": self.outcome.status,
-            "task_completed": self.outcome.completed,
-            "task_failed": self.outcome.failed,
-            "task_cancelled": self.outcome.cancelled,
-            "had_tool_failure": self.outcome.had_tool_failure,
-            "recovered_from_failure": (self.outcome.recovered_from_failure),
-            "used_search": self.tool.search_files_count > 0,
-            "used_computation": self.tool.compute_count > 0,
-            "used_file_read": (
-                self.tool.read_file_count > 0 or self.tool.read_table_count > 0
-            ),
-        }
-
-        if self.outcome.approval_label is not None:
-            values["approval_label"] = self.outcome.approval_label
-
-        return values
-
-
-class FeatureDeriver:
-    """Coordinates all independent observation derivations."""
+    It does not mutate the observation session.
+    """
 
     def __init__(
         self,
-        *,
-        tool_observer: ToolObserver | None = None,
-        navigation_observer: NavigationObserver | None = None,
-        timing_observer: TimingObserver | None = None,
-        outcome_observer: OutcomeObserver | None = None,
-    ) -> None:
-        self.tool_observer = tool_observer or ToolObserver()
-        self.navigation_observer = navigation_observer or NavigationObserver()
-        self.timing_observer = timing_observer or TimingObserver()
-        self.outcome_observer = outcome_observer or OutcomeObserver()
+        storage_root,
+        parent=None,
+    ):
+        super().__init__(parent)
 
-    def derive(
-        self,
-        snapshot: ObservationSnapshot,
-    ) -> DerivedObservationFeatures:
-        return DerivedObservationFeatures(
-            tool=self.tool_observer.observe(snapshot),
-            navigation=self.navigation_observer.observe(snapshot),
-            timing=self.timing_observer.observe(snapshot),
-            outcome=self.outcome_observer.observe(snapshot),
+        self.storage_root = storage_root
+
+        self.bridge = ObservationBridge(
+            storage_root,
+            self,
         )
 
+        self._snapshot = None
 
+        self._build_ui()
+        self._connect_bridge()
 
-================================================================================
-FILE: task_observation_engine/tests/test_observation_derivers.py
-================================================================================
+        self.refresh_history()
 
-from __future__ import annotations
+    # ---------------------------------------------------------
+    # UI
+    # ---------------------------------------------------------
 
-from task_observation.models import (
-    ContinuousObservation,
-    DiscreteObservation,
-    ObservationSnapshot,
-    TaskEvent,
-    TaskIdentity,
-    TracePoint,
-)
-from task_observation.observation import (
-    FeatureDeriver,
-    NavigationObserver,
-    OutcomeObserver,
-    TimingObserver,
-    ToolObserver,
-)
+    def _build_ui(self) -> None:
+        root = QVBoxLayout(self)
 
+        root.setContentsMargins(
+            8,
+            8,
+            8,
+            8,
+        )
 
-def make_snapshot() -> ObservationSnapshot:
-    identity = TaskIdentity(
-        session_id="test-session",
-        family_key="filesystem",
-        task_key="",
-        started_at="2026-10-03T13:03:33+00:00",
-    )
+        root.setSpacing(6)
 
-    return ObservationSnapshot(
-        identity=identity,
-        started_at="2026-10-03T13:03:33+00:00",
-        finished_at="2026-10-03T13:03:43+00:00",
-        status="completed",
-        metadata={
-            "agent_type": "filesystem",
-        },
-        discrete=(
-            DiscreteObservation(
-                name="approval_label",
-                value=True,
-            ),
-        ),
-        continuous=(),
-        events=(
-            TaskEvent(
-                name="task_started",
-                timestamp="2026-10-03T13:03:33+00:00",
-                source="filesystem_worker",
-            ),
-            TaskEvent(
-                name="tool_started",
-                timestamp="2026-10-03T13:03:34+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "list_directory",
-                    "path": ".",
-                },
-            ),
-            TaskEvent(
-                name="tool_completed",
-                timestamp="2026-10-03T13:03:35+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "list_directory",
-                    "path": ".",
-                    "success": True,
-                },
-            ),
-            TaskEvent(
-                name="tool_started",
-                timestamp="2026-10-03T13:03:36+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "search_files",
-                    "path": ".",
-                },
-            ),
-            TaskEvent(
-                name="tool_completed",
-                timestamp="2026-10-03T13:03:37+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "search_files",
-                    "path": ".",
-                    "success": True,
-                },
-            ),
-            TaskEvent(
-                name="tool_started",
-                timestamp="2026-10-03T13:03:38+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "read_table",
-                    "path": "Level_1/Level_2/Employees.csv",
-                },
-            ),
-            TaskEvent(
-                name="tool_completed",
-                timestamp="2026-10-03T13:03:39+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "read_table",
-                    "path": "Level_1/Level_2/Employees.csv",
-                    "success": True,
-                },
-            ),
-            TaskEvent(
-                name="tool_started",
-                timestamp="2026-10-03T13:03:40+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "compute_sum",
-                    "path": None,
-                },
-            ),
-            TaskEvent(
-                name="tool_completed",
-                timestamp="2026-10-03T13:03:41+00:00",
-                source="filesystem_worker",
-                payload={
-                    "tool_name": "compute_sum",
-                    "path": None,
-                    "success": True,
-                },
-            ),
-            TaskEvent(
-                name="task_completed",
-                timestamp="2026-10-03T13:03:43+00:00",
-                source="filesystem_worker",
-                payload={
-                    "status": "completed",
-                },
-            ),
-        ),
-        traces=(
-            TracePoint(
-                sequence=0,
-                timestamp="2026-10-03T13:03:34+00:00",
-                phase="tool_started",
-                action="list_directory",
-                path=".",
-                discrete={
-                    "tool_name": "list_directory",
-                },
-            ),
-            TracePoint(
-                sequence=1,
-                timestamp="2026-10-03T13:03:35+00:00",
-                phase="tool_completed",
-                action="list_directory",
-                path=".",
-                discrete={
-                    "success": True,
-                },
-            ),
-            TracePoint(
-                sequence=2,
-                timestamp="2026-10-03T13:03:36+00:00",
-                phase="tool_started",
-                action="search_files",
-                path=".",
-                discrete={
-                    "tool_name": "search_files",
-                },
-            ),
-            TracePoint(
-                sequence=3,
-                timestamp="2026-10-03T13:03:37+00:00",
-                phase="tool_completed",
-                action="search_files",
-                path=".",
-                discrete={
-                    "success": True,
-                },
-            ),
-            TracePoint(
-                sequence=4,
-                timestamp="2026-10-03T13:03:38+00:00",
-                phase="tool_started",
-                action="read_table",
-                path="Level_1/Level_2/Employees.csv",
-                discrete={
-                    "tool_name": "read_table",
-                },
-            ),
-            TracePoint(
-                sequence=5,
-                timestamp="2026-10-03T13:03:39+00:00",
-                phase="tool_completed",
-                action="read_table",
-                path="Level_1/Level_2/Employees.csv",
-                discrete={
-                    "success": True,
-                },
-            ),
-            TracePoint(
-                sequence=6,
-                timestamp="2026-10-03T13:03:40+00:00",
-                phase="tool_started",
-                action="compute_sum",
-                path=None,
-                discrete={
-                    "tool_name": "compute_sum",
-                },
-            ),
-            TracePoint(
-                sequence=7,
-                timestamp="2026-10-03T13:03:41+00:00",
-                phase="tool_completed",
-                action="compute_sum",
-                path=None,
-                discrete={
-                    "success": True,
-                },
-            ),
-        ),
-    )
+        # -----------------------------------------------------
+        # Toolbar
+        # -----------------------------------------------------
 
+        toolbar = QHBoxLayout()
 
-def test_tool_observer_derives_tool_usage():
-    observation = ToolObserver().observe(make_snapshot())
+        self.family_field = QComboBox()
+        self.family_field.setEditable(True)
+        self.family_field.setPlaceholderText("Task family")
 
-    assert observation.total_tool_calls == 4
-    assert observation.successful_tool_calls == 4
-    assert observation.failed_tool_calls == 0
-    assert observation.unique_tools == 4
+        start_button = QPushButton(
+            "Start Observation",
+        )
 
-    assert observation.list_directory_count == 1
-    assert observation.search_files_count == 1
-    assert observation.read_table_count == 1
-    assert observation.compute_count == 1
+        finish_button = QPushButton(
+            "Finish",
+        )
 
+        refresh_button = QPushButton(
+            "Refresh History",
+        )
 
-def test_navigation_observer_derives_navigation_features():
-    observation = NavigationObserver().observe(make_snapshot())
+        start_button.clicked.connect(
+            self._start_task,
+        )
 
-    assert observation.unique_paths == 2
-    assert observation.paths_visited == 6
-    assert observation.directory_navigation_count == 1
-    assert observation.file_access_count == 1
-    assert observation.search_count == 1
-    assert observation.maximum_path_depth == 3
+        finish_button.clicked.connect(
+            self._finish_task,
+        )
 
+        refresh_button.clicked.connect(
+            self.refresh_history,
+        )
 
-def test_timing_observer_derives_task_duration():
-    observation = TimingObserver().observe(make_snapshot())
+        toolbar.addWidget(
+            QLabel("Family:"),
+        )
 
-    assert observation.task_duration_seconds == 10.0
-    assert observation.average_tool_duration_seconds == 1.0
-    assert observation.minimum_tool_duration_seconds == 1.0
-    assert observation.maximum_tool_duration_seconds == 1.0
+        toolbar.addWidget(
+            self.family_field,
+            1,
+        )
 
+        toolbar.addWidget(
+            start_button,
+        )
 
-def test_outcome_observer_derives_completed_state():
-    observation = OutcomeObserver().observe(make_snapshot())
+        toolbar.addWidget(
+            finish_button,
+        )
 
-    assert observation.status == "completed"
-    assert observation.completed is True
-    assert observation.failed is False
-    assert observation.cancelled is False
-    assert observation.had_tool_failure is False
-    assert observation.recovered_from_failure is False
-    assert observation.approval_label is True
+        toolbar.addWidget(
+            refresh_button,
+        )
 
+        root.addLayout(
+            toolbar,
+        )
 
-def test_feature_deriver_combines_all_observers():
-    features = FeatureDeriver().derive(make_snapshot())
+        # -----------------------------------------------------
+        # Status
+        # -----------------------------------------------------
 
-    continuous = features.continuous_features()
-    discrete = features.discrete_features()
+        self.status_label = QLabel(
+            "No active observation.",
+        )
 
-    assert continuous["total_tool_calls"] == 4.0
-    assert continuous["successful_tool_calls"] == 4.0
-    assert continuous["failed_tool_calls"] == 0.0
-    assert continuous["compute_count"] == 1.0
-    assert continuous["task_duration_seconds"] == 10.0
+        root.addWidget(
+            self.status_label,
+        )
 
-    assert discrete["task_status"] == "completed"
-    assert discrete["task_completed"] is True
-    assert discrete["task_failed"] is False
-    assert discrete["used_search"] is True
-    assert discrete["used_computation"] is True
-    assert discrete["used_file_read"] is True
-    assert discrete["approval_label"] is True
+        # -----------------------------------------------------
+        # Main splitter
+        # -----------------------------------------------------
 
+        splitter = QSplitter(
+            Qt.Horizontal,
+        )
 
-def test_outcome_observer_detects_recovery():
-    snapshot = make_snapshot()
+        # -----------------------------------------------------
+        # History
+        # -----------------------------------------------------
 
-    events = list(snapshot.events)
+        history_group = QGroupBox(
+            "Stored Sessions",
+        )
 
-    events.insert(
-        -1,
-        TaskEvent(
-            name="tool_completed",
-            timestamp="2026-10-03T13:03:42+00:00",
-            source="filesystem_worker",
-            payload={
-                "tool_name": "read_file",
-                "path": "recovered.txt",
-                "success": False,
-            },
-        ),
-    )
+        history_layout = QVBoxLayout(
+            history_group,
+        )
 
-    events.insert(
-        -1,
-        TaskEvent(
-            name="tool_completed",
-            timestamp="2026-10-03T13:03:42.500000+00:00",
-            source="filesystem_worker",
-            payload={
-                "tool_name": "read_file",
-                "path": "recovered.txt",
-                "success": True,
-            },
-        ),
-    )
+        self.history_list = QListWidget()
 
-    modified = ObservationSnapshot(
-        identity=snapshot.identity,
-        discrete=snapshot.discrete,
-        continuous=snapshot.continuous,
-        events=tuple(events),
-        traces=snapshot.traces,
-        started_at=snapshot.started_at,
-        finished_at=snapshot.finished_at,
-        status=snapshot.status,
-        metadata=snapshot.metadata,
-    )
+        self.history_list.itemClicked.connect(
+            self._load_history_item,
+        )
 
-    observation = OutcomeObserver().observe(modified)
+        history_layout.addWidget(
+            self.history_list,
+        )
 
-    assert observation.had_tool_failure is True
-    assert observation.recovered_from_failure is True
+        splitter.addWidget(
+            history_group,
+        )
 
+        # -----------------------------------------------------
+        # Right side
+        # -----------------------------------------------------
 
+        right = QWidget()
 
-================================================================================
-FILE: task_observation_engine/tests/test_observation_engine.py
-================================================================================
+        right_layout = QVBoxLayout(
+            right,
+        )
 
-from pathlib import Path
+        right_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
 
-from task_observation import ReplayAPI, TaskObservationEngine, generate_runs
+        # Metadata
 
+        metadata_group = QGroupBox(
+            "Session",
+        )
 
-def test_missing_values_do_not_stop_collection(tmp_path: Path) -> None:
-    engine = TaskObservationEngine(tmp_path)
-    session = engine.start("demo.family")
-    session.discrete.record("optional", None)
-    session.continuous.record("optional_number", None)
-    session.continuous.record("bad_number", "not-a-number")
-    snapshot = session.finish()
+        metadata_layout = QFormLayout(
+            metadata_group,
+        )
 
-    assert snapshot.status == "completed"
-    assert len(snapshot.discrete) == 1
-    assert len(snapshot.continuous) == 2
-    assert snapshot.continuous[-1].value is None
+        self.session_id_label = QLabel("-")
+        self.family_label = QLabel("-")
+        self.session_status_label = QLabel("-")
 
+        metadata_layout.addRow(
+            "Session ID:",
+            self.session_id_label,
+        )
 
-def test_persistence_and_replay(tmp_path: Path) -> None:
-    engine = TaskObservationEngine(tmp_path)
-    session = engine.start("filesystem.read_table.calculate")
-    session.continuous.record("row_count", 1000)
-    session.discrete.record("extension", ".csv")
-    snapshot = session.finish()
+        metadata_layout.addRow(
+            "Family:",
+            self.family_label,
+        )
 
-    replay = ReplayAPI(tmp_path)
-    loaded = replay.session(snapshot.identity.session_id)
-    assert loaded.identity.session_id == snapshot.identity.session_id
-    assert loaded.continuous[0].value == 1000.0
-    assert loaded.discrete[0].value == ".csv"
+        metadata_layout.addRow(
+            "Status:",
+            self.session_status_label,
+        )
 
+        right_layout.addWidget(
+            metadata_group,
+        )
 
-def test_simulation_produces_multiple_replayable_runs(tmp_path: Path) -> None:
-    snapshots = generate_runs(tmp_path, count=5, seed=42)
-    assert len(snapshots) == 5
-    replay = ReplayAPI(tmp_path)
-    assert len(replay.session_ids()) == 5
-    assert len(replay.feature_rows()) == 5
+        # -----------------------------------------------------
+        # Feature selector
+        # -----------------------------------------------------
+
+        selector_layout = QHBoxLayout()
+
+        selector_layout.addWidget(
+            QLabel("Continuous feature:"),
+        )
+
+        self.feature_selector = QComboBox()
+
+        self.feature_selector.currentTextChanged.connect(
+            self._continuous_feature_changed,
+        )
+
+        selector_layout.addWidget(
+            self.feature_selector,
+            1,
+        )
+
+        right_layout.addLayout(
+            selector_layout,
+        )
+
+        # -----------------------------------------------------
+        # Plot
+        # -----------------------------------------------------
+
+        self.plot = ObservationPlot()
+
+        right_layout.addWidget(
+            self.plot,
+            2,
+        )
+
+        # -----------------------------------------------------
+        # Bottom splitter
+        # -----------------------------------------------------
+
+        lower_splitter = QSplitter(
+            Qt.Vertical,
+        )
+
+        # Discrete
+
+        discrete_group = QGroupBox(
+            "Discrete Features",
+        )
+
+        discrete_layout = QVBoxLayout(
+            discrete_group,
+        )
+
+        self.discrete_table = QTableWidget()
+
+        self.discrete_table.setColumnCount(
+            2,
+        )
+
+        self.discrete_table.setHorizontalHeaderLabels(
+            [
+                "Feature",
+                "Value",
+            ],
+        )
+
+        self.discrete_table.setEditTriggers(
+            QTableWidget.NoEditTriggers,
+        )
+
+        discrete_layout.addWidget(
+            self.discrete_table,
+        )
+
+        lower_splitter.addWidget(
+            discrete_group,
+        )
+
+        # Events/traces
+
+        event_group = QGroupBox(
+            "Events / Trace",
+        )
+
+        event_layout = QVBoxLayout(
+            event_group,
+        )
+
+        self.event_table = QTableWidget()
+
+        self.event_table.setColumnCount(
+            3,
+        )
+
+        self.event_table.setHorizontalHeaderLabels(
+            [
+                "Type",
+                "Name",
+                "Value",
+            ],
+        )
+
+        self.event_table.setEditTriggers(
+            QTableWidget.NoEditTriggers,
+        )
+
+        event_layout.addWidget(
+            self.event_table,
+        )
+
+        lower_splitter.addWidget(
+            event_group,
+        )
+
+        right_layout.addWidget(
+            lower_splitter,
+            2,
+        )
+
+        splitter.addWidget(
+            right,
+        )
+
+        splitter.setSizes(
+            [
+                220,
+                800,
+            ],
+        )
+
+        root.addWidget(
+            splitter,
+            1,
+        )
+
+    # ---------------------------------------------------------
+    # Bridge
+    # ---------------------------------------------------------
+
+    def _connect_bridge(self) -> None:
+        self.bridge.task_started.connect(
+            self._on_task_started,
+        )
+
+        self.bridge.observation_updated.connect(
+            self._display_snapshot,
+        )
+
+        self.bridge.task_finished.connect(
+            self._on_task_finished,
+        )
+
+        self.bridge.error.connect(
+            self._on_error,
+        )
+
+    # ---------------------------------------------------------
+    # Commands
+    # ---------------------------------------------------------
+
+    def _start_task(self) -> None:
+        family = self.family_field.currentText().strip()
+
+        if not family:
+            self.status_label.setText("Enter a task family.")
+            return
+
+        self.bridge.start_task(
+            family,
+        )
+
+    def _finish_task(self) -> None:
+        self.bridge.finish_task()
+
+    # ---------------------------------------------------------
+    # Worker events
+    # ---------------------------------------------------------
+
+    def _on_task_started(
+        self,
+        family: str,
+    ) -> None:
+        self.status_label.setText(f"Collecting: {family}")
+
+        self.family_label.setText(
+            family,
+        )
+
+        self.session_status_label.setText(
+            "running",
+        )
+
+    def _on_task_finished(
+        self,
+        snapshot: object,
+    ) -> None:
+        self.status_label.setText(
+            "Observation completed.",
+        )
+
+        self._display_snapshot(
+            snapshot,
+        )
+
+        self.refresh_history()
+
+    def _on_error(
+        self,
+        message: str,
+    ) -> None:
+        self.status_label.setText(f"Observation error: {message}")
+
+    # ---------------------------------------------------------
+    # Snapshot display
+    # ---------------------------------------------------------
+
+    def _display_snapshot(
+        self,
+        snapshot: object,
+    ) -> None:
+        if snapshot is None:
+            return
+
+        self._snapshot = snapshot
+
+        identity = getattr(
+            snapshot,
+            "identity",
+            None,
+        )
+
+        if identity is not None:
+            self.session_id_label.setText(
+                str(
+                    getattr(
+                        identity,
+                        "session_id",
+                        "-",
+                    )
+                )
+            )
+
+            self.family_label.setText(
+                str(
+                    getattr(
+                        identity,
+                        "family_key",
+                        getattr(
+                            identity,
+                            "family",
+                            "-",
+                        ),
+                    )
+                )
+            )
+
+        self.session_status_label.setText(
+            str(
+                getattr(
+                    snapshot,
+                    "status",
+                    "-",
+                )
+            )
+        )
+
+        self._display_discrete(
+            getattr(
+                snapshot,
+                "discrete",
+                (),
+            )
+        )
+
+        self._display_continuous(
+            getattr(
+                snapshot,
+                "continuous",
+                (),
+            )
+        )
+
+        self._display_events(
+            snapshot,
+        )
+
+    # ---------------------------------------------------------
+    # Discrete
+    # ---------------------------------------------------------
+
+    def _display_discrete(
+        self,
+        observations,
+    ) -> None:
+        self.discrete_table.setRowCount(
+            0,
+        )
+
+        for observation in observations:
+
+            row = self.discrete_table.rowCount()
+
+            self.discrete_table.insertRow(
+                row,
+            )
+
+            self.discrete_table.setItem(
+                row,
+                0,
+                QTableWidgetItem(
+                    str(
+                        getattr(
+                            observation,
+                            "name",
+                            "",
+                        )
+                    )
+                ),
+            )
+
+            self.discrete_table.setItem(
+                row,
+                1,
+                QTableWidgetItem(
+                    self._safe_text(
+                        getattr(
+                            observation,
+                            "value",
+                            None,
+                        )
+                    )
+                ),
+            )
+
+        self.discrete_table.resizeColumnsToContents()
+
+    # ---------------------------------------------------------
+    # Continuous
+    # ---------------------------------------------------------
+
+    def _display_continuous(
+        self,
+        observations,
+    ) -> None:
+        self.feature_selector.blockSignals(
+            True,
+        )
+
+        current = self.feature_selector.currentText()
+
+        self.feature_selector.clear()
+
+        names = []
+
+        for observation in observations:
+            name = str(
+                getattr(
+                    observation,
+                    "name",
+                    "",
+                )
+            )
+
+            if name and name not in names:
+                names.append(name)
+
+        self.feature_selector.addItems(
+            names,
+        )
+
+        if current in names:
+            self.feature_selector.setCurrentText(
+                current,
+            )
+
+        self.feature_selector.blockSignals(
+            False,
+        )
+
+        self._render_selected_continuous(
+            observations,
+        )
+
+    def _continuous_feature_changed(
+        self,
+        _name: str,
+    ) -> None:
+        if self._snapshot is None:
+            return
+
+        self._render_selected_continuous(
+            getattr(
+                self._snapshot,
+                "continuous",
+                (),
+            )
+        )
+
+    def _render_selected_continuous(
+        self,
+        observations,
+    ) -> None:
+        selected = self.feature_selector.currentText()
+
+        if not selected:
+            self.plot.clear()
+            return
+
+        values: list[float] = []
+
+        for observation in observations:
+
+            name = str(
+                getattr(
+                    observation,
+                    "name",
+                    "",
+                )
+            )
+
+            if name != selected:
+                continue
+
+            value = getattr(
+                observation,
+                "value",
+                None,
+            )
+
+            try:
+                if value is not None:
+                    values.append(float(value))
+            except (
+                TypeError,
+                ValueError,
+            ):
+                continue
+
+        self.plot.set_data(
+            values,
+            selected,
+        )
+
+    # ---------------------------------------------------------
+    # Events
+    # ---------------------------------------------------------
+
+    def _display_events(
+        self,
+        snapshot,
+    ) -> None:
+        self.event_table.setRowCount(
+            0,
+        )
+
+        collections = []
+
+        for attribute_name in (
+            "events",
+            "trace",
+            "traces",
+            "event_trace",
+        ):
+            value = getattr(
+                snapshot,
+                attribute_name,
+                None,
+            )
+
+            if value:
+                collections.append(value)
+
+        for collection in collections:
+
+            for event in collection:
+
+                row = self.event_table.rowCount()
+
+                self.event_table.insertRow(
+                    row,
+                )
+
+                event_type = getattr(
+                    event,
+                    "event_type",
+                    getattr(
+                        event,
+                        "type",
+                        "",
+                    ),
+                )
+
+                name = getattr(
+                    event,
+                    "name",
+                    getattr(
+                        event,
+                        "operation",
+                        "",
+                    ),
+                )
+
+                value = getattr(
+                    event,
+                    "value",
+                    getattr(
+                        event,
+                        "payload",
+                        "",
+                    ),
+                )
+
+                self.event_table.setItem(
+                    row,
+                    0,
+                    QTableWidgetItem(self._safe_text(event_type)),
+                )
+
+                self.event_table.setItem(
+                    row,
+                    1,
+                    QTableWidgetItem(self._safe_text(name)),
+                )
+
+                self.event_table.setItem(
+                    row,
+                    2,
+                    QTableWidgetItem(self._safe_text(value)),
+                )
+
+        self.event_table.resizeColumnsToContents()
+
+    # ---------------------------------------------------------
+    # History / Replay
+    # ---------------------------------------------------------
+
+    def refresh_history(self) -> None:
+        try:
+            replay = ReplayAPI(
+                self.storage_root,
+            )
+
+            session_ids = replay.session_ids()
+
+        except Exception as exc:
+            self.status_label.setText(f"History error: {exc}")
+            return
+
+        self.history_list.clear()
+
+        for session_id in session_ids:
+
+            item = QListWidgetItem(
+                str(session_id),
+            )
+
+            item.setData(
+                Qt.UserRole,
+                str(session_id),
+            )
+
+            self.history_list.addItem(
+                item,
+            )
+
+    def _load_history_item(
+        self,
+        item: QListWidgetItem,
+    ) -> None:
+        session_id = item.data(
+            Qt.UserRole,
+        )
+
+        if not session_id:
+            return
+
+        try:
+            replay = ReplayAPI(
+                self.storage_root,
+            )
+
+            snapshot = replay.session(
+                session_id,
+            )
+
+            self._display_snapshot(
+                snapshot,
+            )
+
+            self.status_label.setText(f"Loaded session: {session_id}")
+
+        except Exception as exc:
+            self.status_label.setText(f"Replay error: {exc}")
+
+    # ---------------------------------------------------------
+    # Helpers
+    # ---------------------------------------------------------
+
+    @staticmethod
+    def _safe_text(
+        value: Any,
+    ) -> str:
+        if value is None:
+            return "<missing>"
+
+        try:
+            return str(value)
+        except Exception:
+            return "<unprintable>"
+
+    # ---------------------------------------------------------
+    # Lifecycle
+    # ---------------------------------------------------------
+
+    def closeEvent(self, event) -> None:
+        self.bridge.close()
+
+        super().closeEvent(
+            event,
+        )
 

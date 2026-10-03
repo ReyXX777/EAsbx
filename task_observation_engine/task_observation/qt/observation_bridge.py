@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
@@ -8,11 +8,12 @@ from .observation_thread import ObservationWorker
 
 
 class ObservationBridge(QObject):
-    """Thread-safe bridge between Qt UI code and ObservationWorker.
+    """Thread-safe Qt bridge for the observation worker.
 
-    UI code talks to this class.
+    UI code communicates only with this object.
 
-    UI code never directly accesses the TaskObservationSession.
+    The bridge owns the worker thread and forwards requests to the
+    ObservationWorker using Qt's queued signal/slot mechanism.
     """
 
     task_started = Signal(str)
@@ -20,7 +21,7 @@ class ObservationBridge(QObject):
     task_finished = Signal(object)
     error = Signal(str)
 
-    request_start = Signal(str)
+    request_start = Signal(str, str, object)
     request_discrete = Signal(str, object)
     request_continuous = Signal(str, object)
     request_event = Signal(str, object)
@@ -32,8 +33,10 @@ class ObservationBridge(QObject):
         self,
         storage_root: str,
         parent: QObject | None = None,
-    ):
+    ) -> None:
         super().__init__(parent)
+
+        self._closed = False
 
         self._thread = QThread(self)
 
@@ -44,6 +47,10 @@ class ObservationBridge(QObject):
         self._worker.moveToThread(
             self._thread,
         )
+
+        # --------------------------------------------------------------
+        # Requests: UI -> worker
+        # --------------------------------------------------------------
 
         self.request_start.connect(
             self._worker.start_task,
@@ -73,6 +80,10 @@ class ObservationBridge(QObject):
             self._worker.shutdown,
         )
 
+        # --------------------------------------------------------------
+        # Results: worker -> UI
+        # --------------------------------------------------------------
+
         self._worker.task_started.connect(
             self.task_started,
         )
@@ -91,62 +102,119 @@ class ObservationBridge(QObject):
 
         self._thread.start()
 
-    def start_task(self, family_key: str) -> None:
+    # ------------------------------------------------------------------
+    # Public commands
+    # ------------------------------------------------------------------
+
+    @Slot(str, str, object)
+    def start_task(
+        self,
+        family_key: str,
+        task_key: str = "",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Request creation of a new observation session."""
+
+        if self._closed:
+            return
+
         self.request_start.emit(
             family_key,
+            task_key,
+            metadata,
         )
 
+    @Slot(str, object)
     def record_discrete(
         self,
         name: str,
         value: Any = None,
     ) -> None:
+        """Request a discrete observation."""
+
+        if self._closed:
+            return
+
         self.request_discrete.emit(
             name,
             value,
         )
 
+    @Slot(str, object)
     def record_continuous(
         self,
         name: str,
         value: Any = None,
     ) -> None:
+        """Request a continuous observation."""
+
+        if self._closed:
+            return
+
         self.request_continuous.emit(
             name,
             value,
         )
 
+    @Slot(str, object)
     def record_event(
         self,
         event_type: str,
         payload: Any = None,
     ) -> None:
+        """Request an event observation."""
+
+        if self._closed:
+            return
+
         self.request_event.emit(
             event_type,
             payload,
         )
 
     def request_current_snapshot(self) -> None:
+        """Request publication of the current live snapshot."""
+
+        if self._closed:
+            return
+
         self.request_snapshot.emit()
 
     def finish_task(self) -> None:
+        """Request finalization of the active observation session."""
+
+        if self._closed:
+            return
+
         self.request_finish.emit()
 
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
     def close(self) -> None:
-        """Stop the observation worker safely."""
+        """Stop the worker thread safely and release Qt resources."""
+
+        if self._closed:
+            return
+
+        self._closed = True
 
         if not self._thread.isRunning():
             return
 
+        # The shutdown request is queued to the worker so that the
+        # session reference is released on the worker thread.
         self.request_shutdown.emit()
 
+        # Stop the event loop after queued work has been processed.
         self._thread.quit()
 
         if not self._thread.wait(3000):
             self._thread.terminate()
             self._thread.wait(1000)
 
-    def __del__(self):
+    def __del__(self) -> None:
         try:
             self.close()
         except Exception:

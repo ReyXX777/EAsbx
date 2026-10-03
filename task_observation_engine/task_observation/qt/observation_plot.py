@@ -1,16 +1,31 @@
 from __future__ import annotations
 
 import math
+from typing import Iterable
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QPainter, QPen
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QWidget
 
 
 class ObservationPlot(QWidget):
-    """Small dependency-free Qt plot for continuous observation traces."""
+    """Small dependency-free Qt plot for continuous observations.
 
-    def __init__(self, parent=None):
+    The plot is intentionally independent of:
+
+    - TaskObservationSession
+    - TaskObservationEngine
+    - SessionStore
+    - ReplayAPI
+    - collector implementations
+
+    It only receives numeric values and renders them.
+    """
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
 
         self.setMinimumHeight(220)
@@ -20,20 +35,32 @@ class ObservationPlot(QWidget):
 
     def set_data(
         self,
-        values: list[float],
+        values: Iterable[float],
         title: str = "Continuous Feature",
     ) -> None:
-        self._values = [
-            float(value)
-            for value in values
-            if value is not None and math.isfinite(float(value))
-        ]
+        """Replace the plotted values."""
 
-        self._title = title
+        cleaned: list[float] = []
+
+        for value in values:
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+
+            if not math.isfinite(numeric):
+                continue
+
+            cleaned.append(numeric)
+
+        self._values = cleaned
+        self._title = str(title)
 
         self.update()
 
     def clear(self) -> None:
+        """Clear the current plot."""
+
         self._values.clear()
         self.update()
 
@@ -70,20 +97,29 @@ class ObservationPlot(QWidget):
             minimum = min(self._values)
             maximum = max(self._values)
 
-            if math.isclose(minimum, maximum):
-                minimum -= 1.0
-                maximum += 1.0
+            if math.isclose(
+                minimum,
+                maximum,
+            ):
+                padding = max(
+                    abs(minimum) * 0.05,
+                    1.0,
+                )
 
-            painter.drawRect(rect)
+                minimum -= padding
+                maximum += padding
+
+            painter.drawRect(
+                rect,
+            )
 
             point_count = len(self._values)
 
             points: list[QPointF] = []
 
             for index, value in enumerate(self._values):
-
                 if point_count == 1:
-                    x = rect.center().x()
+                    x = float(rect.center().x())
                 else:
                     x = rect.left() + (index / (point_count - 1)) * rect.width()
 

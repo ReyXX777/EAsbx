@@ -1,9 +1,15 @@
-"""Qt presentation layer for the Stage 6 task observation engine.
+"""Qt presentation layer for the task observation engine.
 
 The Qt layer is intentionally downstream of the observation engine.
 
-Qt widgets display snapshots and requests. They do not own mutable
-observation-session state.
+Qt is responsible for:
+
+- starting and finishing observation sessions through a bridge
+- displaying live observation snapshots
+- displaying persisted sessions through ReplayAPI
+- visualizing continuous observations
+
+Qt does not own observation-session state or storage state.
 """
 
 from .observation_bridge import ObservationBridge

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .models import ObservationSnapshot
-from .storage import SessionStore
+from .session_store import SessionStore
 
 
 class ReplayAPI:
@@ -19,11 +19,15 @@ class ReplayAPI:
     def session(self, session_id: str) -> ObservationSnapshot:
         return self.store.load(session_id)
 
-    def sessions(self, session_ids: Iterable[str] | None = None) -> list[ObservationSnapshot]:
+    def sessions(
+        self, session_ids: Iterable[str] | None = None
+    ) -> list[ObservationSnapshot]:
         ids = list(session_ids) if session_ids is not None else self.session_ids()
         return [self.session(session_id) for session_id in ids]
 
-    def feature_rows(self, session_ids: Iterable[str] | None = None) -> list[dict[str, object]]:
+    def feature_rows(
+        self, session_ids: Iterable[str] | None = None
+    ) -> list[dict[str, object]]:
         rows: list[dict[str, object]] = []
         for snapshot in self.sessions(session_ids):
             row: dict[str, object] = {

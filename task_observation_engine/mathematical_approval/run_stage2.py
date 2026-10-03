@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import json
 
-from mathematical_approval.models import TaskFamily
-from mathematical_approval.simulation_metrics import format_metrics
-from mathematical_approval.simulation_runner import SimulationHarness
-from mathematical_approval.simulation_scenarios import (
+from task_observation_engine.mathematical_approval.mathematical_approval.models import (
+    TaskFamily,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.simulation_metrics import (
+    format_metrics,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.simulation_runner import (
+    SimulationHarness,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.simulation_scenarios import (
     ScenarioConfig,
     SyntheticTaskFamilyGenerator,
 )

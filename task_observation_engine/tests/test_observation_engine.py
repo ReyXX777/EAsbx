@@ -6,15 +6,70 @@ from task_observation import ReplayAPI, TaskObservationEngine, generate_runs
 def test_missing_values_do_not_stop_collection(tmp_path: Path) -> None:
     engine = TaskObservationEngine(tmp_path)
     session = engine.start("demo.family")
+
     session.discrete.record("optional", None)
     session.continuous.record("optional_number", None)
     session.continuous.record("bad_number", "not-a-number")
+
     snapshot = session.finish()
 
     assert snapshot.status == "completed"
-    assert len(snapshot.discrete) == 1
-    assert len(snapshot.continuous) == 2
-    assert snapshot.continuous[-1].value is None
+
+    # ----------------------------------------------------------
+    # Raw observations must survive derivation unchanged.
+    # ----------------------------------------------------------
+
+    optional = [
+        item
+        for item in snapshot.discrete
+        if item.name == "optional" and item.source == "unknown"
+    ]
+
+    assert len(optional) == 1
+    assert optional[0].value is None
+
+    optional_number = [
+        item
+        for item in snapshot.continuous
+        if item.name == "optional_number" and item.source == "unknown"
+    ]
+
+    assert len(optional_number) == 1
+    assert optional_number[0].value is None
+
+    bad_number = [
+        item
+        for item in snapshot.continuous
+        if item.name == "bad_number" and item.source == "unknown"
+    ]
+
+    assert len(bad_number) == 1
+    assert bad_number[0].value is None
+
+    # ----------------------------------------------------------
+    # Derived observations must also have been produced.
+    # ----------------------------------------------------------
+
+    assert any(
+        item.name == "task_status"
+        and item.value == "completed"
+        and item.source == "feature_deriver"
+        for item in snapshot.discrete
+    )
+
+    assert any(
+        item.name == "task_completed"
+        and item.value is True
+        and item.source == "feature_deriver"
+        for item in snapshot.discrete
+    )
+
+    assert any(
+        item.name == "total_tool_calls"
+        and item.value == 0.0
+        and item.source == "feature_deriver"
+        for item in snapshot.continuous
+    )
 
 
 def test_persistence_and_replay(tmp_path: Path) -> None:

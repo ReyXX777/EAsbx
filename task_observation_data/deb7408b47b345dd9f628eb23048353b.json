@@ -1,0 +1,857 @@
+{
+  "identity": {
+    "session_id": "deb7408b47b345dd9f628eb23048353b",
+    "family_key": "filesystem",
+    "task_key": "",
+    "started_at": "2026-10-03T18:59:58.676512+00:00"
+  },
+  "started_at": "2026-10-03T18:59:58.676512+00:00",
+  "finished_at": "2026-10-03T19:00:31.232154+00:00",
+  "status": "completed",
+  "metadata": {
+    "prompt": "Navigate to Level_3 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read.",
+    "filesystem_root": "X:\\MOCKAPP\\test_filesystem",
+    "agent_type": "filesystem"
+  },
+  "discrete": [
+    {
+      "name": "tool_success",
+      "value": false,
+      "timestamp": "2026-10-03T19:00:02.473710+00:00",
+      "source": "filesystem_worker",
+      "step": 0
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-03T19:00:02.473710+00:00",
+      "source": "filesystem_worker",
+      "step": 0
+    },
+    {
+      "name": "path",
+      "value": "Level_3",
+      "timestamp": "2026-10-03T19:00:02.473710+00:00",
+      "source": "filesystem_worker",
+      "step": 0
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:03.629350+00:00",
+      "source": "filesystem_worker",
+      "step": 1
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-03T19:00:03.629350+00:00",
+      "source": "filesystem_worker",
+      "step": 1
+    },
+    {
+      "name": "path",
+      "value": ".",
+      "timestamp": "2026-10-03T19:00:03.629350+00:00",
+      "source": "filesystem_worker",
+      "step": 1
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:05.056478+00:00",
+      "source": "filesystem_worker",
+      "step": 2
+    },
+    {
+      "name": "tool_name",
+      "value": "search_files",
+      "timestamp": "2026-10-03T19:00:05.056478+00:00",
+      "source": "filesystem_worker",
+      "step": 2
+    },
+    {
+      "name": "path",
+      "value": ".",
+      "timestamp": "2026-10-03T19:00:05.056478+00:00",
+      "source": "filesystem_worker",
+      "step": 2
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:06.141449+00:00",
+      "source": "filesystem_worker",
+      "step": 3
+    },
+    {
+      "name": "tool_name",
+      "value": "search_files",
+      "timestamp": "2026-10-03T19:00:06.141449+00:00",
+      "source": "filesystem_worker",
+      "step": 3
+    },
+    {
+      "name": "path",
+      "value": ".",
+      "timestamp": "2026-10-03T19:00:06.141449+00:00",
+      "source": "filesystem_worker",
+      "step": 3
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:07.312593+00:00",
+      "source": "filesystem_worker",
+      "step": 4
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-03T19:00:07.312593+00:00",
+      "source": "filesystem_worker",
+      "step": 4
+    },
+    {
+      "name": "path",
+      "value": "Level_1",
+      "timestamp": "2026-10-03T19:00:07.312593+00:00",
+      "source": "filesystem_worker",
+      "step": 4
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:08.831957+00:00",
+      "source": "filesystem_worker",
+      "step": 5
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-03T19:00:08.831957+00:00",
+      "source": "filesystem_worker",
+      "step": 5
+    },
+    {
+      "name": "path",
+      "value": "Level_1/Level_2",
+      "timestamp": "2026-10-03T19:00:08.831957+00:00",
+      "source": "filesystem_worker",
+      "step": 5
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:10.123195+00:00",
+      "source": "filesystem_worker",
+      "step": 6
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-03T19:00:10.123195+00:00",
+      "source": "filesystem_worker",
+      "step": 6
+    },
+    {
+      "name": "path",
+      "value": "Level_1/Level_2/Level_3",
+      "timestamp": "2026-10-03T19:00:10.123195+00:00",
+      "source": "filesystem_worker",
+      "step": 6
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:11.572104+00:00",
+      "source": "filesystem_worker",
+      "step": 7
+    },
+    {
+      "name": "tool_name",
+      "value": "read_table",
+      "timestamp": "2026-10-03T19:00:11.572104+00:00",
+      "source": "filesystem_worker",
+      "step": 7
+    },
+    {
+      "name": "path",
+      "value": "Level_1/Level_2/Level_3/Employees.csv",
+      "timestamp": "2026-10-03T19:00:11.572104+00:00",
+      "source": "filesystem_worker",
+      "step": 7
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:28.234230+00:00",
+      "source": "filesystem_worker",
+      "step": 8
+    },
+    {
+      "name": "tool_name",
+      "value": "compute_sum",
+      "timestamp": "2026-10-03T19:00:28.234230+00:00",
+      "source": "filesystem_worker",
+      "step": 8
+    },
+    {
+      "name": "task_status",
+      "value": "completed",
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_completed",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_failed",
+      "value": false,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_cancelled",
+      "value": false,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "had_tool_failure",
+      "value": false,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "recovered_from_failure",
+      "value": false,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "used_search",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "used_computation",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "used_file_read",
+      "value": true,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    }
+  ],
+  "continuous": [
+    {
+      "name": "total_tool_calls",
+      "value": 9.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "successful_tool_calls",
+      "value": 8.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "failed_tool_calls",
+      "value": 0.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "unique_tools",
+      "value": 4.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "list_directory_count",
+      "value": 5.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "search_files_count",
+      "value": 2.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "read_file_count",
+      "value": 0.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "read_table_count",
+      "value": 1.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "compute_count",
+      "value": 1.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "unique_paths",
+      "value": 6.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "paths_visited",
+      "value": 16.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "directory_navigation_count",
+      "value": 5.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "file_access_count",
+      "value": 1.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "maximum_path_depth",
+      "value": 4.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "search_count",
+      "value": 2.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "navigation_reversal_count",
+      "value": 0.0,
+      "timestamp": "2026-10-03T19:00:31.234407+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_duration_seconds",
+      "value": 32.555642,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "average_tool_duration_seconds",
+      "value": 0.01029075,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "minimum_tool_duration_seconds",
+      "value": 0.0,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "maximum_tool_duration_seconds",
+      "value": 0.021002,
+      "timestamp": "2026-10-03T19:00:31.235478+00:00",
+      "source": "feature_deriver",
+      "step": null
+    }
+  ],
+  "events": [
+    {
+      "name": "task_started",
+      "timestamp": "2026-10-03T18:59:58.676512+00:00",
+      "source": "filesystem_worker",
+      "payload": {},
+      "step": null
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:02.466759+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_3",
+        "step": 0
+      },
+      "step": 0
+    },
+    {
+      "name": "tool_failed",
+      "timestamp": "2026-10-03T19:00:02.473710+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_3",
+        "success": false,
+        "message": "",
+        "error": "FileNotFoundError: [WinError 2] The system cannot find the file specified: 'X:\\\\MOCKAPP\\\\test_filesystem\\\\Level_3'",
+        "step": 0
+      },
+      "step": 0
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:03.622406+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": ".",
+        "step": 1
+      },
+      "step": 1
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:03.629350+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": ".",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 1
+      },
+      "step": 1
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:05.053508+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "search_files",
+        "path": ".",
+        "step": 2
+      },
+      "step": 2
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:05.056478+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "search_files",
+        "path": ".",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 2
+      },
+      "step": 2
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:06.140445+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "search_files",
+        "path": ".",
+        "step": 3
+      },
+      "step": 3
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:06.141449+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "search_files",
+        "path": ".",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 3
+      },
+      "step": 3
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:07.294626+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1",
+        "step": 4
+      },
+      "step": 4
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:07.312593+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 4
+      },
+      "step": 4
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:08.810955+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1/Level_2",
+        "step": 5
+      },
+      "step": 5
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:08.831957+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1/Level_2",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 5
+      },
+      "step": 5
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:10.104754+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1/Level_2/Level_3",
+        "step": 6
+      },
+      "step": 6
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:10.123195+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1/Level_2/Level_3",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 6
+      },
+      "step": 6
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:11.558106+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "read_table",
+        "path": "Level_1/Level_2/Level_3/Employees.csv",
+        "step": 7
+      },
+      "step": 7
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:11.572104+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "read_table",
+        "path": "Level_1/Level_2/Level_3/Employees.csv",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 7
+      },
+      "step": 7
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T19:00:28.234230+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "compute_sum",
+        "path": null,
+        "step": 8
+      },
+      "step": 8
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T19:00:28.234230+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "compute_sum",
+        "path": null,
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 8
+      },
+      "step": 8
+    },
+    {
+      "name": "task_completed",
+      "timestamp": "2026-10-03T19:00:31.232154+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "status": "completed"
+      },
+      "step": null
+    }
+  ],
+  "traces": [
+    {
+      "sequence": 0,
+      "timestamp": "2026-10-03T18:59:58.676512+00:00",
+      "phase": "task_started",
+      "action": "filesystem_task",
+      "path": null,
+      "discrete": {},
+      "continuous": {}
+    },
+    {
+      "sequence": 1,
+      "timestamp": "2026-10-03T19:00:02.466759+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": "Level_3",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 2,
+      "timestamp": "2026-10-03T19:00:02.473710+00:00",
+      "phase": "tool_failed",
+      "action": "list_directory",
+      "path": "Level_3",
+      "discrete": {
+        "success": false
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 3,
+      "timestamp": "2026-10-03T19:00:03.622406+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": ".",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 4,
+      "timestamp": "2026-10-03T19:00:03.629350+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": ".",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 5,
+      "timestamp": "2026-10-03T19:00:05.053508+00:00",
+      "phase": "tool_started",
+      "action": "search_files",
+      "path": ".",
+      "discrete": {
+        "tool_name": "search_files"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 6,
+      "timestamp": "2026-10-03T19:00:05.056478+00:00",
+      "phase": "tool_completed",
+      "action": "search_files",
+      "path": ".",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 7,
+      "timestamp": "2026-10-03T19:00:06.140445+00:00",
+      "phase": "tool_started",
+      "action": "search_files",
+      "path": ".",
+      "discrete": {
+        "tool_name": "search_files"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 8,
+      "timestamp": "2026-10-03T19:00:06.141449+00:00",
+      "phase": "tool_completed",
+      "action": "search_files",
+      "path": ".",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 9,
+      "timestamp": "2026-10-03T19:00:07.294626+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": "Level_1",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 10,
+      "timestamp": "2026-10-03T19:00:07.312593+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": "Level_1",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 11,
+      "timestamp": "2026-10-03T19:00:08.810955+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": "Level_1/Level_2",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 12,
+      "timestamp": "2026-10-03T19:00:08.831957+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": "Level_1/Level_2",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 13,
+      "timestamp": "2026-10-03T19:00:10.104754+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": "Level_1/Level_2/Level_3",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 14,
+      "timestamp": "2026-10-03T19:00:10.123195+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": "Level_1/Level_2/Level_3",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 15,
+      "timestamp": "2026-10-03T19:00:11.558106+00:00",
+      "phase": "tool_started",
+      "action": "read_table",
+      "path": "Level_1/Level_2/Level_3/Employees.csv",
+      "discrete": {
+        "tool_name": "read_table"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 16,
+      "timestamp": "2026-10-03T19:00:11.572104+00:00",
+      "phase": "tool_completed",
+      "action": "read_table",
+      "path": "Level_1/Level_2/Level_3/Employees.csv",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 17,
+      "timestamp": "2026-10-03T19:00:28.234230+00:00",
+      "phase": "tool_started",
+      "action": "compute_sum",
+      "path": null,
+      "discrete": {
+        "tool_name": "compute_sum"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 18,
+      "timestamp": "2026-10-03T19:00:28.234230+00:00",
+      "phase": "tool_completed",
+      "action": "compute_sum",
+      "path": null,
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    }
+  ]
+}

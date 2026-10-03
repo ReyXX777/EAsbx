@@ -10,7 +10,9 @@ from .collectors import (
     EventTraceCollector,
 )
 from .models import ObservationSnapshot, TaskIdentity, utc_now_iso
-from .storage import SessionStore
+
+from .session_store import SessionStore
+from .observation.feature_deriver import FeatureDeriver
 
 
 class TaskObservationSession:
@@ -21,6 +23,7 @@ class TaskObservationSession:
         identity: TaskIdentity,
         store: SessionStore | None = None,
         buckets: BucketManager | None = None,
+        feature_deriver: FeatureDeriver | None = None,
     ) -> None:
         self.identity = identity
 
@@ -30,6 +33,7 @@ class TaskObservationSession:
 
         self.store = store
         self.buckets = buckets
+        self.feature_deriver = feature_deriver or FeatureDeriver()
 
         self._started_at = identity.started_at
         self._finished_at: str | None = None
@@ -49,6 +53,45 @@ class TaskObservationSession:
         with self._lock:
             self._finished_at = utc_now_iso()
             self._status = status
+
+            # --------------------------------------------------
+            # Build the complete raw observation snapshot first.
+            #
+            # All task events, traces, timestamps and raw
+            # observations are now available to the derivation
+            # layer.
+            # --------------------------------------------------
+            raw_snapshot = self.snapshot()
+
+            # --------------------------------------------------
+            # Derive higher-level observations.
+            #
+            # FeatureDeriver coordinates the independent
+            # ToolObserver, NavigationObserver, TimingObserver,
+            # and OutcomeObserver components.
+            # --------------------------------------------------
+            derived = self.feature_deriver.derive(raw_snapshot)
+
+            # --------------------------------------------------
+            # Persist derived continuous features.
+            # --------------------------------------------------
+            self.continuous.record_many(
+                derived.continuous_features(),
+                source="feature_deriver",
+            )
+
+            # --------------------------------------------------
+            # Persist derived discrete features.
+            # --------------------------------------------------
+            self.discrete.record_many(
+                derived.discrete_features(),
+                source="feature_deriver",
+            )
+
+            # --------------------------------------------------
+            # Rebuild the snapshot so the persisted observation
+            # contains both raw and derived observations.
+            # --------------------------------------------------
             snapshot = self.snapshot()
 
         if self.buckets is not None:
@@ -80,10 +123,12 @@ class TaskObservationEngine:
     def __init__(
         self,
         storage_root: str | None = None,
+        feature_deriver: FeatureDeriver | None = None,
     ) -> None:
         self.store = SessionStore(storage_root) if storage_root else None
 
         self.buckets = BucketManager()
+        self.feature_deriver = feature_deriver or FeatureDeriver()
 
         self._sessions: dict[
             str,
@@ -108,6 +153,7 @@ class TaskObservationEngine:
             identity,
             self.store,
             self.buckets,
+            feature_deriver=self.feature_deriver,
         )
 
         if metadata:

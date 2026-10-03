@@ -1,5 +1,13 @@
-from mathematical_approval.decision import MathematicalApprovalEngine
-from mathematical_approval.models import ActionObservation, FeatureVector, TaskFamily, TaskHistory, DecisionLabel
+from task_observation_engine.mathematical_approval.mathematical_approval.decision import (
+    MathematicalApprovalEngine,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.models import (
+    ActionObservation,
+    FeatureVector,
+    TaskFamily,
+    TaskHistory,
+    DecisionLabel,
+)
 
 
 def test_sparse_history_requires_review():

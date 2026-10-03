@@ -1,5 +1,10 @@
-from mathematical_approval.models import ActionObservation, FeatureVector, TaskFamily, TaskHistory
-from mathematical_approval.probability import PMFModel, PDFModel
+from task_observation_engine.mathematical_approval.models import (
+    ActionObservation,
+    FeatureVector,
+    TaskFamily,
+    TaskHistory,
+)
+from task_observation_engine.mathematical_approval.probability import PMFModel, PDFModel
 
 
 def test_pmf_beta_prior():

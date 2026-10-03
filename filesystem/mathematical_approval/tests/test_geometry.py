@@ -1,5 +1,8 @@
-from mathematical_approval.geometry import JacobianModel, HessianModel
-from mathematical_approval.models import FeatureVector
+from task_observation_engine.mathematical_approval.geometry import (
+    JacobianModel,
+    HessianModel,
+)
+from task_observation_engine.mathematical_approval.models import FeatureVector
 
 
 def bowl(x):

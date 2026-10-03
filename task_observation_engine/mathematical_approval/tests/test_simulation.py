@@ -1,8 +1,21 @@
-from mathematical_approval.models import TaskFamily, DecisionLabel
-from mathematical_approval.simulation_metrics import summarize
-from mathematical_approval.simulation_models import GroundTruth, SimulationDecision
-from mathematical_approval.simulation_runner import SimulationHarness
-from mathematical_approval.simulation_scenarios import ScenarioConfig, SyntheticTaskFamilyGenerator
+from task_observation_engine.mathematical_approval.mathematical_approval.models import (
+    TaskFamily,
+    DecisionLabel,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.simulation_metrics import (
+    summarize,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.simulation_models import (
+    GroundTruth,
+    SimulationDecision,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.simulation_runner import (
+    SimulationHarness,
+)
+from task_observation_engine.mathematical_approval.mathematical_approval.simulation_scenarios import (
+    ScenarioConfig,
+    SyntheticTaskFamilyGenerator,
+)
 
 
 def test_generator_produces_requested_count_and_three_seeds():
@@ -32,10 +45,66 @@ def test_stage2_does_not_return_a_decision_for_seed_labels():
 def test_metrics_count_false_allow_and_false_deny():
     family = TaskFamily("demo")
     decisions = [
-        SimulationDecision(1, DecisionLabel.ALLOW, GroundTruth.APPROVED, 1, .9, 1, 1, 5, 5, 0, 0, False, False),
-        SimulationDecision(2, DecisionLabel.ALLOW, GroundTruth.UNSAFE, 1, .9, 1, 1, 5, 5, 0, 0, False, False),
-        SimulationDecision(3, DecisionLabel.DENY, GroundTruth.UNSAFE, 1, .1, 1, 1, .1, -2, 0, 0, False, False),
-        SimulationDecision(4, DecisionLabel.DENY, GroundTruth.APPROVED, 1, .1, 1, 1, .1, -2, 0, 0, False, False),
+        SimulationDecision(
+            1,
+            DecisionLabel.ALLOW,
+            GroundTruth.APPROVED,
+            1,
+            0.9,
+            1,
+            1,
+            5,
+            5,
+            0,
+            0,
+            False,
+            False,
+        ),
+        SimulationDecision(
+            2,
+            DecisionLabel.ALLOW,
+            GroundTruth.UNSAFE,
+            1,
+            0.9,
+            1,
+            1,
+            5,
+            5,
+            0,
+            0,
+            False,
+            False,
+        ),
+        SimulationDecision(
+            3,
+            DecisionLabel.DENY,
+            GroundTruth.UNSAFE,
+            1,
+            0.1,
+            1,
+            1,
+            0.1,
+            -2,
+            0,
+            0,
+            False,
+            False,
+        ),
+        SimulationDecision(
+            4,
+            DecisionLabel.DENY,
+            GroundTruth.APPROVED,
+            1,
+            0.1,
+            1,
+            1,
+            0.1,
+            -2,
+            0,
+            0,
+            False,
+            False,
+        ),
     ]
     metrics = summarize(decisions)
 

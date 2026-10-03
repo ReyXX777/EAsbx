@@ -1,19 +1,31 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from ..session import TaskObservationEngine
+from ..session import TaskObservationEngine, TaskObservationSession
 
 
 class ObservationWorker(QObject):
-    """Owns mutable observation state on a dedicated worker thread.
+    """Owns live observation state on the dedicated observation thread.
 
-    No Qt widget should directly manipulate a TaskObservationSession.
+    The worker is the only Qt-side object allowed to mutate the active
+    TaskObservationSession.
 
-    The worker receives requests through queued Qt signals and emits
-    immutable-ish snapshot objects back to the presentation layer.
+    The presentation layer communicates with this object through queued
+    signals exposed by ObservationBridge.
+
+    Responsibilities:
+
+    - create live observation sessions
+    - mutate collectors belonging to the active session
+    - publish current snapshots
+    - finish sessions
+    - release the active session
+
+    Persistence is handled by TaskObservationSession through the current
+    SessionStore/storage architecture.
     """
 
     task_started = Signal(str)
@@ -21,14 +33,30 @@ class ObservationWorker(QObject):
     task_finished = Signal(object)
     worker_error = Signal(str)
 
-    def __init__(self, storage_root: str, parent: QObject | None = None):
+    def __init__(
+        self,
+        storage_root: str,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
 
-        self._engine = TaskObservationEngine(storage_root)
-        self._session = None
+        self._engine = TaskObservationEngine(
+            storage_root=storage_root,
+        )
 
-    @Slot(str)
-    def start_task(self, family_key: str) -> None:
+        self._session: TaskObservationSession | None = None
+
+    # ------------------------------------------------------------------
+    # Session lifecycle
+    # ------------------------------------------------------------------
+
+    @Slot(str, str, object)
+    def start_task(
+        self,
+        family_key: str,
+        task_key: str = "",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
         """Start a new observation session."""
 
         try:
@@ -46,148 +74,173 @@ class ObservationWorker(QObject):
                 )
                 return
 
-            self._session = self._engine.start(family_key)
+            task_key = (task_key or "").strip()
 
-            self.task_started.emit(family_key)
+            self._session = self._engine.start(
+                family_key,
+                task_key=task_key,
+                metadata=metadata,
+            )
+
+            self.task_started.emit(
+                family_key,
+            )
+
+            self.observation_updated.emit(
+                self._session.snapshot(),
+            )
 
         except Exception as exc:
-            self.worker_error.emit(f"{type(exc).__name__}: {exc}")
+            self.worker_error.emit(f"Task start error: {type(exc).__name__}: {exc}")
 
-    @Slot(str, object)
-    def record_discrete(self, name: str, value: Any) -> None:
-        """Record one discrete feature.
+    @Slot()
+    def finish_task(self) -> None:
+        """Finish the active observation session."""
 
-        Missing values are deliberately allowed.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             self.worker_error.emit("No active observation session.")
             return
 
         try:
-            self._session.discrete.record(
+            snapshot = session.finish()
+
+            self._session = None
+
+            self.task_finished.emit(
+                snapshot,
+            )
+
+            self.observation_updated.emit(
+                snapshot,
+            )
+
+        except Exception as exc:
+            self.worker_error.emit(
+                f"Task finalization error: {type(exc).__name__}: {exc}"
+            )
+
+    # ------------------------------------------------------------------
+    # Discrete observations
+    # ------------------------------------------------------------------
+
+    @Slot(str, object)
+    def record_discrete(
+        self,
+        name: str,
+        value: Any = None,
+    ) -> None:
+        """Record a discrete observation on the active session."""
+
+        session = self._session
+
+        if session is None:
+            self.worker_error.emit("No active observation session.")
+            return
+
+        try:
+            session.discrete.record(
                 name,
                 value,
             )
 
         except Exception as exc:
             self.worker_error.emit(
-                f"Discrete observation error: {type(exc).__name__}: {exc}"
+                "Discrete observation error: " f"{type(exc).__name__}: {exc}"
             )
 
+    # ------------------------------------------------------------------
+    # Continuous observations
+    # ------------------------------------------------------------------
+
     @Slot(str, object)
-    def record_continuous(self, name: str, value: Any) -> None:
-        """Record one continuous feature.
+    def record_continuous(
+        self,
+        name: str,
+        value: Any = None,
+    ) -> None:
+        """Record a continuous observation on the active session."""
 
-        Invalid/missing values are allowed to reach the collector, which
-        already defines the prototype's non-halting behaviour.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             self.worker_error.emit("No active observation session.")
             return
 
         try:
-            self._session.continuous.record(
+            session.continuous.record(
                 name,
                 value,
             )
 
         except Exception as exc:
             self.worker_error.emit(
-                f"Continuous observation error: " f"{type(exc).__name__}: {exc}"
+                "Continuous observation error: " f"{type(exc).__name__}: {exc}"
             )
 
+    # ------------------------------------------------------------------
+    # Events
+    # ------------------------------------------------------------------
+
     @Slot(str, object)
-    def record_event(self, event_type: str, payload: Any = None) -> None:
-        """Record a generic observation event when the session supports it.
+    def record_event(
+        self,
+        event_type: str,
+        payload: Any = None,
+    ) -> None:
+        """Record an event through the current event collector."""
 
-        Stage 6B intentionally does not assume a particular event collector
-        implementation. This keeps the Qt layer compatible with the current
-        collector implementation while allowing richer event models later.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             self.worker_error.emit("No active observation session.")
             return
 
         try:
-            collector = getattr(self._session, "events", None)
-
-            if collector is None:
-                collector = getattr(self._session, "trace", None)
-
-            if collector is None:
-                # Event collection is optional at this stage.
-                return
-
-            record_method = getattr(collector, "record", None)
-
-            if record_method is None:
-                return
-
-            record_method(
+            session.events.record(
                 event_type,
                 payload,
             )
 
         except Exception as exc:
             self.worker_error.emit(
-                f"Event observation error: " f"{type(exc).__name__}: {exc}"
+                "Event observation error: " f"{type(exc).__name__}: {exc}"
             )
+
+    # ------------------------------------------------------------------
+    # Snapshot publication
+    # ------------------------------------------------------------------
 
     @Slot()
     def publish_current_state(self) -> None:
-        """Publish the current state when the session implementation supports it.
+        """Publish the current raw observation snapshot."""
 
-        The existing session API guarantees finish(), but not necessarily
-        an intermediate snapshot API. Therefore this method is deliberately
-        conservative.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             return
 
         try:
-            snapshot_method = getattr(
-                self._session,
-                "snapshot",
-                None,
+            snapshot = session.snapshot()
+
+            self.observation_updated.emit(
+                snapshot,
             )
-
-            if snapshot_method is None:
-                return
-
-            snapshot = snapshot_method()
-
-            self.observation_updated.emit(snapshot)
 
         except Exception as exc:
             self.worker_error.emit(f"Snapshot error: {type(exc).__name__}: {exc}")
 
-    @Slot()
-    def finish_task(self) -> None:
-        """Finish the active observation session."""
-
-        if self._session is None:
-            self.worker_error.emit("No active observation session.")
-            return
-
-        try:
-            snapshot = self._session.finish()
-
-            self._session = None
-
-            self.task_finished.emit(snapshot)
-            self.observation_updated.emit(snapshot)
-
-        except Exception as exc:
-            self.worker_error.emit(
-                f"Task finalization error: " f"{type(exc).__name__}: {exc}"
-            )
+    # ------------------------------------------------------------------
+    # Shutdown
+    # ------------------------------------------------------------------
 
     @Slot()
     def shutdown(self) -> None:
-        """Release the active session reference."""
+        """Release the active session reference.
+
+        A live unfinished session is deliberately not finalized here.
+        Normal persistence occurs through finish_task().
+        """
 
         self._session = None

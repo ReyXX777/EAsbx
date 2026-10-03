@@ -28,22 +28,25 @@ from .observation_plot import ObservationPlot
 class ObservationWidget(QWidget):
     """Qt visualization surface for task observations.
 
-    Responsibilities:
+    The widget is a presentation component.
 
-    - display live/final observation snapshots
-    - display discrete features
-    - display continuous features
-    - display event/trace information when present
-    - load persisted sessions through ReplayAPI
+    It:
 
-    It does not mutate the observation session.
+    - starts and finishes live observation sessions through ObservationBridge
+    - displays live snapshots
+    - displays persisted snapshots through ReplayAPI
+    - visualizes discrete observations
+    - visualizes continuous observations
+    - displays recorded events and traces
+
+    It does not own mutable observation-session state.
     """
 
     def __init__(
         self,
-        storage_root,
-        parent=None,
-    ):
+        storage_root: str,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
 
         self.storage_root = storage_root
@@ -53,16 +56,16 @@ class ObservationWidget(QWidget):
             self,
         )
 
-        self._snapshot = None
+        self._snapshot: ObservationSnapshot | None = None
 
         self._build_ui()
         self._connect_bridge()
 
         self.refresh_history()
 
-    # ---------------------------------------------------------
-    # UI
-    # ---------------------------------------------------------
+    # ==================================================================
+    # UI construction
+    # ==================================================================
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -76,42 +79,20 @@ class ObservationWidget(QWidget):
 
         root.setSpacing(6)
 
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
         # Toolbar
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
 
         toolbar = QHBoxLayout()
 
-        self.family_field = QComboBox()
-        self.family_field.setEditable(True)
-        self.family_field.setPlaceholderText("Task family")
-
-        start_button = QPushButton(
-            "Start Observation",
-        )
-
-        finish_button = QPushButton(
-            "Finish",
-        )
-
-        refresh_button = QPushButton(
-            "Refresh History",
-        )
-
-        start_button.clicked.connect(
-            self._start_task,
-        )
-
-        finish_button.clicked.connect(
-            self._finish_task,
-        )
-
-        refresh_button.clicked.connect(
-            self.refresh_history,
-        )
-
         toolbar.addWidget(
             QLabel("Family:"),
+        )
+
+        self.family_field = QComboBox()
+        self.family_field.setEditable(True)
+        self.family_field.setPlaceholderText(
+            "Task family",
         )
 
         toolbar.addWidget(
@@ -119,25 +100,49 @@ class ObservationWidget(QWidget):
             1,
         )
 
-        toolbar.addWidget(
-            start_button,
+        self.start_button = QPushButton(
+            "Start Observation",
+        )
+
+        self.finish_button = QPushButton(
+            "Finish",
+        )
+
+        self.refresh_button = QPushButton(
+            "Refresh History",
+        )
+
+        self.start_button.clicked.connect(
+            self._start_task,
+        )
+
+        self.finish_button.clicked.connect(
+            self._finish_task,
+        )
+
+        self.refresh_button.clicked.connect(
+            self.refresh_history,
         )
 
         toolbar.addWidget(
-            finish_button,
+            self.start_button,
         )
 
         toolbar.addWidget(
-            refresh_button,
+            self.finish_button,
+        )
+
+        toolbar.addWidget(
+            self.refresh_button,
         )
 
         root.addLayout(
             toolbar,
         )
 
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
         # Status
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
 
         self.status_label = QLabel(
             "No active observation.",
@@ -147,17 +152,17 @@ class ObservationWidget(QWidget):
             self.status_label,
         )
 
-        # -----------------------------------------------------
-        # Main splitter
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Main horizontal splitter
+        # ----------------------------------------------------------------
 
         splitter = QSplitter(
             Qt.Horizontal,
         )
 
-        # -----------------------------------------------------
+        # ================================================================
         # History
-        # -----------------------------------------------------
+        # ================================================================
 
         history_group = QGroupBox(
             "Stored Sessions",
@@ -181,9 +186,9 @@ class ObservationWidget(QWidget):
             history_group,
         )
 
-        # -----------------------------------------------------
-        # Right side
-        # -----------------------------------------------------
+        # ================================================================
+        # Right-side content
+        # ================================================================
 
         right = QWidget()
 
@@ -198,7 +203,9 @@ class ObservationWidget(QWidget):
             0,
         )
 
-        # Metadata
+        # ----------------------------------------------------------------
+        # Session metadata
+        # ----------------------------------------------------------------
 
         metadata_group = QGroupBox(
             "Session",
@@ -211,6 +218,8 @@ class ObservationWidget(QWidget):
         self.session_id_label = QLabel("-")
         self.family_label = QLabel("-")
         self.session_status_label = QLabel("-")
+        self.started_at_label = QLabel("-")
+        self.finished_at_label = QLabel("-")
 
         metadata_layout.addRow(
             "Session ID:",
@@ -227,13 +236,23 @@ class ObservationWidget(QWidget):
             self.session_status_label,
         )
 
+        metadata_layout.addRow(
+            "Started:",
+            self.started_at_label,
+        )
+
+        metadata_layout.addRow(
+            "Finished:",
+            self.finished_at_label,
+        )
+
         right_layout.addWidget(
             metadata_group,
         )
 
-        # -----------------------------------------------------
-        # Feature selector
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Continuous feature selector
+        # ----------------------------------------------------------------
 
         selector_layout = QHBoxLayout()
 
@@ -256,9 +275,9 @@ class ObservationWidget(QWidget):
             selector_layout,
         )
 
-        # -----------------------------------------------------
-        # Plot
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Continuous plot
+        # ----------------------------------------------------------------
 
         self.plot = ObservationPlot()
 
@@ -267,15 +286,17 @@ class ObservationWidget(QWidget):
             2,
         )
 
-        # -----------------------------------------------------
-        # Bottom splitter
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Lower vertical splitter
+        # ----------------------------------------------------------------
 
         lower_splitter = QSplitter(
             Qt.Vertical,
         )
 
-        # Discrete
+        # ================================================================
+        # Discrete features
+        # ================================================================
 
         discrete_group = QGroupBox(
             "Discrete Features",
@@ -310,7 +331,9 @@ class ObservationWidget(QWidget):
             discrete_group,
         )
 
-        # Events/traces
+        # ================================================================
+        # Events / traces
+        # ================================================================
 
         event_group = QGroupBox(
             "Events / Trace",
@@ -367,9 +390,13 @@ class ObservationWidget(QWidget):
             1,
         )
 
-    # ---------------------------------------------------------
+        self._set_running_state(
+            False,
+        )
+
+    # ==================================================================
     # Bridge
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _connect_bridge(self) -> None:
         self.bridge.task_started.connect(
@@ -388,9 +415,9 @@ class ObservationWidget(QWidget):
             self._on_error,
         )
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Commands
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _start_task(self) -> None:
         family = self.family_field.currentText().strip()
@@ -406,9 +433,9 @@ class ObservationWidget(QWidget):
     def _finish_task(self) -> None:
         self.bridge.finish_task()
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Worker events
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _on_task_started(
         self,
@@ -424,16 +451,29 @@ class ObservationWidget(QWidget):
             "running",
         )
 
+        self._set_running_state(
+            True,
+        )
+
     def _on_task_finished(
         self,
         snapshot: object,
     ) -> None:
-        self.status_label.setText(
-            "Observation completed.",
-        )
+        if not isinstance(
+            snapshot,
+            ObservationSnapshot,
+        ):
+            self._on_error("Worker returned an invalid observation snapshot.")
+            return
+
+        self.status_label.setText("Observation completed.")
 
         self._display_snapshot(
             snapshot,
+        )
+
+        self._set_running_state(
+            False,
         )
 
         self.refresh_history()
@@ -444,83 +484,81 @@ class ObservationWidget(QWidget):
     ) -> None:
         self.status_label.setText(f"Observation error: {message}")
 
-    # ---------------------------------------------------------
+    def _set_running_state(
+        self,
+        running: bool,
+    ) -> None:
+        self.start_button.setEnabled(
+            not running,
+        )
+
+        self.finish_button.setEnabled(
+            running,
+        )
+
+    # ==================================================================
     # Snapshot display
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _display_snapshot(
         self,
         snapshot: object,
     ) -> None:
-        if snapshot is None:
+        if not isinstance(
+            snapshot,
+            ObservationSnapshot,
+        ):
+            self._on_error("Received an invalid observation snapshot.")
             return
 
         self._snapshot = snapshot
 
-        identity = getattr(
-            snapshot,
-            "identity",
-            None,
+        identity = snapshot.identity
+
+        self.session_id_label.setText(
+            str(identity.session_id),
         )
 
-        if identity is not None:
-            self.session_id_label.setText(
-                str(
-                    getattr(
-                        identity,
-                        "session_id",
-                        "-",
-                    )
-                )
-            )
-
-            self.family_label.setText(
-                str(
-                    getattr(
-                        identity,
-                        "family_key",
-                        getattr(
-                            identity,
-                            "family",
-                            "-",
-                        ),
-                    )
-                )
-            )
+        self.family_label.setText(
+            str(identity.family_key),
+        )
 
         self.session_status_label.setText(
-            str(
-                getattr(
-                    snapshot,
-                    "status",
-                    "-",
-                )
-            )
+            str(snapshot.status),
+        )
+
+        self.started_at_label.setText(
+            self._safe_text(snapshot.started_at),
+        )
+
+        self.finished_at_label.setText(
+            self._safe_text(snapshot.finished_at),
         )
 
         self._display_discrete(
-            getattr(
-                snapshot,
-                "discrete",
-                (),
-            )
+            snapshot.discrete,
         )
 
         self._display_continuous(
-            getattr(
-                snapshot,
-                "continuous",
-                (),
-            )
+            snapshot.continuous,
         )
 
         self._display_events(
             snapshot,
         )
 
-    # ---------------------------------------------------------
-    # Discrete
-    # ---------------------------------------------------------
+        if snapshot.status == "running":
+            self._set_running_state(
+                True,
+            )
+        else:
+            self._set_running_state(
+                False,
+            )
+
+    # ==================================================================
+    # Discrete observations
+    # ==================================================================
 
     def _display_discrete(
         self,
@@ -531,7 +569,6 @@ class ObservationWidget(QWidget):
         )
 
         for observation in observations:
-
             row = self.discrete_table.rowCount()
 
             self.discrete_table.insertRow(
@@ -542,12 +579,8 @@ class ObservationWidget(QWidget):
                 row,
                 0,
                 QTableWidgetItem(
-                    str(
-                        getattr(
-                            observation,
-                            "name",
-                            "",
-                        )
+                    self._safe_text(
+                        observation.name,
                     )
                 ),
             )
@@ -557,59 +590,53 @@ class ObservationWidget(QWidget):
                 1,
                 QTableWidgetItem(
                     self._safe_text(
-                        getattr(
-                            observation,
-                            "value",
-                            None,
-                        )
+                        observation.value,
                     )
                 ),
             )
 
         self.discrete_table.resizeColumnsToContents()
 
-    # ---------------------------------------------------------
-    # Continuous
-    # ---------------------------------------------------------
+    # ==================================================================
+    # Continuous observations
+    # ==================================================================
 
     def _display_continuous(
         self,
         observations,
     ) -> None:
+        current = self.feature_selector.currentText()
+
         self.feature_selector.blockSignals(
             True,
         )
 
-        current = self.feature_selector.currentText()
+        try:
+            self.feature_selector.clear()
 
-        self.feature_selector.clear()
+            names: list[str] = []
 
-        names = []
-
-        for observation in observations:
-            name = str(
-                getattr(
-                    observation,
-                    "name",
-                    "",
+            for observation in observations:
+                name = str(
+                    observation.name,
                 )
+
+                if name and name not in names:
+                    names.append(name)
+
+            self.feature_selector.addItems(
+                names,
             )
 
-            if name and name not in names:
-                names.append(name)
+            if current in names:
+                self.feature_selector.setCurrentText(
+                    current,
+                )
 
-        self.feature_selector.addItems(
-            names,
-        )
-
-        if current in names:
-            self.feature_selector.setCurrentText(
-                current,
+        finally:
+            self.feature_selector.blockSignals(
+                False,
             )
-
-        self.feature_selector.blockSignals(
-            False,
-        )
 
         self._render_selected_continuous(
             observations,
@@ -619,15 +646,13 @@ class ObservationWidget(QWidget):
         self,
         _name: str,
     ) -> None:
-        if self._snapshot is None:
+        snapshot = self._snapshot
+
+        if snapshot is None:
             return
 
         self._render_selected_continuous(
-            getattr(
-                self._snapshot,
-                "continuous",
-                (),
-            )
+            snapshot.continuous,
         )
 
     def _render_selected_continuous(
@@ -643,27 +668,18 @@ class ObservationWidget(QWidget):
         values: list[float] = []
 
         for observation in observations:
-
-            name = str(
-                getattr(
-                    observation,
-                    "name",
-                    "",
-                )
-            )
-
-            if name != selected:
+            if observation.name != selected:
                 continue
 
-            value = getattr(
-                observation,
-                "value",
-                None,
-            )
+            value = observation.value
+
+            if value is None:
+                continue
 
             try:
-                if value is not None:
-                    values.append(float(value))
+                values.append(
+                    float(value),
+                )
             except (
                 TypeError,
                 ValueError,
@@ -675,39 +691,27 @@ class ObservationWidget(QWidget):
             selected,
         )
 
-    # ---------------------------------------------------------
-    # Events
-    # ---------------------------------------------------------
+    # ==================================================================
+    # Events / traces
+    # ==================================================================
 
     def _display_events(
         self,
-        snapshot,
+        snapshot: ObservationSnapshot,
     ) -> None:
         self.event_table.setRowCount(
             0,
         )
 
-        collections = []
-
-        for attribute_name in (
-            "events",
-            "trace",
-            "traces",
-            "event_trace",
-        ):
-            value = getattr(
-                snapshot,
-                attribute_name,
-                None,
-            )
-
-            if value:
-                collections.append(value)
+        # Current ObservationSnapshot explicitly exposes both event
+        # collections. They are rendered in one presentation table.
+        collections = (
+            snapshot.events,
+            snapshot.traces,
+        )
 
         for collection in collections:
-
             for event in collection:
-
                 row = self.event_table.rowCount()
 
                 self.event_table.insertRow(
@@ -747,26 +751,38 @@ class ObservationWidget(QWidget):
                 self.event_table.setItem(
                     row,
                     0,
-                    QTableWidgetItem(self._safe_text(event_type)),
+                    QTableWidgetItem(
+                        self._safe_text(
+                            event_type,
+                        )
+                    ),
                 )
 
                 self.event_table.setItem(
                     row,
                     1,
-                    QTableWidgetItem(self._safe_text(name)),
+                    QTableWidgetItem(
+                        self._safe_text(
+                            name,
+                        )
+                    ),
                 )
 
                 self.event_table.setItem(
                     row,
                     2,
-                    QTableWidgetItem(self._safe_text(value)),
+                    QTableWidgetItem(
+                        self._safe_text(
+                            value,
+                        )
+                    ),
                 )
 
         self.event_table.resizeColumnsToContents()
 
-    # ---------------------------------------------------------
-    # History / Replay
-    # ---------------------------------------------------------
+    # ==================================================================
+    # Replay / history
+    # ==================================================================
 
     def refresh_history(self) -> None:
         try:
@@ -783,7 +799,6 @@ class ObservationWidget(QWidget):
         self.history_list.clear()
 
         for session_id in session_ids:
-
             item = QListWidgetItem(
                 str(session_id),
             )
@@ -814,7 +829,7 @@ class ObservationWidget(QWidget):
             )
 
             snapshot = replay.session(
-                session_id,
+                str(session_id),
             )
 
             self._display_snapshot(
@@ -823,12 +838,16 @@ class ObservationWidget(QWidget):
 
             self.status_label.setText(f"Loaded session: {session_id}")
 
+            self._set_running_state(
+                False,
+            )
+
         except Exception as exc:
             self.status_label.setText(f"Replay error: {exc}")
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Helpers
-    # ---------------------------------------------------------
+    # ==================================================================
 
     @staticmethod
     def _safe_text(
@@ -842,9 +861,9 @@ class ObservationWidget(QWidget):
         except Exception:
             return "<unprintable>"
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Lifecycle
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def closeEvent(self, event) -> None:
         self.bridge.close()
