@@ -1,0 +1,296 @@
+{
+  "identity": {
+    "session_id": "170fa959c1f341c5b945b3f9564cd3e6",
+    "family_key": "filesystem",
+    "task_key": "",
+    "started_at": "2026-10-03T13:03:33.098651+00:00"
+  },
+  "started_at": "2026-10-03T13:03:33.098651+00:00",
+  "finished_at": "2026-10-03T13:03:43.130453+00:00",
+  "status": "completed",
+  "metadata": {
+    "prompt": "Navigate to Level_4 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read",
+    "filesystem_root": "X:\\MOCKAPP\\test_filesystem",
+    "agent_type": "filesystem"
+  },
+  "discrete": [
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T13:03:37.736877+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-03T13:03:37.736877+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "path",
+      "value": ".",
+      "timestamp": "2026-10-03T13:03:37.736877+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T13:03:38.893653+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "tool_name",
+      "value": "search_files",
+      "timestamp": "2026-10-03T13:03:38.893653+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "path",
+      "value": ".",
+      "timestamp": "2026-10-03T13:03:38.893653+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T13:03:40.048309+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "tool_name",
+      "value": "read_table",
+      "timestamp": "2026-10-03T13:03:40.048309+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "path",
+      "value": "Level_1/Level_2/Level_3/Level_4/Employees.csv",
+      "timestamp": "2026-10-03T13:03:40.048309+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-03T13:03:41.487568+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    },
+    {
+      "name": "tool_name",
+      "value": "compute_sum",
+      "timestamp": "2026-10-03T13:03:41.487568+00:00",
+      "source": "filesystem_worker",
+      "step": null
+    }
+  ],
+  "continuous": [],
+  "events": [
+    {
+      "name": "task_started",
+      "timestamp": "2026-10-03T13:03:33.098651+00:00",
+      "source": "filesystem_worker",
+      "payload": {},
+      "step": null
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T13:03:37.723918+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "."
+      },
+      "step": null
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T13:03:37.735868+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": ".",
+        "success": true,
+        "message": "",
+        "error": null
+      },
+      "step": null
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T13:03:38.882669+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "search_files",
+        "path": "."
+      },
+      "step": null
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T13:03:38.893653+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "search_files",
+        "path": ".",
+        "success": true,
+        "message": "",
+        "error": null
+      },
+      "step": null
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T13:03:40.043308+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "read_table",
+        "path": "Level_1/Level_2/Level_3/Level_4/Employees.csv"
+      },
+      "step": null
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T13:03:40.047262+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "read_table",
+        "path": "Level_1/Level_2/Level_3/Level_4/Employees.csv",
+        "success": true,
+        "message": "",
+        "error": null
+      },
+      "step": null
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-03T13:03:41.487568+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "compute_sum",
+        "path": null
+      },
+      "step": null
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-03T13:03:41.487568+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "compute_sum",
+        "path": null,
+        "success": true,
+        "message": "",
+        "error": null
+      },
+      "step": null
+    },
+    {
+      "name": "task_completed",
+      "timestamp": "2026-10-03T13:03:43.130453+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "status": "completed"
+      },
+      "step": null
+    }
+  ],
+  "traces": [
+    {
+      "sequence": 0,
+      "timestamp": "2026-10-03T13:03:37.723918+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": ".",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 1,
+      "timestamp": "2026-10-03T13:03:37.736877+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": ".",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 2,
+      "timestamp": "2026-10-03T13:03:38.882669+00:00",
+      "phase": "tool_started",
+      "action": "search_files",
+      "path": ".",
+      "discrete": {
+        "tool_name": "search_files"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 3,
+      "timestamp": "2026-10-03T13:03:38.893653+00:00",
+      "phase": "tool_completed",
+      "action": "search_files",
+      "path": ".",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 4,
+      "timestamp": "2026-10-03T13:03:40.043308+00:00",
+      "phase": "tool_started",
+      "action": "read_table",
+      "path": "Level_1/Level_2/Level_3/Level_4/Employees.csv",
+      "discrete": {
+        "tool_name": "read_table"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 5,
+      "timestamp": "2026-10-03T13:03:40.048309+00:00",
+      "phase": "tool_completed",
+      "action": "read_table",
+      "path": "Level_1/Level_2/Level_3/Level_4/Employees.csv",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 6,
+      "timestamp": "2026-10-03T13:03:41.487568+00:00",
+      "phase": "tool_started",
+      "action": "compute_sum",
+      "path": null,
+      "discrete": {
+        "tool_name": "compute_sum"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 7,
+      "timestamp": "2026-10-03T13:03:41.487568+00:00",
+      "phase": "tool_completed",
+      "action": "compute_sum",
+      "path": null,
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    }
+  ]
+}

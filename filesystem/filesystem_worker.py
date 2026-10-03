@@ -16,6 +16,10 @@ from .filesystem_service import SandboxFilesystemService
 from .tools.tool_factory import create_tool_dispatcher
 from .tools.tool_models import ToolCall, ToolResult
 from .filesystem_agent_events import FilesystemToolActivity
+from task_observation_engine.task_observation import (
+    TaskObservationEngine,
+    TaskObservationSession,
+)
 
 
 class FilesystemExecutionWorker(QThread):
@@ -79,6 +83,16 @@ class FilesystemExecutionWorker(QThread):
 
         self.state_manager = AgentStateManager(task)
 
+        observation_storage_root = (
+            Path(__file__).resolve().parent.parent / "task_observation_data"
+        )
+
+        self.observation_engine = TaskObservationEngine(
+            storage_root=str(observation_storage_root)
+        )
+
+        self.observation_session: TaskObservationSession | None = None
+
         self._cancel_requested = False
 
         self.agent: FilesystemAgent | None = None
@@ -112,6 +126,20 @@ class FilesystemExecutionWorker(QThread):
 
             self.step_updated.emit(f"🚀 Starting filesystem task: '{self.task.prompt}'")
 
+            self.observation_session = self.observation_engine.start(
+                "filesystem",
+                task_key=getattr(self.task, "id", "") or "",
+                metadata={
+                    "prompt": self.task.prompt,
+                    "filesystem_root": self.filesystem_root,
+                    "agent_type": "filesystem",
+                },
+            )
+
+            self.observation_session.events.event(
+                "task_started",
+                source="filesystem_worker",
+            )
             # ------------------------------------------------------
             # Validate API key
             # ------------------------------------------------------
@@ -194,6 +222,19 @@ class FilesystemExecutionWorker(QThread):
 
                 self.state_manager.mark_cancelled()
 
+                if self.observation_session is not None:
+                    self.observation_session.events.event(
+                        "task_cancelled",
+                        source="filesystem_worker",
+                        payload={
+                            "status": "cancelled",
+                        },
+                    )
+
+                    self.observation_session.finish(
+                        status="cancelled",
+                    )
+
                 self.error_occurred.emit("Filesystem task cancelled by user.")
 
                 return
@@ -209,7 +250,18 @@ class FilesystemExecutionWorker(QThread):
             }
 
             self.state_manager.mark_completed(execution_result)
+            if self.observation_session is not None:
+                self.observation_session.events.event(
+                    "task_completed",
+                    source="filesystem_worker",
+                    payload={
+                        "status": "completed",
+                    },
+                )
 
+                self.observation_session.finish(
+                    status="completed",
+                )
             self.task_finished.emit(execution_result)
 
         except GeminiFilesystemPlannerError as exc:
@@ -217,6 +269,19 @@ class FilesystemExecutionWorker(QThread):
             error_message = f"Filesystem planner error: {exc}"
 
             self.state_manager.mark_failed(error_message)
+            if self.observation_session is not None:
+                self.observation_session.events.event(
+                    "task_failed",
+                    source="filesystem_worker",
+                    payload={
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
+
+                self.observation_session.finish(
+                    status="failed",
+                )
 
             self.error_occurred.emit(error_message)
 
@@ -225,7 +290,19 @@ class FilesystemExecutionWorker(QThread):
             error_message = f"Filesystem agent failure: " f"{type(exc).__name__}: {exc}"
 
             self.state_manager.mark_failed(error_message)
+            if self.observation_session is not None:
+                self.observation_session.events.event(
+                    "task_failed",
+                    source="filesystem_worker",
+                    payload={
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
 
+                self.observation_session.finish(
+                    status="failed",
+                )
             self.error_occurred.emit(error_message)
 
     # ==============================================================
@@ -248,6 +325,27 @@ class FilesystemExecutionWorker(QThread):
             tool_name=call.name,
             arguments=dict(call.arguments or {}),
         )
+        if self.observation_session is not None:
+            arguments = dict(call.arguments or {})
+            path = arguments.get("path")
+
+            self.observation_session.events.event(
+                "tool_started",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": call.name,
+                    "path": path,
+                },
+            )
+
+            self.observation_session.events.trace(
+                "tool_started",
+                action=call.name,
+                path=path,
+                discrete={
+                    "tool_name": call.name,
+                },
+            )
 
         self.tool_started.emit(activity)
 
@@ -273,6 +371,47 @@ class FilesystemExecutionWorker(QThread):
         arguments = call.arguments or {}
 
         path = arguments.get("path")
+
+        if self.observation_session is not None:
+            self.observation_session.events.event(
+                "tool_completed" if result.success else "tool_failed",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": call.name,
+                    "path": path,
+                    "success": result.success,
+                    "message": result.message,
+                    "error": result.error,
+                },
+            )
+
+            self.observation_session.discrete.record(
+                "tool_success",
+                result.success,
+                source="filesystem_worker",
+            )
+
+            self.observation_session.discrete.record(
+                "tool_name",
+                call.name,
+                source="filesystem_worker",
+            )
+
+            if path is not None:
+                self.observation_session.discrete.record(
+                    "path",
+                    str(path),
+                    source="filesystem_worker",
+                )
+
+            self.observation_session.events.trace(
+                "tool_completed" if result.success else "tool_failed",
+                action=call.name,
+                path=path,
+                discrete={
+                    "success": result.success,
+                },
+            )
 
         if path:
             description = f"{call.name}({path})"
