@@ -19,11 +19,16 @@ from pathlib import Path
 # Both "/" and "\" are accepted on Windows.
 
 FILES_TO_EXPORT = [
-    "task_observation_engine/task_observation/storage.py",
-    "task_observation_engine/task_observation/replay.py",
     "task_observation_engine/task_observation/session.py",
     "task_observation_engine/task_observation/models.py",
-    "task_observation_engine/tests/test_sqlite_store.py",
+    "task_observation_engine/task_observation/collectors.py",
+    "task_observation_engine/task_observation/observation/tool_observer.py",
+    "task_observation_engine/task_observation/observation/navigation_observer.py",
+    "task_observation_engine/task_observation/observation/timing_observer.py",
+    "task_observation_engine/task_observation/observation/outcome_observer.py",
+    "task_observation_engine/task_observation/observation/feature_deriver.py",
+    "task_observation_engine/tests/test_observation_derivers.py",
+    "task_observation_engine/tests/test_observation_engine.py",
 ]
 
 

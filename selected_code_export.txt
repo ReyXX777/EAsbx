@@ -4,150 +4,7 @@ COWORK AI AGENT SUITE - SELECTED CODE EXPORT
 
 PROJECT ROOT: X:\MOCKAPP
 
-TOTAL FILES REQUESTED: 5
-
-
-================================================================================
-FILE: task_observation_engine/task_observation/storage.py
-================================================================================
-
-from __future__ import annotations
-
-import json
-import os
-from pathlib import Path
-from threading import Lock
-from typing import Any
-
-from .models import ObservationSnapshot
-
-
-class SessionStore:
-    """Append-oriented JSONL persistence for completed observation sessions."""
-
-    def __init__(self, root: str | Path) -> None:
-        self.root = Path(root)
-        self.root.mkdir(parents=True, exist_ok=True)
-        self._lock = Lock()
-
-    def save(self, snapshot: ObservationSnapshot) -> Path:
-        path = self.root / f"{snapshot.identity.session_id}.json"
-        payload = snapshot_to_dict(snapshot)
-        temporary = path.with_suffix(".json.tmp")
-        with self._lock:
-            temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            os.replace(temporary, path)
-        return path
-
-    def load(self, session_id: str) -> ObservationSnapshot:
-        path = self.root / f"{session_id}.json"
-        return snapshot_from_dict(json.loads(path.read_text(encoding="utf-8")))
-
-    def list_session_ids(self) -> list[str]:
-        return sorted(p.stem for p in self.root.glob("*.json"))
-
-    def replay(self, session_id: str) -> ObservationSnapshot:
-        return self.load(session_id)
-
-
-def snapshot_to_dict(snapshot: ObservationSnapshot) -> dict[str, Any]:
-    return {
-        "identity": {
-            "session_id": snapshot.identity.session_id,
-            "family_key": snapshot.identity.family_key,
-            "task_key": snapshot.identity.task_key,
-            "started_at": snapshot.identity.started_at,
-        },
-        "started_at": snapshot.started_at,
-        "finished_at": snapshot.finished_at,
-        "status": snapshot.status,
-        "metadata": dict(snapshot.metadata),
-        "discrete": [item.__dict__ for item in snapshot.discrete],
-        "continuous": [item.__dict__ for item in snapshot.continuous],
-        "events": [
-            {**item.__dict__, "payload": dict(item.payload)}
-            for item in snapshot.events
-        ],
-        "traces": [
-            {
-                **item.__dict__,
-                "discrete": dict(item.discrete),
-                "continuous": dict(item.continuous),
-            }
-            for item in snapshot.traces
-        ],
-    }
-
-
-def snapshot_from_dict(data: dict[str, Any]) -> ObservationSnapshot:
-    from .models import (
-        ContinuousObservation,
-        DiscreteObservation,
-        TaskEvent,
-        TaskIdentity,
-        TracePoint,
-    )
-
-    identity = TaskIdentity(**data["identity"])
-    return ObservationSnapshot(
-        identity=identity,
-        discrete=tuple(DiscreteObservation(**x) for x in data.get("discrete", [])),
-        continuous=tuple(ContinuousObservation(**x) for x in data.get("continuous", [])),
-        events=tuple(TaskEvent(**x) for x in data.get("events", [])),
-        traces=tuple(TracePoint(**x) for x in data.get("traces", [])),
-        started_at=data["started_at"],
-        finished_at=data.get("finished_at"),
-        status=data.get("status", "unknown"),
-        metadata=data.get("metadata", {}),
-    )
-
-
-
-================================================================================
-FILE: task_observation_engine/task_observation/replay.py
-================================================================================
-
-from __future__ import annotations
-
-from pathlib import Path
-from typing import Iterable
-
-from .models import ObservationSnapshot
-from .storage import SessionStore
-
-
-class ReplayAPI:
-    """Read-only API for visualization, experiments and mathematical adapters."""
-
-    def __init__(self, root: str | Path) -> None:
-        self.store = SessionStore(root)
-
-    def session_ids(self) -> list[str]:
-        return self.store.list_session_ids()
-
-    def session(self, session_id: str) -> ObservationSnapshot:
-        return self.store.load(session_id)
-
-    def sessions(self, session_ids: Iterable[str] | None = None) -> list[ObservationSnapshot]:
-        ids = list(session_ids) if session_ids is not None else self.session_ids()
-        return [self.session(session_id) for session_id in ids]
-
-    def feature_rows(self, session_ids: Iterable[str] | None = None) -> list[dict[str, object]]:
-        rows: list[dict[str, object]] = []
-        for snapshot in self.sessions(session_ids):
-            row: dict[str, object] = {
-                "session_id": snapshot.identity.session_id,
-                "family_key": snapshot.identity.family_key,
-                "status": snapshot.status,
-            }
-            for item in snapshot.discrete:
-                row[f"discrete.{item.name}"] = item.value
-            for item in snapshot.continuous:
-                if item.value is not None:
-                    row[f"continuous.{item.name}"] = item.value
-            rows.append(row)
-        return rows
-
+TOTAL FILES REQUESTED: 10
 
 
 ================================================================================
@@ -160,7 +17,11 @@ from threading import RLock
 from typing import Any, Mapping
 
 from .buckets import BucketManager
-from .collectors import ContinuousFeatureCollector, DiscreteFeatureCollector, EventTraceCollector
+from .collectors import (
+    ContinuousFeatureCollector,
+    DiscreteFeatureCollector,
+    EventTraceCollector,
+)
 from .models import ObservationSnapshot, TaskIdentity, utc_now_iso
 from .storage import SessionStore
 
@@ -168,24 +29,36 @@ from .storage import SessionStore
 class TaskObservationSession:
     """Live observation session owned by a separate observation thread/process."""
 
-    def __init__(self, identity: TaskIdentity, store: SessionStore | None = None, buckets: BucketManager | None = None) -> None:
+    def __init__(
+        self,
+        identity: TaskIdentity,
+        store: SessionStore | None = None,
+        buckets: BucketManager | None = None,
+    ) -> None:
         self.identity = identity
+
         self.discrete = DiscreteFeatureCollector()
         self.continuous = ContinuousFeatureCollector()
         self.events = EventTraceCollector()
+
         self.store = store
         self.buckets = buckets
+
         self._started_at = identity.started_at
         self._finished_at: str | None = None
         self._status = "running"
         self._metadata: dict[str, Any] = {}
+
         self._lock = RLock()
 
     def set_metadata(self, values: Mapping[str, Any]) -> None:
         with self._lock:
             self._metadata.update(values)
 
-    def finish(self, status: str = "completed") -> ObservationSnapshot:
+    def finish(
+        self,
+        status: str = "completed",
+    ) -> ObservationSnapshot:
         with self._lock:
             self._finished_at = utc_now_iso()
             self._status = status
@@ -193,8 +66,10 @@ class TaskObservationSession:
 
         if self.buckets is not None:
             self.buckets.add(snapshot)
+
         if self.store is not None:
             self.store.save(snapshot)
+
         return snapshot
 
     def snapshot(self) -> ObservationSnapshot:
@@ -213,39 +88,83 @@ class TaskObservationSession:
 
 
 class TaskObservationEngine:
-    """Public facade used by future filesystem/browser adapters."""
+    """Public facade used by filesystem, browser, and other adapters."""
 
-    def __init__(self, storage_root: str | None = None) -> None:
+    def __init__(
+        self,
+        storage_root: str | None = None,
+    ) -> None:
         self.store = SessionStore(storage_root) if storage_root else None
+
         self.buckets = BucketManager()
-        self._sessions: dict[str, TaskObservationSession] = {}
+
+        self._sessions: dict[
+            str,
+            TaskObservationSession,
+        ] = {}
+
         self._lock = RLock()
 
-    def start(self, family_key: str, *, task_key: str = "", metadata: Mapping[str, Any] | None = None) -> TaskObservationSession:
-        identity = TaskIdentity.create(family_key, task_key)
-        session = TaskObservationSession(identity, self.store, self.buckets)
+    def start(
+        self,
+        family_key: str,
+        *,
+        task_key: str = "",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> TaskObservationSession:
+        identity = TaskIdentity.create(
+            family_key,
+            task_key,
+        )
+
+        session = TaskObservationSession(
+            identity,
+            self.store,
+            self.buckets,
+        )
+
         if metadata:
             session.set_metadata(metadata)
+
         with self._lock:
             self._sessions[identity.session_id] = session
+
         return session
 
-    def get(self, session_id: str) -> TaskObservationSession | None:
+    def get(
+        self,
+        session_id: str,
+    ) -> TaskObservationSession | None:
         with self._lock:
             return self._sessions.get(session_id)
 
-    def finish(self, session_id: str, status: str = "completed") -> ObservationSnapshot | None:
+    def finish(
+        self,
+        session_id: str,
+        status: str = "completed",
+    ) -> ObservationSnapshot | None:
         session = self.get(session_id)
+
         if session is None:
             return None
+
         snapshot = session.finish(status)
+
         with self._lock:
-            self._sessions.pop(session_id, None)
+            self._sessions.pop(
+                session_id,
+                None,
+            )
+
         return snapshot
 
-    def replay(self, session_id: str) -> ObservationSnapshot:
+    def replay(
+        self,
+        session_id: str,
+    ) -> ObservationSnapshot:
         if self.store is None:
             raise RuntimeError("Persistent storage is not configured.")
+
         return self.store.replay(session_id)
 
 
@@ -387,124 +306,998 @@ class ObservationBucket:
 
 
 ================================================================================
-FILE: task_observation_engine/tests/test_sqlite_store.py
+FILE: task_observation_engine/task_observation/collectors.py
+================================================================================
+
+from __future__ import annotations
+
+from threading import Lock
+from typing import Any, Mapping
+from datetime import datetime, timezone
+
+from .models import ContinuousObservation, DiscreteObservation, TaskEvent, TracePoint
+
+
+class DiscreteFeatureCollector:
+    """Thread-safe collector for categorical/state-like task features."""
+
+    def __init__(self) -> None:
+        self._items: list[DiscreteObservation] = []
+        self._lock = Lock()
+
+    def record(self, name: str, value: str | int | bool | None, *, source: str = "unknown", step: int | None = None) -> None:
+        with self._lock:
+            self._items.append(DiscreteObservation(name, value, source=source, step=step))
+
+    def record_many(self, values: Mapping[str, str | int | bool | None], *, source: str = "unknown", step: int | None = None) -> None:
+        with self._lock:
+            for name, value in values.items():
+                self._items.append(DiscreteObservation(name, value, source=source, step=step))
+
+    def snapshot(self) -> tuple[DiscreteObservation, ...]:
+        with self._lock:
+            return tuple(self._items)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+
+class ContinuousFeatureCollector:
+    """Thread-safe collector for numeric task features.
+
+    Missing/invalid numeric values are accepted and represented as None rather
+    than terminating the observation process.
+    """
+
+    def __init__(self) -> None:
+        self._items: list[ContinuousObservation] = []
+        self._lock = Lock()
+
+    def record(self, name: str, value: float | int | None, *, source: str = "unknown", step: int | None = None) -> None:
+        safe_value: float | None
+        try:
+            safe_value = None if value is None else float(value)
+        except (TypeError, ValueError):
+            safe_value = None
+        with self._lock:
+            self._items.append(ContinuousObservation(name, safe_value, source=source, step=step))
+
+    def record_many(self, values: Mapping[str, float | int | None], *, source: str = "unknown", step: int | None = None) -> None:
+        for name, value in values.items():
+            self.record(name, value, source=source, step=step)
+
+    def snapshot(self) -> tuple[ContinuousObservation, ...]:
+        with self._lock:
+            return tuple(self._items)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+
+class EventTraceCollector:
+    """Thread-safe event and trace recorder."""
+
+    def __init__(self) -> None:
+        self._events: list[TaskEvent] = []
+        self._traces: list[TracePoint] = []
+        self._lock = Lock()
+
+    def event(self, name: str, *, source: str = "unknown", payload: Mapping[str, Any] | None = None, step: int | None = None) -> None:
+        with self._lock:
+            self._events.append(TaskEvent(name=name, source=source, payload=payload or {}, step=step))
+
+    def trace(
+        self,
+        phase: str,
+        *,
+        action: str = "",
+        path: str | None = None,
+        discrete: Mapping[str, str | int | bool | None] | None = None,
+        continuous: Mapping[str, float | None] | None = None,
+    ) -> int:
+        with self._lock:
+            sequence = len(self._traces)
+            self._traces.append(
+                TracePoint(
+                    sequence=sequence,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    phase=phase,
+                    action=action,
+                    path=path,
+                    discrete=discrete or {},
+                    continuous=continuous or {},
+                )
+            )
+            return sequence
+
+    def events(self) -> tuple[TaskEvent, ...]:
+        with self._lock:
+            return tuple(self._events)
+
+    def traces(self) -> tuple[TracePoint, ...]:
+        with self._lock:
+            return tuple(self._traces)
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/observation/tool_observer.py
+================================================================================
+
+from __future__ import annotations
+
+from collections import Counter
+from dataclasses import dataclass
+from typing import Any
+
+from ..models import ObservationSnapshot
+
+
+@dataclass(frozen=True)
+class ToolObservation:
+    """Derived observations about tool usage within a task."""
+
+    total_tool_calls: int
+    successful_tool_calls: int
+    failed_tool_calls: int
+    unique_tools: int
+
+    list_directory_count: int
+    search_files_count: int
+    read_file_count: int
+    read_table_count: int
+    compute_count: int
+
+    tool_counts: dict[str, int]
+
+
+class ToolObserver:
+    """Derives tool-usage observations from an ObservationSnapshot."""
+
+    def observe(self, snapshot: ObservationSnapshot) -> ToolObservation:
+        tool_started = [
+            event for event in snapshot.events if event.name == "tool_started"
+        ]
+
+        tool_completed = [
+            event for event in snapshot.events if event.name == "tool_completed"
+        ]
+
+        tool_counts: Counter[str] = Counter()
+
+        for event in tool_started:
+            tool_name = event.payload.get("tool_name")
+
+            if tool_name:
+                tool_counts[str(tool_name)] += 1
+
+        successful = sum(
+            1 for event in tool_completed if event.payload.get("success") is True
+        )
+
+        failed = sum(
+            1 for event in tool_completed if event.payload.get("success") is False
+        )
+
+        return ToolObservation(
+            total_tool_calls=len(tool_started),
+            successful_tool_calls=successful,
+            failed_tool_calls=failed,
+            unique_tools=len(tool_counts),
+            list_directory_count=tool_counts.get("list_directory", 0),
+            search_files_count=tool_counts.get("search_files", 0),
+            read_file_count=tool_counts.get("read_file", 0),
+            read_table_count=tool_counts.get("read_table", 0),
+            compute_count=sum(
+                count
+                for name, count in tool_counts.items()
+                if name.startswith("compute")
+            ),
+            tool_counts=dict(tool_counts),
+        )
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/observation/navigation_observer.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import PurePosixPath
+
+from ..models import ObservationSnapshot
+
+
+@dataclass(frozen=True)
+class NavigationObservation:
+    """Derived observations about filesystem navigation."""
+
+    unique_paths: int
+    paths_visited: int
+    directory_navigation_count: int
+    file_access_count: int
+    maximum_path_depth: int
+
+    search_count: int
+    navigation_reversal_count: int
+
+    visited_paths: tuple[str, ...]
+
+
+class NavigationObserver:
+    """Derives navigation-related observations."""
+
+    def observe(self, snapshot: ObservationSnapshot) -> NavigationObservation:
+        traces = [trace for trace in snapshot.traces if trace.path is not None]
+
+        paths = [trace.path for trace in traces if trace.path is not None]
+
+        unique_paths = tuple(dict.fromkeys(paths))
+
+        action_phases = {
+            "tool_started",
+        }
+
+        directory_navigation_count = sum(
+            1
+            for trace in traces
+            if (trace.phase in action_phases and trace.action == "list_directory")
+        )
+
+        file_access_count = sum(
+            1
+            for trace in traces
+            if (
+                trace.phase in action_phases
+                and trace.action
+                in {
+                    "read_file",
+                    "read_table",
+                }
+            )
+        )
+
+        search_count = sum(
+            1
+            for trace in traces
+            if (trace.phase in action_phases and trace.action == "search_files")
+        )
+        maximum_path_depth = 0
+
+        for path in unique_paths:
+            depth = self._path_depth(path)
+            maximum_path_depth = max(maximum_path_depth, depth)
+
+        navigation_reversal_count = self._count_reversals(traces)
+
+        return NavigationObservation(
+            unique_paths=len(unique_paths),
+            paths_visited=len(paths),
+            directory_navigation_count=directory_navigation_count,
+            file_access_count=file_access_count,
+            maximum_path_depth=maximum_path_depth,
+            search_count=search_count,
+            navigation_reversal_count=navigation_reversal_count,
+            visited_paths=unique_paths,
+        )
+
+    @staticmethod
+    def _path_depth(path: str) -> int:
+        normalized = path.replace("\\", "/").strip("/")
+
+        if not normalized or normalized == ".":
+            return 0
+
+        return len(
+            [part for part in PurePosixPath(normalized).parts if part not in {".", ""}]
+        )
+
+    @staticmethod
+    def _count_reversals(traces) -> int:
+        paths = [trace.path for trace in traces if trace.path is not None]
+
+        reversals = 0
+
+        for previous, current in zip(paths, paths[1:]):
+            if previous == current:
+                continue
+
+            previous_parts = previous.replace("\\", "/").strip("/").split("/")
+            current_parts = current.replace("\\", "/").strip("/").split("/")
+
+            if (
+                len(current_parts) < len(previous_parts)
+                and previous_parts[: len(current_parts)] == current_parts
+            ):
+                reversals += 1
+
+        return reversals
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/observation/timing_observer.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
+from ..models import ObservationSnapshot
+
+
+@dataclass(frozen=True)
+class TimingObservation:
+    """Derived timing information."""
+
+    task_duration_seconds: float | None
+    average_tool_duration_seconds: float | None
+    minimum_tool_duration_seconds: float | None
+    maximum_tool_duration_seconds: float | None
+
+
+class TimingObserver:
+    """Derives task and tool timing from event timestamps."""
+
+    def observe(self, snapshot: ObservationSnapshot) -> TimingObservation:
+        task_duration = self._duration(
+            snapshot.started_at,
+            snapshot.finished_at,
+        )
+
+        started: dict[tuple[str, str | None], datetime] = {}
+        durations: list[float] = []
+
+        for event in snapshot.events:
+            tool_name = event.payload.get("tool_name")
+            path = event.payload.get("path")
+
+            key = (str(tool_name), path)
+
+            if event.name == "tool_started" and tool_name:
+                started[key] = self._parse(event.timestamp)
+
+            elif event.name == "tool_completed" and tool_name:
+                start = started.pop(key, None)
+
+                if start is not None:
+                    end = self._parse(event.timestamp)
+                    duration = (end - start).total_seconds()
+
+                    if duration >= 0:
+                        durations.append(duration)
+
+        return TimingObservation(
+            task_duration_seconds=task_duration,
+            average_tool_duration_seconds=(
+                sum(durations) / len(durations) if durations else None
+            ),
+            minimum_tool_duration_seconds=(min(durations) if durations else None),
+            maximum_tool_duration_seconds=(max(durations) if durations else None),
+        )
+
+    @staticmethod
+    def _parse(value: str) -> datetime:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+    @classmethod
+    def _duration(
+        cls,
+        started_at: str | None,
+        finished_at: str | None,
+    ) -> float | None:
+        if not started_at or not finished_at:
+            return None
+
+        duration = (cls._parse(finished_at) - cls._parse(started_at)).total_seconds()
+
+        return duration if duration >= 0 else None
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/observation/outcome_observer.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from ..models import ObservationSnapshot
+
+
+@dataclass(frozen=True)
+class OutcomeObservation:
+    """Derived observations about task outcome."""
+
+    status: str
+    completed: bool
+    failed: bool
+    cancelled: bool
+
+    approval_label: bool | None
+
+    had_tool_failure: bool
+    recovered_from_failure: bool
+
+
+class OutcomeObserver:
+    """Derives outcome and recovery observations."""
+
+    def observe(self, snapshot: ObservationSnapshot) -> OutcomeObservation:
+        completed = snapshot.status == "completed"
+        failed = snapshot.status == "failed"
+        cancelled = snapshot.status == "cancelled"
+
+        tool_completed = [
+            event for event in snapshot.events if event.name == "tool_completed"
+        ]
+
+        had_tool_failure = any(
+            event.payload.get("success") is False for event in tool_completed
+        )
+
+        recovered_from_failure = self._detect_recovery(snapshot)
+
+        approval_label = self._approval_label(snapshot)
+
+        return OutcomeObservation(
+            status=snapshot.status,
+            completed=completed,
+            failed=failed,
+            cancelled=cancelled,
+            approval_label=approval_label,
+            had_tool_failure=had_tool_failure,
+            recovered_from_failure=recovered_from_failure,
+        )
+
+    @staticmethod
+    def _approval_label(
+        snapshot: ObservationSnapshot,
+    ) -> bool | None:
+        for item in reversed(snapshot.discrete):
+            if item.name in {
+                "approval_label",
+                "approved",
+                "human_approved",
+            }:
+                if item.value is None:
+                    return None
+
+                return bool(item.value)
+
+        return None
+
+    @staticmethod
+    def _detect_recovery(
+        snapshot: ObservationSnapshot,
+    ) -> bool:
+        failure_seen = False
+
+        for event in snapshot.events:
+            if event.name != "tool_completed":
+                continue
+
+            if event.payload.get("success") is False:
+                failure_seen = True
+                continue
+
+            if failure_seen and event.payload.get("success") is True:
+                return True
+
+        return False
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/observation/feature_deriver.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from ..models import ObservationSnapshot
+from .navigation_observer import NavigationObservation, NavigationObserver
+from .outcome_observer import OutcomeObservation, OutcomeObserver
+from .timing_observer import TimingObservation, TimingObserver
+from .tool_observer import ToolObservation, ToolObserver
+
+
+@dataclass(frozen=True)
+class DerivedObservationFeatures:
+    """Complete derived observation set for one task."""
+
+    tool: ToolObservation
+    navigation: NavigationObservation
+    timing: TimingObservation
+    outcome: OutcomeObservation
+
+    def continuous_features(self) -> dict[str, float]:
+        """Return numerical features suitable for the math layer."""
+
+        values: dict[str, float] = {
+            "total_tool_calls": float(self.tool.total_tool_calls),
+            "successful_tool_calls": float(self.tool.successful_tool_calls),
+            "failed_tool_calls": float(self.tool.failed_tool_calls),
+            "unique_tools": float(self.tool.unique_tools),
+            "list_directory_count": float(self.tool.list_directory_count),
+            "search_files_count": float(self.tool.search_files_count),
+            "read_file_count": float(self.tool.read_file_count),
+            "read_table_count": float(self.tool.read_table_count),
+            "compute_count": float(self.tool.compute_count),
+            "unique_paths": float(self.navigation.unique_paths),
+            "paths_visited": float(self.navigation.paths_visited),
+            "directory_navigation_count": float(
+                self.navigation.directory_navigation_count
+            ),
+            "file_access_count": float(self.navigation.file_access_count),
+            "maximum_path_depth": float(self.navigation.maximum_path_depth),
+            "search_count": float(self.navigation.search_count),
+            "navigation_reversal_count": float(
+                self.navigation.navigation_reversal_count
+            ),
+        }
+
+        if self.timing.task_duration_seconds is not None:
+            values["task_duration_seconds"] = self.timing.task_duration_seconds
+
+        if self.timing.average_tool_duration_seconds is not None:
+            values["average_tool_duration_seconds"] = (
+                self.timing.average_tool_duration_seconds
+            )
+
+        if self.timing.minimum_tool_duration_seconds is not None:
+            values["minimum_tool_duration_seconds"] = (
+                self.timing.minimum_tool_duration_seconds
+            )
+
+        if self.timing.maximum_tool_duration_seconds is not None:
+            values["maximum_tool_duration_seconds"] = (
+                self.timing.maximum_tool_duration_seconds
+            )
+
+        return values
+
+    def discrete_features(self) -> dict[str, str | bool]:
+        """Return categorical/state features."""
+
+        values: dict[str, str | bool] = {
+            "task_status": self.outcome.status,
+            "task_completed": self.outcome.completed,
+            "task_failed": self.outcome.failed,
+            "task_cancelled": self.outcome.cancelled,
+            "had_tool_failure": self.outcome.had_tool_failure,
+            "recovered_from_failure": (self.outcome.recovered_from_failure),
+            "used_search": self.tool.search_files_count > 0,
+            "used_computation": self.tool.compute_count > 0,
+            "used_file_read": (
+                self.tool.read_file_count > 0 or self.tool.read_table_count > 0
+            ),
+        }
+
+        if self.outcome.approval_label is not None:
+            values["approval_label"] = self.outcome.approval_label
+
+        return values
+
+
+class FeatureDeriver:
+    """Coordinates all independent observation derivations."""
+
+    def __init__(
+        self,
+        *,
+        tool_observer: ToolObserver | None = None,
+        navigation_observer: NavigationObserver | None = None,
+        timing_observer: TimingObserver | None = None,
+        outcome_observer: OutcomeObserver | None = None,
+    ) -> None:
+        self.tool_observer = tool_observer or ToolObserver()
+        self.navigation_observer = navigation_observer or NavigationObserver()
+        self.timing_observer = timing_observer or TimingObserver()
+        self.outcome_observer = outcome_observer or OutcomeObserver()
+
+    def derive(
+        self,
+        snapshot: ObservationSnapshot,
+    ) -> DerivedObservationFeatures:
+        return DerivedObservationFeatures(
+            tool=self.tool_observer.observe(snapshot),
+            navigation=self.navigation_observer.observe(snapshot),
+            timing=self.timing_observer.observe(snapshot),
+            outcome=self.outcome_observer.observe(snapshot),
+        )
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_observation_derivers.py
+================================================================================
+
+from __future__ import annotations
+
+from task_observation.models import (
+    ContinuousObservation,
+    DiscreteObservation,
+    ObservationSnapshot,
+    TaskEvent,
+    TaskIdentity,
+    TracePoint,
+)
+from task_observation.observation import (
+    FeatureDeriver,
+    NavigationObserver,
+    OutcomeObserver,
+    TimingObserver,
+    ToolObserver,
+)
+
+
+def make_snapshot() -> ObservationSnapshot:
+    identity = TaskIdentity(
+        session_id="test-session",
+        family_key="filesystem",
+        task_key="",
+        started_at="2026-10-03T13:03:33+00:00",
+    )
+
+    return ObservationSnapshot(
+        identity=identity,
+        started_at="2026-10-03T13:03:33+00:00",
+        finished_at="2026-10-03T13:03:43+00:00",
+        status="completed",
+        metadata={
+            "agent_type": "filesystem",
+        },
+        discrete=(
+            DiscreteObservation(
+                name="approval_label",
+                value=True,
+            ),
+        ),
+        continuous=(),
+        events=(
+            TaskEvent(
+                name="task_started",
+                timestamp="2026-10-03T13:03:33+00:00",
+                source="filesystem_worker",
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:34+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "list_directory",
+                    "path": ".",
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:35+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "list_directory",
+                    "path": ".",
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:36+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "search_files",
+                    "path": ".",
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:37+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "search_files",
+                    "path": ".",
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:38+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "read_table",
+                    "path": "Level_1/Level_2/Employees.csv",
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:39+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "read_table",
+                    "path": "Level_1/Level_2/Employees.csv",
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:40+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "compute_sum",
+                    "path": None,
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:41+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "compute_sum",
+                    "path": None,
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="task_completed",
+                timestamp="2026-10-03T13:03:43+00:00",
+                source="filesystem_worker",
+                payload={
+                    "status": "completed",
+                },
+            ),
+        ),
+        traces=(
+            TracePoint(
+                sequence=0,
+                timestamp="2026-10-03T13:03:34+00:00",
+                phase="tool_started",
+                action="list_directory",
+                path=".",
+                discrete={
+                    "tool_name": "list_directory",
+                },
+            ),
+            TracePoint(
+                sequence=1,
+                timestamp="2026-10-03T13:03:35+00:00",
+                phase="tool_completed",
+                action="list_directory",
+                path=".",
+                discrete={
+                    "success": True,
+                },
+            ),
+            TracePoint(
+                sequence=2,
+                timestamp="2026-10-03T13:03:36+00:00",
+                phase="tool_started",
+                action="search_files",
+                path=".",
+                discrete={
+                    "tool_name": "search_files",
+                },
+            ),
+            TracePoint(
+                sequence=3,
+                timestamp="2026-10-03T13:03:37+00:00",
+                phase="tool_completed",
+                action="search_files",
+                path=".",
+                discrete={
+                    "success": True,
+                },
+            ),
+            TracePoint(
+                sequence=4,
+                timestamp="2026-10-03T13:03:38+00:00",
+                phase="tool_started",
+                action="read_table",
+                path="Level_1/Level_2/Employees.csv",
+                discrete={
+                    "tool_name": "read_table",
+                },
+            ),
+            TracePoint(
+                sequence=5,
+                timestamp="2026-10-03T13:03:39+00:00",
+                phase="tool_completed",
+                action="read_table",
+                path="Level_1/Level_2/Employees.csv",
+                discrete={
+                    "success": True,
+                },
+            ),
+            TracePoint(
+                sequence=6,
+                timestamp="2026-10-03T13:03:40+00:00",
+                phase="tool_started",
+                action="compute_sum",
+                path=None,
+                discrete={
+                    "tool_name": "compute_sum",
+                },
+            ),
+            TracePoint(
+                sequence=7,
+                timestamp="2026-10-03T13:03:41+00:00",
+                phase="tool_completed",
+                action="compute_sum",
+                path=None,
+                discrete={
+                    "success": True,
+                },
+            ),
+        ),
+    )
+
+
+def test_tool_observer_derives_tool_usage():
+    observation = ToolObserver().observe(make_snapshot())
+
+    assert observation.total_tool_calls == 4
+    assert observation.successful_tool_calls == 4
+    assert observation.failed_tool_calls == 0
+    assert observation.unique_tools == 4
+
+    assert observation.list_directory_count == 1
+    assert observation.search_files_count == 1
+    assert observation.read_table_count == 1
+    assert observation.compute_count == 1
+
+
+def test_navigation_observer_derives_navigation_features():
+    observation = NavigationObserver().observe(make_snapshot())
+
+    assert observation.unique_paths == 2
+    assert observation.paths_visited == 6
+    assert observation.directory_navigation_count == 1
+    assert observation.file_access_count == 1
+    assert observation.search_count == 1
+    assert observation.maximum_path_depth == 3
+
+
+def test_timing_observer_derives_task_duration():
+    observation = TimingObserver().observe(make_snapshot())
+
+    assert observation.task_duration_seconds == 10.0
+    assert observation.average_tool_duration_seconds == 1.0
+    assert observation.minimum_tool_duration_seconds == 1.0
+    assert observation.maximum_tool_duration_seconds == 1.0
+
+
+def test_outcome_observer_derives_completed_state():
+    observation = OutcomeObserver().observe(make_snapshot())
+
+    assert observation.status == "completed"
+    assert observation.completed is True
+    assert observation.failed is False
+    assert observation.cancelled is False
+    assert observation.had_tool_failure is False
+    assert observation.recovered_from_failure is False
+    assert observation.approval_label is True
+
+
+def test_feature_deriver_combines_all_observers():
+    features = FeatureDeriver().derive(make_snapshot())
+
+    continuous = features.continuous_features()
+    discrete = features.discrete_features()
+
+    assert continuous["total_tool_calls"] == 4.0
+    assert continuous["successful_tool_calls"] == 4.0
+    assert continuous["failed_tool_calls"] == 0.0
+    assert continuous["compute_count"] == 1.0
+    assert continuous["task_duration_seconds"] == 10.0
+
+    assert discrete["task_status"] == "completed"
+    assert discrete["task_completed"] is True
+    assert discrete["task_failed"] is False
+    assert discrete["used_search"] is True
+    assert discrete["used_computation"] is True
+    assert discrete["used_file_read"] is True
+    assert discrete["approval_label"] is True
+
+
+def test_outcome_observer_detects_recovery():
+    snapshot = make_snapshot()
+
+    events = list(snapshot.events)
+
+    events.insert(
+        -1,
+        TaskEvent(
+            name="tool_completed",
+            timestamp="2026-10-03T13:03:42+00:00",
+            source="filesystem_worker",
+            payload={
+                "tool_name": "read_file",
+                "path": "recovered.txt",
+                "success": False,
+            },
+        ),
+    )
+
+    events.insert(
+        -1,
+        TaskEvent(
+            name="tool_completed",
+            timestamp="2026-10-03T13:03:42.500000+00:00",
+            source="filesystem_worker",
+            payload={
+                "tool_name": "read_file",
+                "path": "recovered.txt",
+                "success": True,
+            },
+        ),
+    )
+
+    modified = ObservationSnapshot(
+        identity=snapshot.identity,
+        discrete=snapshot.discrete,
+        continuous=snapshot.continuous,
+        events=tuple(events),
+        traces=snapshot.traces,
+        started_at=snapshot.started_at,
+        finished_at=snapshot.finished_at,
+        status=snapshot.status,
+        metadata=snapshot.metadata,
+    )
+
+    observation = OutcomeObserver().observe(modified)
+
+    assert observation.had_tool_failure is True
+    assert observation.recovered_from_failure is True
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_observation_engine.py
 ================================================================================
 
 from pathlib import Path
 
-from task_observation.database import SQLiteObservationStore
+from task_observation import ReplayAPI, TaskObservationEngine, generate_runs
 
 
-def test_database_survives_store_restart(tmp_path: Path) -> None:
-    database_path = tmp_path / "observations.sqlite3"
+def test_missing_values_do_not_stop_collection(tmp_path: Path) -> None:
+    engine = TaskObservationEngine(tmp_path)
+    session = engine.start("demo.family")
+    session.discrete.record("optional", None)
+    session.continuous.record("optional_number", None)
+    session.continuous.record("bad_number", "not-a-number")
+    snapshot = session.finish()
 
-    with SQLiteObservationStore(database_path) as store:
-        store.repository.create_session(
-            session_id="session-001",
-            task_family="filesystem.read_table.calculate",
-            started_at="2026-10-03T10:00:00",
-            status="running",
-        )
-
-        store.repository.insert_observation(
-            session_id="session-001",
-            sequence=1,
-            timestamp="2026-10-03T10:00:01",
-            name="row_count",
-            kind="continuous",
-            value=1000,
-        )
-
-        store.repository.insert_observation(
-            session_id="session-001",
-            sequence=2,
-            timestamp="2026-10-03T10:00:02",
-            name="optional_value",
-            kind="continuous",
-            value=None,
-        )
-
-        store.repository.insert_observation(
-            session_id="session-001",
-            sequence=3,
-            timestamp="2026-10-03T10:00:03",
-            name="extension",
-            kind="discrete",
-            value=".csv",
-        )
-
-        store.repository.insert_event(
-            session_id="session-001",
-            sequence=4,
-            timestamp="2026-10-03T10:00:04",
-            event_type="calculate.completed",
-            payload={
-                "result": 1044000000,
-            },
-        )
-
-        store.repository.insert_label(
-            session_id="session-001",
-            label="ALLOW",
-            source="human",
-            timestamp="2026-10-03T10:00:05",
-        )
-
-        store.repository.finish_session(
-            session_id="session-001",
-            finished_at="2026-10-03T10:00:06",
-            status="completed",
-        )
-
-        store.commit()
-
-    assert database_path.exists()
-
-    # Simulate completely new application runtime.
-    with SQLiteObservationStore(database_path) as store:
-        session = store.repository.get_session("session-001")
-
-        assert session is not None
-        assert session.status == "completed"
-
-        observations = store.repository.observations("session-001")
-
-        assert len(observations) == 3
-        assert observations[0].value == 1000.0
-        assert observations[1].value is None
-        assert observations[2].value == ".csv"
-
-        events = store.repository.events("session-001")
-
-        assert len(events) == 1
-        assert events[0].payload["result"] == 1044000000
-
-        labels = store.repository.labels("session-001")
-
-        assert len(labels) == 1
-        assert labels[0].label == "ALLOW"
+    assert snapshot.status == "completed"
+    assert len(snapshot.discrete) == 1
+    assert len(snapshot.continuous) == 2
+    assert snapshot.continuous[-1].value is None
 
 
-def test_database_supports_multiple_sessions(tmp_path: Path) -> None:
-    database_path = tmp_path / "observations.sqlite3"
+def test_persistence_and_replay(tmp_path: Path) -> None:
+    engine = TaskObservationEngine(tmp_path)
+    session = engine.start("filesystem.read_table.calculate")
+    session.continuous.record("row_count", 1000)
+    session.discrete.record("extension", ".csv")
+    snapshot = session.finish()
 
-    with SQLiteObservationStore(database_path) as store:
-        for index in range(5):
-            session_id = f"session-{index}"
+    replay = ReplayAPI(tmp_path)
+    loaded = replay.session(snapshot.identity.session_id)
+    assert loaded.identity.session_id == snapshot.identity.session_id
+    assert loaded.continuous[0].value == 1000.0
+    assert loaded.discrete[0].value == ".csv"
 
-            store.repository.create_session(
-                session_id=session_id,
-                task_family="demo.family",
-                started_at=f"2026-10-03T10:00:0{index}",
-                status="completed",
-            )
 
-        store.commit()
-
-    with SQLiteObservationStore(database_path) as store:
-        session_ids = store.repository.list_session_ids()
-
-        assert len(session_ids) == 5
-        assert "session-0" in session_ids
-        assert "session-4" in session_ids
+def test_simulation_produces_multiple_replayable_runs(tmp_path: Path) -> None:
+    snapshots = generate_runs(tmp_path, count=5, seed=42)
+    assert len(snapshots) == 5
+    replay = ReplayAPI(tmp_path)
+    assert len(replay.session_ids()) == 5
+    assert len(replay.feature_rows()) == 5
 
