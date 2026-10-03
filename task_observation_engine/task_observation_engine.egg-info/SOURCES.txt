@@ -30,8 +30,15 @@ task_observation/replay.py
 task_observation/session.py
 task_observation/simulation.py
 task_observation/storage.py
+task_observation/qt/__init__.py
+task_observation/qt/observation_bridge.py
+task_observation/qt/observation_plot.py
+task_observation/qt/observation_thread.py
+task_observation/qt/observation_widget.py
 task_observation_engine.egg-info/PKG-INFO
 task_observation_engine.egg-info/SOURCES.txt
 task_observation_engine.egg-info/dependency_links.txt
+task_observation_engine.egg-info/requires.txt
 task_observation_engine.egg-info/top_level.txt
 tests/test_observation_engine.py
+tests/test_qt_observation.py

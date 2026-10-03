@@ -2,7 +2,11 @@
 
 from .adapter import MathematicalApprovalAdapter
 from .buckets import BucketManager
-from .collectors import ContinuousFeatureCollector, DiscreteFeatureCollector, EventTraceCollector
+from .collectors import (
+    ContinuousFeatureCollector,
+    DiscreteFeatureCollector,
+    EventTraceCollector,
+)
 from .models import (
     BucketKey,
     ContinuousObservation,
@@ -18,6 +22,12 @@ from .replay import ReplayAPI
 from .session import TaskObservationEngine, TaskObservationSession
 from .simulation import generate_runs
 from .storage import SessionStore
+from .qt import (
+    ObservationBridge,
+    ObservationPlot,
+    ObservationWorker,
+    ObservationWidget,
+)
 
 __all__ = [
     "MathematicalApprovalAdapter",
@@ -39,4 +49,8 @@ __all__ = [
     "TaskObservationSession",
     "generate_runs",
     "SessionStore",
+    "ObservationBridge",
+    "ObservationPlot",
+    "ObservationWorker",
+    "ObservationWidget",
 ]

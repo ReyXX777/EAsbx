@@ -5,8 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "task-observation-engine"
 version = "0.1.0"
-description = "Standalone task observation and mathematical approval experimentation package"
+description = "Standalone task observation and trace collection engine"
 requires-python = ">=3.12"
+dependencies = [
+    "PySide6>=6.7",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
