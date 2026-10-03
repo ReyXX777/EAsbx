@@ -19,12 +19,11 @@ from pathlib import Path
 # Both "/" and "\" are accepted on Windows.
 
 FILES_TO_EXPORT = [
-    "filesystem/tools/__init__.py",
-    "filesystem/tools/tool_models.py",
-    "filesystem/tools/tool_registry.py",
-    "filesystem/tools/tool_dispatcher.py",
-    "filesystem/tools/filesystem_tools.py",
-    "filesystem/tools/compute_tools.py",
+    "task_observation_engine/task_observation/storage.py",
+    "task_observation_engine/task_observation/replay.py",
+    "task_observation_engine/task_observation/session.py",
+    "task_observation_engine/task_observation/models.py",
+    "task_observation_engine/tests/test_sqlite_store.py",
 ]
 
 
