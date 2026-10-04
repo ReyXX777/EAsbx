@@ -1,0 +1,4 @@
+pytest task_observation_engine/tests/test_qt_observation_worker.py -q
+pytest task_observation_engine/tests/test_qt_observation_bridge.py -q
+pytest task_observation_engine/tests/test_qt_observation_plot.py -q
+pytest task_observation_engine/tests/test_qt_observation_widget.py -q

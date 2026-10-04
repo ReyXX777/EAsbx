@@ -26,6 +26,7 @@ from chat_formatter import ChatMessageFormatter
 from chat_window import ChatWindowWidget
 from task_bar import TaskBarWidget
 from task_models import Task
+from task_observation_engine.task_observation import ObservationWidget
 
 from approval import (
     ApprovalEngine,
@@ -85,6 +86,13 @@ class MainWindow(QMainWindow):
         self.pending_approval_task = None
         self.pending_approval_intent = None
 
+        self.observation_widget = None
+
+        self.observation_storage_root = os.path.join(
+            os.path.dirname(__file__),
+            "task_observation_data",
+        )
+
         # ---------------------------------------------------------
         # 4. Approval layer
         # ---------------------------------------------------------
@@ -141,6 +149,37 @@ class MainWindow(QMainWindow):
             "last_action": "No agent running",
             "error": None,
         }
+
+    def show_observation_widget(self):
+        """
+        Open the task observation visualization window.
+
+        MainWindow owns the visualization surface while the
+        ObservationWidget owns observation presentation and
+        observation-session interaction.
+        """
+
+        if (
+            self.observation_widget is not None
+            and not self.observation_widget.isVisible()
+        ):
+            self.observation_widget.deleteLater()
+            self.observation_widget = None
+
+        if self.observation_widget is None:
+            self.observation_widget = ObservationWidget(
+                storage_root=self.observation_storage_root,
+                parent=self,
+            )
+
+            self.observation_widget.setWindowFlag(
+                Qt.Window,
+                True,
+            )
+
+        self.observation_widget.show()
+        self.observation_widget.raise_()
+        self.observation_widget.activateWindow()
 
     # =============================================================
     # Task creation + approval

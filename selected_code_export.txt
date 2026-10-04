@@ -11,12 +11,18 @@ TOTAL FILES REQUESTED: 5
 FILE: task_observation_engine/task_observation/qt/__init__.py
 ================================================================================
 
-"""Qt presentation layer for the Stage 6 task observation engine.
+"""Qt presentation layer for the task observation engine.
 
 The Qt layer is intentionally downstream of the observation engine.
 
-Qt widgets display snapshots and requests. They do not own mutable
-observation-session state.
+Qt is responsible for:
+
+- starting and finishing observation sessions through a bridge
+- displaying live observation snapshots
+- displaying persisted sessions through ReplayAPI
+- visualizing continuous observations
+
+Qt does not own observation-session state or storage state.
 """
 
 from .observation_bridge import ObservationBridge
@@ -39,7 +45,7 @@ FILE: task_observation_engine/task_observation/qt/observation_bridge.py
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
@@ -47,11 +53,12 @@ from .observation_thread import ObservationWorker
 
 
 class ObservationBridge(QObject):
-    """Thread-safe bridge between Qt UI code and ObservationWorker.
+    """Thread-safe Qt bridge for the observation worker.
 
-    UI code talks to this class.
+    UI code communicates only with this object.
 
-    UI code never directly accesses the TaskObservationSession.
+    The bridge owns the worker thread and forwards requests to the
+    ObservationWorker using Qt's queued signal/slot mechanism.
     """
 
     task_started = Signal(str)
@@ -59,7 +66,7 @@ class ObservationBridge(QObject):
     task_finished = Signal(object)
     error = Signal(str)
 
-    request_start = Signal(str)
+    request_start = Signal(str, str, object)
     request_discrete = Signal(str, object)
     request_continuous = Signal(str, object)
     request_event = Signal(str, object)
@@ -71,8 +78,10 @@ class ObservationBridge(QObject):
         self,
         storage_root: str,
         parent: QObject | None = None,
-    ):
+    ) -> None:
         super().__init__(parent)
+
+        self._closed = False
 
         self._thread = QThread(self)
 
@@ -83,6 +92,10 @@ class ObservationBridge(QObject):
         self._worker.moveToThread(
             self._thread,
         )
+
+        # --------------------------------------------------------------
+        # Requests: UI -> worker
+        # --------------------------------------------------------------
 
         self.request_start.connect(
             self._worker.start_task,
@@ -112,6 +125,10 @@ class ObservationBridge(QObject):
             self._worker.shutdown,
         )
 
+        # --------------------------------------------------------------
+        # Results: worker -> UI
+        # --------------------------------------------------------------
+
         self._worker.task_started.connect(
             self.task_started,
         )
@@ -130,62 +147,119 @@ class ObservationBridge(QObject):
 
         self._thread.start()
 
-    def start_task(self, family_key: str) -> None:
+    # ------------------------------------------------------------------
+    # Public commands
+    # ------------------------------------------------------------------
+
+    @Slot(str, str, object)
+    def start_task(
+        self,
+        family_key: str,
+        task_key: str = "",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Request creation of a new observation session."""
+
+        if self._closed:
+            return
+
         self.request_start.emit(
             family_key,
+            task_key,
+            metadata,
         )
 
+    @Slot(str, object)
     def record_discrete(
         self,
         name: str,
         value: Any = None,
     ) -> None:
+        """Request a discrete observation."""
+
+        if self._closed:
+            return
+
         self.request_discrete.emit(
             name,
             value,
         )
 
+    @Slot(str, object)
     def record_continuous(
         self,
         name: str,
         value: Any = None,
     ) -> None:
+        """Request a continuous observation."""
+
+        if self._closed:
+            return
+
         self.request_continuous.emit(
             name,
             value,
         )
 
+    @Slot(str, object)
     def record_event(
         self,
         event_type: str,
         payload: Any = None,
     ) -> None:
+        """Request an event observation."""
+
+        if self._closed:
+            return
+
         self.request_event.emit(
             event_type,
             payload,
         )
 
     def request_current_snapshot(self) -> None:
+        """Request publication of the current live snapshot."""
+
+        if self._closed:
+            return
+
         self.request_snapshot.emit()
 
     def finish_task(self) -> None:
+        """Request finalization of the active observation session."""
+
+        if self._closed:
+            return
+
         self.request_finish.emit()
 
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
     def close(self) -> None:
-        """Stop the observation worker safely."""
+        """Stop the worker thread safely and release Qt resources."""
+
+        if self._closed:
+            return
+
+        self._closed = True
 
         if not self._thread.isRunning():
             return
 
+        # The shutdown request is queued to the worker so that the
+        # session reference is released on the worker thread.
         self.request_shutdown.emit()
 
+        # Stop the event loop after queued work has been processed.
         self._thread.quit()
 
         if not self._thread.wait(3000):
             self._thread.terminate()
             self._thread.wait(1000)
 
-    def __del__(self):
+    def __del__(self) -> None:
         try:
             self.close()
         except Exception:
@@ -199,20 +273,32 @@ FILE: task_observation_engine/task_observation/qt/observation_thread.py
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from ..session import TaskObservationEngine
+from ..session import TaskObservationEngine, TaskObservationSession
 
 
 class ObservationWorker(QObject):
-    """Owns mutable observation state on a dedicated worker thread.
+    """Owns live observation state on the dedicated observation thread.
 
-    No Qt widget should directly manipulate a TaskObservationSession.
+    The worker is the only Qt-side object allowed to mutate the active
+    TaskObservationSession.
 
-    The worker receives requests through queued Qt signals and emits
-    immutable-ish snapshot objects back to the presentation layer.
+    The presentation layer communicates with this object through queued
+    signals exposed by ObservationBridge.
+
+    Responsibilities:
+
+    - create live observation sessions
+    - mutate collectors belonging to the active session
+    - publish current snapshots
+    - finish sessions
+    - release the active session
+
+    Persistence is handled by TaskObservationSession through the current
+    SessionStore/storage architecture.
     """
 
     task_started = Signal(str)
@@ -220,14 +306,30 @@ class ObservationWorker(QObject):
     task_finished = Signal(object)
     worker_error = Signal(str)
 
-    def __init__(self, storage_root: str, parent: QObject | None = None):
+    def __init__(
+        self,
+        storage_root: str,
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
 
-        self._engine = TaskObservationEngine(storage_root)
-        self._session = None
+        self._engine = TaskObservationEngine(
+            storage_root=storage_root,
+        )
 
-    @Slot(str)
-    def start_task(self, family_key: str) -> None:
+        self._session: TaskObservationSession | None = None
+
+    # ------------------------------------------------------------------
+    # Session lifecycle
+    # ------------------------------------------------------------------
+
+    @Slot(str, str, object)
+    def start_task(
+        self,
+        family_key: str,
+        task_key: str = "",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
         """Start a new observation session."""
 
         try:
@@ -245,149 +347,174 @@ class ObservationWorker(QObject):
                 )
                 return
 
-            self._session = self._engine.start(family_key)
+            task_key = (task_key or "").strip()
 
-            self.task_started.emit(family_key)
+            self._session = self._engine.start(
+                family_key,
+                task_key=task_key,
+                metadata=metadata,
+            )
+
+            self.task_started.emit(
+                family_key,
+            )
+
+            self.observation_updated.emit(
+                self._session.snapshot(),
+            )
 
         except Exception as exc:
-            self.worker_error.emit(f"{type(exc).__name__}: {exc}")
+            self.worker_error.emit(f"Task start error: {type(exc).__name__}: {exc}")
 
-    @Slot(str, object)
-    def record_discrete(self, name: str, value: Any) -> None:
-        """Record one discrete feature.
+    @Slot()
+    def finish_task(self) -> None:
+        """Finish the active observation session."""
 
-        Missing values are deliberately allowed.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             self.worker_error.emit("No active observation session.")
             return
 
         try:
-            self._session.discrete.record(
+            snapshot = session.finish()
+
+            self._session = None
+
+            self.task_finished.emit(
+                snapshot,
+            )
+
+            self.observation_updated.emit(
+                snapshot,
+            )
+
+        except Exception as exc:
+            self.worker_error.emit(
+                f"Task finalization error: {type(exc).__name__}: {exc}"
+            )
+
+    # ------------------------------------------------------------------
+    # Discrete observations
+    # ------------------------------------------------------------------
+
+    @Slot(str, object)
+    def record_discrete(
+        self,
+        name: str,
+        value: Any = None,
+    ) -> None:
+        """Record a discrete observation on the active session."""
+
+        session = self._session
+
+        if session is None:
+            self.worker_error.emit("No active observation session.")
+            return
+
+        try:
+            session.discrete.record(
                 name,
                 value,
             )
 
         except Exception as exc:
             self.worker_error.emit(
-                f"Discrete observation error: {type(exc).__name__}: {exc}"
+                "Discrete observation error: " f"{type(exc).__name__}: {exc}"
             )
 
+    # ------------------------------------------------------------------
+    # Continuous observations
+    # ------------------------------------------------------------------
+
     @Slot(str, object)
-    def record_continuous(self, name: str, value: Any) -> None:
-        """Record one continuous feature.
+    def record_continuous(
+        self,
+        name: str,
+        value: Any = None,
+    ) -> None:
+        """Record a continuous observation on the active session."""
 
-        Invalid/missing values are allowed to reach the collector, which
-        already defines the prototype's non-halting behaviour.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             self.worker_error.emit("No active observation session.")
             return
 
         try:
-            self._session.continuous.record(
+            session.continuous.record(
                 name,
                 value,
             )
 
         except Exception as exc:
             self.worker_error.emit(
-                f"Continuous observation error: " f"{type(exc).__name__}: {exc}"
+                "Continuous observation error: " f"{type(exc).__name__}: {exc}"
             )
 
+    # ------------------------------------------------------------------
+    # Events
+    # ------------------------------------------------------------------
+
     @Slot(str, object)
-    def record_event(self, event_type: str, payload: Any = None) -> None:
-        """Record a generic observation event when the session supports it.
+    def record_event(
+        self,
+        event_type: str,
+        payload: Any = None,
+    ) -> None:
+        """Record an event through the current event collector."""
 
-        Stage 6B intentionally does not assume a particular event collector
-        implementation. This keeps the Qt layer compatible with the current
-        collector implementation while allowing richer event models later.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             self.worker_error.emit("No active observation session.")
             return
 
         try:
-            collector = getattr(self._session, "events", None)
-
-            if collector is None:
-                collector = getattr(self._session, "trace", None)
-
-            if collector is None:
-                # Event collection is optional at this stage.
-                return
-
-            record_method = getattr(collector, "record", None)
-
-            if record_method is None:
-                return
-
-            record_method(
+            session.events.record(
                 event_type,
                 payload,
             )
 
         except Exception as exc:
             self.worker_error.emit(
-                f"Event observation error: " f"{type(exc).__name__}: {exc}"
+                "Event observation error: " f"{type(exc).__name__}: {exc}"
             )
+
+    # ------------------------------------------------------------------
+    # Snapshot publication
+    # ------------------------------------------------------------------
 
     @Slot()
     def publish_current_state(self) -> None:
-        """Publish the current state when the session implementation supports it.
+        """Publish the current raw observation snapshot."""
 
-        The existing session API guarantees finish(), but not necessarily
-        an intermediate snapshot API. Therefore this method is deliberately
-        conservative.
-        """
+        session = self._session
 
-        if self._session is None:
+        if session is None:
             return
 
         try:
-            snapshot_method = getattr(
-                self._session,
-                "snapshot",
-                None,
+            snapshot = session.snapshot()
+
+            self.observation_updated.emit(
+                snapshot,
             )
-
-            if snapshot_method is None:
-                return
-
-            snapshot = snapshot_method()
-
-            self.observation_updated.emit(snapshot)
 
         except Exception as exc:
             self.worker_error.emit(f"Snapshot error: {type(exc).__name__}: {exc}")
 
-    @Slot()
-    def finish_task(self) -> None:
-        """Finish the active observation session."""
-
-        if self._session is None:
-            self.worker_error.emit("No active observation session.")
-            return
-
-        try:
-            snapshot = self._session.finish()
-
-            self._session = None
-
-            self.task_finished.emit(snapshot)
-            self.observation_updated.emit(snapshot)
-
-        except Exception as exc:
-            self.worker_error.emit(
-                f"Task finalization error: " f"{type(exc).__name__}: {exc}"
-            )
+    # ------------------------------------------------------------------
+    # Shutdown
+    # ------------------------------------------------------------------
 
     @Slot()
     def shutdown(self) -> None:
-        """Release the active session reference."""
+        """Release the active session reference.
+
+        A live unfinished session is deliberately not finalized here.
+        Normal persistence occurs through finish_task().
+        """
 
         self._session = None
 
@@ -400,16 +527,31 @@ FILE: task_observation_engine/task_observation/qt/observation_plot.py
 from __future__ import annotations
 
 import math
+from typing import Iterable
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QPainter, QPen
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QWidget
 
 
 class ObservationPlot(QWidget):
-    """Small dependency-free Qt plot for continuous observation traces."""
+    """Small dependency-free Qt plot for continuous observations.
 
-    def __init__(self, parent=None):
+    The plot is intentionally independent of:
+
+    - TaskObservationSession
+    - TaskObservationEngine
+    - SessionStore
+    - ReplayAPI
+    - collector implementations
+
+    It only receives numeric values and renders them.
+    """
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
 
         self.setMinimumHeight(220)
@@ -419,20 +561,32 @@ class ObservationPlot(QWidget):
 
     def set_data(
         self,
-        values: list[float],
+        values: Iterable[float],
         title: str = "Continuous Feature",
     ) -> None:
-        self._values = [
-            float(value)
-            for value in values
-            if value is not None and math.isfinite(float(value))
-        ]
+        """Replace the plotted values."""
 
-        self._title = title
+        cleaned: list[float] = []
+
+        for value in values:
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+
+            if not math.isfinite(numeric):
+                continue
+
+            cleaned.append(numeric)
+
+        self._values = cleaned
+        self._title = str(title)
 
         self.update()
 
     def clear(self) -> None:
+        """Clear the current plot."""
+
         self._values.clear()
         self.update()
 
@@ -469,20 +623,29 @@ class ObservationPlot(QWidget):
             minimum = min(self._values)
             maximum = max(self._values)
 
-            if math.isclose(minimum, maximum):
-                minimum -= 1.0
-                maximum += 1.0
+            if math.isclose(
+                minimum,
+                maximum,
+            ):
+                padding = max(
+                    abs(minimum) * 0.05,
+                    1.0,
+                )
 
-            painter.drawRect(rect)
+                minimum -= padding
+                maximum += padding
+
+            painter.drawRect(
+                rect,
+            )
 
             point_count = len(self._values)
 
             points: list[QPointF] = []
 
             for index, value in enumerate(self._values):
-
                 if point_count == 1:
-                    x = rect.center().x()
+                    x = float(rect.center().x())
                 else:
                     x = rect.left() + (index / (point_count - 1)) * rect.width()
 
@@ -571,22 +734,25 @@ from .observation_plot import ObservationPlot
 class ObservationWidget(QWidget):
     """Qt visualization surface for task observations.
 
-    Responsibilities:
+    The widget is a presentation component.
 
-    - display live/final observation snapshots
-    - display discrete features
-    - display continuous features
-    - display event/trace information when present
-    - load persisted sessions through ReplayAPI
+    It:
 
-    It does not mutate the observation session.
+    - starts and finishes live observation sessions through ObservationBridge
+    - displays live snapshots
+    - displays persisted snapshots through ReplayAPI
+    - visualizes discrete observations
+    - visualizes continuous observations
+    - displays recorded events and traces
+
+    It does not own mutable observation-session state.
     """
 
     def __init__(
         self,
-        storage_root,
-        parent=None,
-    ):
+        storage_root: str,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
 
         self.storage_root = storage_root
@@ -596,16 +762,16 @@ class ObservationWidget(QWidget):
             self,
         )
 
-        self._snapshot = None
+        self._snapshot: ObservationSnapshot | None = None
 
         self._build_ui()
         self._connect_bridge()
 
         self.refresh_history()
 
-    # ---------------------------------------------------------
-    # UI
-    # ---------------------------------------------------------
+    # ==================================================================
+    # UI construction
+    # ==================================================================
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -619,42 +785,20 @@ class ObservationWidget(QWidget):
 
         root.setSpacing(6)
 
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
         # Toolbar
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
 
         toolbar = QHBoxLayout()
 
-        self.family_field = QComboBox()
-        self.family_field.setEditable(True)
-        self.family_field.setPlaceholderText("Task family")
-
-        start_button = QPushButton(
-            "Start Observation",
-        )
-
-        finish_button = QPushButton(
-            "Finish",
-        )
-
-        refresh_button = QPushButton(
-            "Refresh History",
-        )
-
-        start_button.clicked.connect(
-            self._start_task,
-        )
-
-        finish_button.clicked.connect(
-            self._finish_task,
-        )
-
-        refresh_button.clicked.connect(
-            self.refresh_history,
-        )
-
         toolbar.addWidget(
             QLabel("Family:"),
+        )
+
+        self.family_field = QComboBox()
+        self.family_field.setEditable(True)
+        self.family_field.setPlaceholderText(
+            "Task family",
         )
 
         toolbar.addWidget(
@@ -662,25 +806,49 @@ class ObservationWidget(QWidget):
             1,
         )
 
-        toolbar.addWidget(
-            start_button,
+        self.start_button = QPushButton(
+            "Start Observation",
+        )
+
+        self.finish_button = QPushButton(
+            "Finish",
+        )
+
+        self.refresh_button = QPushButton(
+            "Refresh History",
+        )
+
+        self.start_button.clicked.connect(
+            self._start_task,
+        )
+
+        self.finish_button.clicked.connect(
+            self._finish_task,
+        )
+
+        self.refresh_button.clicked.connect(
+            self.refresh_history,
         )
 
         toolbar.addWidget(
-            finish_button,
+            self.start_button,
         )
 
         toolbar.addWidget(
-            refresh_button,
+            self.finish_button,
+        )
+
+        toolbar.addWidget(
+            self.refresh_button,
         )
 
         root.addLayout(
             toolbar,
         )
 
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
         # Status
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
 
         self.status_label = QLabel(
             "No active observation.",
@@ -690,17 +858,17 @@ class ObservationWidget(QWidget):
             self.status_label,
         )
 
-        # -----------------------------------------------------
-        # Main splitter
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Main horizontal splitter
+        # ----------------------------------------------------------------
 
         splitter = QSplitter(
             Qt.Horizontal,
         )
 
-        # -----------------------------------------------------
+        # ================================================================
         # History
-        # -----------------------------------------------------
+        # ================================================================
 
         history_group = QGroupBox(
             "Stored Sessions",
@@ -724,9 +892,9 @@ class ObservationWidget(QWidget):
             history_group,
         )
 
-        # -----------------------------------------------------
-        # Right side
-        # -----------------------------------------------------
+        # ================================================================
+        # Right-side content
+        # ================================================================
 
         right = QWidget()
 
@@ -741,7 +909,9 @@ class ObservationWidget(QWidget):
             0,
         )
 
-        # Metadata
+        # ----------------------------------------------------------------
+        # Session metadata
+        # ----------------------------------------------------------------
 
         metadata_group = QGroupBox(
             "Session",
@@ -754,6 +924,8 @@ class ObservationWidget(QWidget):
         self.session_id_label = QLabel("-")
         self.family_label = QLabel("-")
         self.session_status_label = QLabel("-")
+        self.started_at_label = QLabel("-")
+        self.finished_at_label = QLabel("-")
 
         metadata_layout.addRow(
             "Session ID:",
@@ -770,13 +942,23 @@ class ObservationWidget(QWidget):
             self.session_status_label,
         )
 
+        metadata_layout.addRow(
+            "Started:",
+            self.started_at_label,
+        )
+
+        metadata_layout.addRow(
+            "Finished:",
+            self.finished_at_label,
+        )
+
         right_layout.addWidget(
             metadata_group,
         )
 
-        # -----------------------------------------------------
-        # Feature selector
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Continuous feature selector
+        # ----------------------------------------------------------------
 
         selector_layout = QHBoxLayout()
 
@@ -799,9 +981,9 @@ class ObservationWidget(QWidget):
             selector_layout,
         )
 
-        # -----------------------------------------------------
-        # Plot
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Continuous plot
+        # ----------------------------------------------------------------
 
         self.plot = ObservationPlot()
 
@@ -810,15 +992,17 @@ class ObservationWidget(QWidget):
             2,
         )
 
-        # -----------------------------------------------------
-        # Bottom splitter
-        # -----------------------------------------------------
+        # ----------------------------------------------------------------
+        # Lower vertical splitter
+        # ----------------------------------------------------------------
 
         lower_splitter = QSplitter(
             Qt.Vertical,
         )
 
-        # Discrete
+        # ================================================================
+        # Discrete features
+        # ================================================================
 
         discrete_group = QGroupBox(
             "Discrete Features",
@@ -853,7 +1037,9 @@ class ObservationWidget(QWidget):
             discrete_group,
         )
 
-        # Events/traces
+        # ================================================================
+        # Events / traces
+        # ================================================================
 
         event_group = QGroupBox(
             "Events / Trace",
@@ -910,9 +1096,13 @@ class ObservationWidget(QWidget):
             1,
         )
 
-    # ---------------------------------------------------------
+        self._set_running_state(
+            False,
+        )
+
+    # ==================================================================
     # Bridge
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _connect_bridge(self) -> None:
         self.bridge.task_started.connect(
@@ -931,9 +1121,9 @@ class ObservationWidget(QWidget):
             self._on_error,
         )
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Commands
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _start_task(self) -> None:
         family = self.family_field.currentText().strip()
@@ -949,9 +1139,9 @@ class ObservationWidget(QWidget):
     def _finish_task(self) -> None:
         self.bridge.finish_task()
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Worker events
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _on_task_started(
         self,
@@ -967,16 +1157,29 @@ class ObservationWidget(QWidget):
             "running",
         )
 
+        self._set_running_state(
+            True,
+        )
+
     def _on_task_finished(
         self,
         snapshot: object,
     ) -> None:
-        self.status_label.setText(
-            "Observation completed.",
-        )
+        if not isinstance(
+            snapshot,
+            ObservationSnapshot,
+        ):
+            self._on_error("Worker returned an invalid observation snapshot.")
+            return
+
+        self.status_label.setText("Observation completed.")
 
         self._display_snapshot(
             snapshot,
+        )
+
+        self._set_running_state(
+            False,
         )
 
         self.refresh_history()
@@ -987,83 +1190,81 @@ class ObservationWidget(QWidget):
     ) -> None:
         self.status_label.setText(f"Observation error: {message}")
 
-    # ---------------------------------------------------------
+    def _set_running_state(
+        self,
+        running: bool,
+    ) -> None:
+        self.start_button.setEnabled(
+            not running,
+        )
+
+        self.finish_button.setEnabled(
+            running,
+        )
+
+    # ==================================================================
     # Snapshot display
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def _display_snapshot(
         self,
         snapshot: object,
     ) -> None:
-        if snapshot is None:
+        if not isinstance(
+            snapshot,
+            ObservationSnapshot,
+        ):
+            self._on_error("Received an invalid observation snapshot.")
             return
 
         self._snapshot = snapshot
 
-        identity = getattr(
-            snapshot,
-            "identity",
-            None,
+        identity = snapshot.identity
+
+        self.session_id_label.setText(
+            str(identity.session_id),
         )
 
-        if identity is not None:
-            self.session_id_label.setText(
-                str(
-                    getattr(
-                        identity,
-                        "session_id",
-                        "-",
-                    )
-                )
-            )
-
-            self.family_label.setText(
-                str(
-                    getattr(
-                        identity,
-                        "family_key",
-                        getattr(
-                            identity,
-                            "family",
-                            "-",
-                        ),
-                    )
-                )
-            )
+        self.family_label.setText(
+            str(identity.family_key),
+        )
 
         self.session_status_label.setText(
-            str(
-                getattr(
-                    snapshot,
-                    "status",
-                    "-",
-                )
-            )
+            str(snapshot.status),
+        )
+
+        self.started_at_label.setText(
+            self._safe_text(snapshot.started_at),
+        )
+
+        self.finished_at_label.setText(
+            self._safe_text(snapshot.finished_at),
         )
 
         self._display_discrete(
-            getattr(
-                snapshot,
-                "discrete",
-                (),
-            )
+            snapshot.discrete,
         )
 
         self._display_continuous(
-            getattr(
-                snapshot,
-                "continuous",
-                (),
-            )
+            snapshot.continuous,
         )
 
         self._display_events(
             snapshot,
         )
 
-    # ---------------------------------------------------------
-    # Discrete
-    # ---------------------------------------------------------
+        if snapshot.status == "running":
+            self._set_running_state(
+                True,
+            )
+        else:
+            self._set_running_state(
+                False,
+            )
+
+    # ==================================================================
+    # Discrete observations
+    # ==================================================================
 
     def _display_discrete(
         self,
@@ -1074,7 +1275,6 @@ class ObservationWidget(QWidget):
         )
 
         for observation in observations:
-
             row = self.discrete_table.rowCount()
 
             self.discrete_table.insertRow(
@@ -1085,12 +1285,8 @@ class ObservationWidget(QWidget):
                 row,
                 0,
                 QTableWidgetItem(
-                    str(
-                        getattr(
-                            observation,
-                            "name",
-                            "",
-                        )
+                    self._safe_text(
+                        observation.name,
                     )
                 ),
             )
@@ -1100,59 +1296,53 @@ class ObservationWidget(QWidget):
                 1,
                 QTableWidgetItem(
                     self._safe_text(
-                        getattr(
-                            observation,
-                            "value",
-                            None,
-                        )
+                        observation.value,
                     )
                 ),
             )
 
         self.discrete_table.resizeColumnsToContents()
 
-    # ---------------------------------------------------------
-    # Continuous
-    # ---------------------------------------------------------
+    # ==================================================================
+    # Continuous observations
+    # ==================================================================
 
     def _display_continuous(
         self,
         observations,
     ) -> None:
+        current = self.feature_selector.currentText()
+
         self.feature_selector.blockSignals(
             True,
         )
 
-        current = self.feature_selector.currentText()
+        try:
+            self.feature_selector.clear()
 
-        self.feature_selector.clear()
+            names: list[str] = []
 
-        names = []
-
-        for observation in observations:
-            name = str(
-                getattr(
-                    observation,
-                    "name",
-                    "",
+            for observation in observations:
+                name = str(
+                    observation.name,
                 )
+
+                if name and name not in names:
+                    names.append(name)
+
+            self.feature_selector.addItems(
+                names,
             )
 
-            if name and name not in names:
-                names.append(name)
+            if current in names:
+                self.feature_selector.setCurrentText(
+                    current,
+                )
 
-        self.feature_selector.addItems(
-            names,
-        )
-
-        if current in names:
-            self.feature_selector.setCurrentText(
-                current,
+        finally:
+            self.feature_selector.blockSignals(
+                False,
             )
-
-        self.feature_selector.blockSignals(
-            False,
-        )
 
         self._render_selected_continuous(
             observations,
@@ -1162,15 +1352,13 @@ class ObservationWidget(QWidget):
         self,
         _name: str,
     ) -> None:
-        if self._snapshot is None:
+        snapshot = self._snapshot
+
+        if snapshot is None:
             return
 
         self._render_selected_continuous(
-            getattr(
-                self._snapshot,
-                "continuous",
-                (),
-            )
+            snapshot.continuous,
         )
 
     def _render_selected_continuous(
@@ -1186,27 +1374,18 @@ class ObservationWidget(QWidget):
         values: list[float] = []
 
         for observation in observations:
-
-            name = str(
-                getattr(
-                    observation,
-                    "name",
-                    "",
-                )
-            )
-
-            if name != selected:
+            if observation.name != selected:
                 continue
 
-            value = getattr(
-                observation,
-                "value",
-                None,
-            )
+            value = observation.value
+
+            if value is None:
+                continue
 
             try:
-                if value is not None:
-                    values.append(float(value))
+                values.append(
+                    float(value),
+                )
             except (
                 TypeError,
                 ValueError,
@@ -1218,39 +1397,27 @@ class ObservationWidget(QWidget):
             selected,
         )
 
-    # ---------------------------------------------------------
-    # Events
-    # ---------------------------------------------------------
+    # ==================================================================
+    # Events / traces
+    # ==================================================================
 
     def _display_events(
         self,
-        snapshot,
+        snapshot: ObservationSnapshot,
     ) -> None:
         self.event_table.setRowCount(
             0,
         )
 
-        collections = []
-
-        for attribute_name in (
-            "events",
-            "trace",
-            "traces",
-            "event_trace",
-        ):
-            value = getattr(
-                snapshot,
-                attribute_name,
-                None,
-            )
-
-            if value:
-                collections.append(value)
+        # Current ObservationSnapshot explicitly exposes both event
+        # collections. They are rendered in one presentation table.
+        collections = (
+            snapshot.events,
+            snapshot.traces,
+        )
 
         for collection in collections:
-
             for event in collection:
-
                 row = self.event_table.rowCount()
 
                 self.event_table.insertRow(
@@ -1290,26 +1457,38 @@ class ObservationWidget(QWidget):
                 self.event_table.setItem(
                     row,
                     0,
-                    QTableWidgetItem(self._safe_text(event_type)),
+                    QTableWidgetItem(
+                        self._safe_text(
+                            event_type,
+                        )
+                    ),
                 )
 
                 self.event_table.setItem(
                     row,
                     1,
-                    QTableWidgetItem(self._safe_text(name)),
+                    QTableWidgetItem(
+                        self._safe_text(
+                            name,
+                        )
+                    ),
                 )
 
                 self.event_table.setItem(
                     row,
                     2,
-                    QTableWidgetItem(self._safe_text(value)),
+                    QTableWidgetItem(
+                        self._safe_text(
+                            value,
+                        )
+                    ),
                 )
 
         self.event_table.resizeColumnsToContents()
 
-    # ---------------------------------------------------------
-    # History / Replay
-    # ---------------------------------------------------------
+    # ==================================================================
+    # Replay / history
+    # ==================================================================
 
     def refresh_history(self) -> None:
         try:
@@ -1326,7 +1505,6 @@ class ObservationWidget(QWidget):
         self.history_list.clear()
 
         for session_id in session_ids:
-
             item = QListWidgetItem(
                 str(session_id),
             )
@@ -1357,7 +1535,7 @@ class ObservationWidget(QWidget):
             )
 
             snapshot = replay.session(
-                session_id,
+                str(session_id),
             )
 
             self._display_snapshot(
@@ -1366,12 +1544,16 @@ class ObservationWidget(QWidget):
 
             self.status_label.setText(f"Loaded session: {session_id}")
 
+            self._set_running_state(
+                False,
+            )
+
         except Exception as exc:
             self.status_label.setText(f"Replay error: {exc}")
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Helpers
-    # ---------------------------------------------------------
+    # ==================================================================
 
     @staticmethod
     def _safe_text(
@@ -1385,9 +1567,9 @@ class ObservationWidget(QWidget):
         except Exception:
             return "<unprintable>"
 
-    # ---------------------------------------------------------
+    # ==================================================================
     # Lifecycle
-    # ---------------------------------------------------------
+    # ==================================================================
 
     def closeEvent(self, event) -> None:
         self.bridge.close()

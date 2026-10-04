@@ -19,7 +19,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..models import ObservationSnapshot
+from ..models import (
+    ObservationSnapshot,
+    TaskEvent,
+    TracePoint,
+)
 from ..replay import ReplayAPI
 from .observation_bridge import ObservationBridge
 from .observation_plot import ObservationPlot
@@ -32,7 +36,8 @@ class ObservationWidget(QWidget):
 
     It:
 
-    - starts and finishes live observation sessions through ObservationBridge
+    - starts and finishes live observation sessions through
+      ObservationBridge
     - displays live snapshots
     - displays persisted snapshots through ReplayAPI
     - visualizes discrete observations
@@ -346,14 +351,15 @@ class ObservationWidget(QWidget):
         self.event_table = QTableWidget()
 
         self.event_table.setColumnCount(
-            3,
+            4,
         )
 
         self.event_table.setHorizontalHeaderLabels(
             [
                 "Type",
-                "Name",
-                "Value",
+                "Name / Action",
+                "Source / Path",
+                "Payload / Values",
             ],
         )
 
@@ -547,14 +553,9 @@ class ObservationWidget(QWidget):
             snapshot,
         )
 
-        if snapshot.status == "running":
-            self._set_running_state(
-                True,
-            )
-        else:
-            self._set_running_state(
-                False,
-            )
+        self._set_running_state(
+            snapshot.status == "running",
+        )
 
     # ==================================================================
     # Discrete observations
@@ -703,82 +704,90 @@ class ObservationWidget(QWidget):
             0,
         )
 
-        # Current ObservationSnapshot explicitly exposes both event
-        # collections. They are rendered in one presentation table.
-        collections = (
-            snapshot.events,
-            snapshot.traces,
-        )
+        for event in snapshot.events:
+            if not isinstance(event, TaskEvent):
+                continue
 
-        for collection in collections:
-            for event in collection:
-                row = self.event_table.rowCount()
+            row = self.event_table.rowCount()
 
-                self.event_table.insertRow(
-                    row,
-                )
+            self.event_table.insertRow(
+                row,
+            )
 
-                event_type = getattr(
-                    event,
-                    "event_type",
-                    getattr(
-                        event,
-                        "type",
-                        "",
-                    ),
-                )
+            self._set_event_row(
+                row=row,
+                event_type="event",
+                name=event.name,
+                source_or_path=event.source,
+                payload_or_values=event.payload,
+            )
 
-                name = getattr(
-                    event,
-                    "name",
-                    getattr(
-                        event,
-                        "operation",
-                        "",
-                    ),
-                )
+        for trace in snapshot.traces:
+            if not isinstance(trace, TracePoint):
+                continue
 
-                value = getattr(
-                    event,
-                    "value",
-                    getattr(
-                        event,
-                        "payload",
-                        "",
-                    ),
-                )
+            row = self.event_table.rowCount()
 
-                self.event_table.setItem(
-                    row,
-                    0,
-                    QTableWidgetItem(
-                        self._safe_text(
-                            event_type,
-                        )
-                    ),
-                )
+            self.event_table.insertRow(
+                row,
+            )
 
-                self.event_table.setItem(
-                    row,
-                    1,
-                    QTableWidgetItem(
-                        self._safe_text(
-                            name,
-                        )
-                    ),
-                )
+            values = {
+                "discrete": dict(trace.discrete),
+                "continuous": dict(trace.continuous),
+            }
 
-                self.event_table.setItem(
-                    row,
-                    2,
-                    QTableWidgetItem(
-                        self._safe_text(
-                            value,
-                        )
-                    ),
-                )
+            self._set_event_row(
+                row=row,
+                event_type=trace.phase,
+                name=trace.action,
+                source_or_path=trace.path,
+                payload_or_values=values,
+            )
 
         self.event_table.resizeColumnsToContents()
+
+    def _set_event_row(
+        self,
+        row: int,
+        event_type: Any,
+        name: Any,
+        source_or_path: Any,
+        payload_or_values: Any,
+    ) -> None:
+        values = self._safe_text(payload_or_values)
+
+        self.event_table.setItem(
+            row,
+            0,
+            QTableWidgetItem(
+                self._safe_text(event_type),
+            ),
+        )
+
+        self.event_table.setItem(
+            row,
+            1,
+            QTableWidgetItem(
+                self._safe_text(name),
+            ),
+        )
+
+        self.event_table.setItem(
+            row,
+            2,
+            QTableWidgetItem(
+                self._safe_text(source_or_path),
+            ),
+        )
+
+        self.event_table.setItem(
+            row,
+            3,
+            QTableWidgetItem(
+                values,
+            ),
+        )
 
     # ==================================================================
     # Replay / history

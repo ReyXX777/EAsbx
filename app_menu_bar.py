@@ -18,6 +18,13 @@ class AppMenuBar(QMenuBar):
         status_action = agent_menu.addAction("🔍 Agent Diagnostics & Status")
         status_action.setShortcut("Ctrl+D")
         status_action.triggered.connect(self.show_agent_status_dialog)
+        # 2. Observation Menu
+        observation_menu = self.addMenu("Observation")
+
+        # Action: Open Observation Explorer
+        observation_action = observation_menu.addAction("📊 Observation Explorer")
+        observation_action.setShortcut("Ctrl+Shift+O")
+        observation_action.triggered.connect(self.show_observation_widget)
 
     def show_agent_status_dialog(self):
         """Fetches status from main window and displays a diagnostic popup."""
@@ -53,3 +60,14 @@ class AppMenuBar(QMenuBar):
 
         # Display popup dialog
         QMessageBox.information(self.main_window, "Agent Diagnostics", msg)
+        # Display popup dialog
+        QMessageBox.information(self.main_window, "Agent Diagnostics", msg)
+
+    def show_observation_widget(self):
+        """Open the task observation visualization window."""
+        if (
+            self.main_window
+            and hasattr(self.main_window, "show_observation_widget")
+            and callable(self.main_window.show_observation_widget)
+        ):
+            self.main_window.show_observation_widget()

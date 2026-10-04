@@ -4,6 +4,7 @@ from typing import Any, Mapping
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from ..models import ObservationSnapshot
 from ..session import TaskObservationEngine, TaskObservationSession
 
 
@@ -24,14 +25,16 @@ class ObservationWorker(QObject):
     - finish sessions
     - release the active session
 
-    Persistence is handled by TaskObservationSession through the current
-    SessionStore/storage architecture.
+    Persistence and feature derivation remain owned by the observation
+    engine/session layer.
     """
 
     task_started = Signal(str)
     observation_updated = Signal(object)
     task_finished = Signal(object)
     worker_error = Signal(str)
+
+    EVENT_SOURCE = "qt_observation_worker"
 
     def __init__(
         self,
@@ -82,9 +85,7 @@ class ObservationWorker(QObject):
                 metadata=metadata,
             )
 
-            self.task_started.emit(
-                family_key,
-            )
+            self.task_started.emit(family_key)
 
             self.observation_updated.emit(
                 self._session.snapshot(),
@@ -95,7 +96,12 @@ class ObservationWorker(QObject):
 
     @Slot()
     def finish_task(self) -> None:
-        """Finish the active observation session."""
+        """Finish the active observation session.
+
+        TaskObservationSession.finish() is deliberately responsible for
+        producing the final snapshot, including any configured feature
+        derivation/persistence performed by the observation engine.
+        """
 
         session = self._session
 
@@ -189,7 +195,7 @@ class ObservationWorker(QObject):
         event_type: str,
         payload: Any = None,
     ) -> None:
-        """Record an event through the current event collector."""
+        """Record an event and its canonical trace representation."""
 
         session = self._session
 
@@ -198,10 +204,48 @@ class ObservationWorker(QObject):
             return
 
         try:
-            session.events.record(
-                event_type,
-                payload,
+            normalized_payload = (
+                {}
+                if payload is None
+                else (
+                    dict(payload)
+                    if isinstance(payload, Mapping)
+                    else {"value": payload}
+                )
             )
+
+            session.events.event(
+                event_type,
+                source=self.EVENT_SOURCE,
+                payload=normalized_payload,
+            )
+
+            # Tool lifecycle events participate in both the event stream
+            # and the canonical trace stream.
+            if event_type in {
+                "tool_started",
+                "tool_completed",
+                "tool_failed",
+            }:
+                tool_name = normalized_payload.get("tool_name")
+
+                if tool_name:
+                    path = normalized_payload.get("path")
+
+                    trace_discrete = {
+                        key: value
+                        for key, value in normalized_payload.items()
+                        if key not in {"tool_name", "path"}
+                    }
+
+                    trace_discrete["tool_name"] = str(tool_name)
+
+                    session.events.trace(
+                        event_type,
+                        action=str(tool_name),
+                        path=(str(path) if path is not None else None),
+                        discrete=trace_discrete,
+                    )
 
         except Exception as exc:
             self.worker_error.emit(

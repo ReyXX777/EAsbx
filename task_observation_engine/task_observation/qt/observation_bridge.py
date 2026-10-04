@@ -203,11 +203,7 @@ class ObservationBridge(QObject):
         if not self._thread.isRunning():
             return
 
-        # The shutdown request is queued to the worker so that the
-        # session reference is released on the worker thread.
         self.request_shutdown.emit()
-
-        # Stop the event loop after queued work has been processed.
         self._thread.quit()
 
         if not self._thread.wait(3000):
