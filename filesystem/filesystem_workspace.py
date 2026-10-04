@@ -79,10 +79,14 @@ class FilesWorkspace(QWidget):
         toolbar = QHBoxLayout()
 
         self.path_field = QLineEdit(".")
-
         self.path_field.setPlaceholderText("Sandbox-relative path")
 
         refresh_button = QPushButton("Refresh")
+
+        refresh_button.setProperty(
+            "role",
+            "primary",
+        )
 
         refresh_button.clicked.connect(self.refresh)
 
@@ -152,7 +156,10 @@ class FilesWorkspace(QWidget):
         self.preview_header = QLabel("File Preview")
 
         self.preview_header.setObjectName("filesystemPreviewHeader")
-
+        self.preview_header.setProperty(
+            "role",
+            "muted",
+        )
         right_layout.addWidget(self.preview_header)
 
         # -----------------------------------------------------
@@ -227,48 +234,8 @@ class FilesWorkspace(QWidget):
             1,
         )
 
-        # -----------------------------------------------------
-        # Styling
-        # -----------------------------------------------------
-
-        self._apply_style()
-
         # Start with an empty preview.
         self._show_empty_preview()
-
-    def _apply_style(self):
-        self.setStyleSheet("""
-            QLabel#filesystemPreviewHeader {
-                color: #444444;
-                font-size: 11px;
-                font-weight: 600;
-                padding: 3px 4px;
-            }
-
-            QLabel#filesystemEmptyPreview {
-                color: #999999;
-                font-size: 12px;
-                background: #fafafa;
-                border: 1px solid #e5e5e5;
-                border-radius: 4px;
-            }
-
-            QPlainTextEdit#filesystemTextPreview {
-                background: #ffffff;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                padding: 6px;
-                font-family: Consolas, "Courier New", monospace;
-                font-size: 11px;
-            }
-
-            QTableWidget#filesystemTablePreview {
-                background: #ffffff;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                gridline-color: #e5e5e5;
-            }
-            """)
 
     # =========================================================
     # Preview state

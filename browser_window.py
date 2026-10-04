@@ -25,12 +25,14 @@ from PySide6.QtWidgets import (
 from filesystem.filesystem_service import SandboxFilesystemService
 from filesystem.filesystem_workspace import FilesWorkspace
 from filesystem.filesystem_agent_events import FilesystemToolActivity
+from qt_theme import ThemeManager
 
 # ---------------------------------------------------------
 # Qt WebEngine
 # ---------------------------------------------------------
 
 try:
+    from PySide6.QtWebEngineCore import QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
 
     WEBENGINE_AVAILABLE = True
@@ -63,6 +65,7 @@ class BrowserTab(QWidget):
 
         if WEBENGINE_AVAILABLE:
             self.browser_view = QWebEngineView()
+            self._apply_theme()
 
             self.browser_view.titleChanged.connect(self._on_title_changed)
 
@@ -95,6 +98,26 @@ class BrowserTab(QWidget):
             )
 
             layout.addWidget(self.browser_view)
+
+    def _apply_theme(self):
+        """
+        Synchronize Chromium webpage rendering with MOCKAPP's
+        global Qt theme.
+
+        Qt widgets are themed by ThemeManager's application
+        stylesheet. QWebEngine content is separately controlled
+        through Chromium's ForceDarkMode WebAttribute.
+        """
+
+        if not WEBENGINE_AVAILABLE:
+            return
+
+        dark = ThemeManager.instance().dark
+
+        self.browser_view.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.ForceDarkMode,
+            dark,
+        )
 
     def load_url(self, url: str):
         if not WEBENGINE_AVAILABLE:
@@ -167,6 +190,8 @@ class BrowserWindowWidget(QFrame):
         self._build_ui()
 
         self._connect_signals()
+
+        self._connect_theme_signals()
 
         self._create_initial_tab()
 
@@ -433,10 +458,6 @@ class BrowserWindowWidget(QFrame):
 
         self.page_status_label.setObjectName("statusText")
         self.page_status_label.setProperty("role", "muted")
-        self.agent_activity_label = QLabel("Agent: Idle")
-
-        self.agent_activity_label.setObjectName("statusText")
-        self.agent_activity_label.setProperty("role", "muted")
         status_layout.addWidget(self.connection_indicator)
 
         status_layout.addWidget(self.connection_label)
@@ -444,10 +465,23 @@ class BrowserWindowWidget(QFrame):
         status_layout.addStretch()
 
         status_layout.addWidget(self.page_status_label)
-
-        status_layout.addWidget(self.agent_activity_label)
-
         main_layout.addWidget(status_bar)
+
+    def _connect_theme_signals(self):
+
+        ThemeManager.instance().theme_changed.connect(self._on_theme_changed)
+
+    def _on_theme_changed(
+        self,
+        _mode: str,
+    ) -> None:
+        """
+        Synchronize all existing browser tabs with the global
+        MOCKAPP theme.
+        """
+
+        for tab in self._tabs:
+            tab._apply_theme()
 
     # =====================================================
     # Signals
@@ -664,8 +698,6 @@ class BrowserWindowWidget(QFrame):
         if loading:
             self.page_status_label.setText("Loading...")
 
-            self.connection_label.setText("Browser connected")
-
         else:
             self.page_status_label.setText("Ready")
 
@@ -727,8 +759,6 @@ class BrowserWindowWidget(QFrame):
         )
 
         self.agent_status_label.setText(display_status)
-
-        self.agent_activity_label.setText(f"Agent: {display_status}")
 
         theme_status = {
             "idle": "live",
