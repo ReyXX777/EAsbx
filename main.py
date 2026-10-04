@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QSplitter,
     QWidget,
 )
+from qt_theme import ThemeManager, ThemeMode
 
 from agent_engine import AgentExecutionWorker
 from agent_response_parser import AgentResponseParser
@@ -746,6 +747,11 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
+    ThemeManager.instance().apply(
+        app,
+        ThemeMode.LIGHT,
+    )
 
     window = MainWindow()
     window.show()

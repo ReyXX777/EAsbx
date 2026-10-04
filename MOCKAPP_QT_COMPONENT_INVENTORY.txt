@@ -1,0 +1,660 @@
+==============================================================================
+MOCKAPP QT COMPONENT INVENTORY
+==============================================================================
+
+Project root:
+  X:\MOCKAPP
+
+Purpose:
+  Inventory all Qt/PySide/PyQt components used by MOCKAPP.
+  The report is intended to serve as the source inventory
+  for the standalone global Qt theme package.
+
+==============================================================================
+
+1. SUMMARY
+------------------------------------------------------------------------------
+
+Python files scanned: 194
+Files containing Qt usage: 26
+Unique Qt components detected: 47
+Theme-risk categories detected: 5
+Scanner errors: 0
+
+2. QT COMPONENTS BY GROUP
+------------------------------------------------------------------------------
+
+
+WINDOWS / ROOT CONTAINERS
+~~~~~~~~~~~~~~~~~~~~~~~~~
+QFrame (4 files)
+    approval/approval_widget.py
+    browser_window.py [lines: 197, 265, 411]
+    chat_window.py [lines: 458, 545, 564]
+    task_bar.py [lines: 113, 224, 296, 443]
+QGroupBox (5 files)
+    task_observation_engine/task_observation/qt/observation_activity.py [lines: 31]
+    task_observation_engine/task_observation/qt/observation_continuous.py [lines: 32]
+    task_observation_engine/task_observation/qt/observation_metrics.py [lines: 29]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 82, 114]
+    task_observation_engine/task_observation/qt/observation_trace.py [lines: 31]
+QMainWindow (1 file)
+    main.py
+QStackedWidget (2 files)
+    browser_window.py [lines: 244]
+    filesystem/filesystem_workspace.py [lines: 167]
+QTabWidget (1 file)
+    browser_window.py [lines: 362]
+QWidget (14 files)
+    app_menu_bar.py
+    browser_window.py [lines: 248]
+    chat_window.py [lines: 422]
+    filesystem/filesystem_workspace.py [lines: 135]
+    main.py [lines: 59]
+    task_bar.py [lines: 72, 166, 265, 464]
+    task_observation_engine/task_observation/qt/observation_activity.py
+    task_observation_engine/task_observation/qt/observation_continuous.py
+    task_observation_engine/task_observation/qt/observation_header.py
+    task_observation_engine/task_observation/qt/observation_metrics.py
+    task_observation_engine/task_observation/qt/observation_plot.py
+    task_observation_engine/task_observation/qt/observation_sidebar.py
+    task_observation_engine/task_observation/qt/observation_trace.py
+    task_observation_engine/task_observation/qt/observation_widget.py [lines: 111]
+
+
+LAYOUTS
+~~~~~~~
+QFormLayout (1 file)
+    task_observation_engine/task_observation/qt/observation_trace.py [lines: 39]
+QGridLayout (1 file)
+    task_observation_engine/task_observation/qt/observation_metrics.py [lines: 27, 33]
+QHBoxLayout (10 files)
+    approval/approval_widget.py [lines: 139]
+    browser_window.py [lines: 200, 268, 414]
+    chat_window.py [lines: 464, 568, 665]
+    filesystem/filesystem_workspace.py [lines: 79]
+    main.py [lines: 62]
+    task_bar.py [lines: 116, 168, 228, 267, 466]
+    task_observation_engine/task_observation/qt/observation_continuous.py [lines: 40]
+    task_observation_engine/task_observation/qt/observation_header.py [lines: 26]
+    task_observation_engine/task_observation/qt/observation_sidebar.py
+    task_observation_engine/task_observation/qt/observation_widget.py
+QSplitter (3 files)
+    filesystem/filesystem_workspace.py [lines: 104]
+    main.py [lines: 65]
+    task_observation_engine/task_observation/qt/observation_widget.py [lines: 89, 130, 150]
+QVBoxLayout (10 files)
+    approval/approval_widget.py [lines: 95]
+    browser_window.py [lines: 65, 182, 250]
+    chat_window.py [lines: 368, 428, 490, 549]
+    filesystem/filesystem_workspace.py [lines: 64, 137]
+    task_bar.py [lines: 57, 73, 300, 447]
+    task_observation_engine/task_observation/qt/observation_activity.py [lines: 29, 35]
+    task_observation_engine/task_observation/qt/observation_continuous.py [lines: 30, 36]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 37, 86, 118]
+    task_observation_engine/task_observation/qt/observation_trace.py [lines: 29, 35]
+    task_observation_engine/task_observation/qt/observation_widget.py [lines: 60, 113]
+
+
+TEXT / DISPLAY
+~~~~~~~~~~~~~~
+QLabel (12 files)
+    approval/approval_widget.py [lines: 99, 106, 109, 114, 119, 129, 134]
+    browser_window.py [lines: 227, 230, 425, 429, 433, 437]
+    chat_window.py [lines: 476, 501, 505, 518, 674, 682]
+    filesystem/filesystem_workspace.py [lines: 89, 152, 173]
+    task_bar.py [lines: 78, 81, 84, 127, 179, 183, 239, 243, 279, 285, 311, 315, 458, 477, 481]
+    task_observation_engine/task_observation/qt/observation_activity.py
+    task_observation_engine/task_observation/qt/observation_continuous.py [lines: 43]
+    task_observation_engine/task_observation/qt/observation_header.py [lines: 35, 47]
+    task_observation_engine/task_observation/qt/observation_metrics.py [lines: 73, 77]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 48, 68, 140]
+    task_observation_engine/task_observation/qt/observation_trace.py [lines: 41, 42, 43, 44, 45, 77]
+    task_observation_engine/task_observation/qt/observation_widget.py
+QPlainTextEdit (2 files)
+    filesystem/filesystem_workspace.py [lines: 185]
+    task_observation_engine/task_observation/qt/observation_trace.py [lines: 80]
+QTextEdit (2 files)
+    browser_window.py [lines: 94]
+    chat_window.py [lines: 390]
+
+
+BUTTONS / ACTIONS
+~~~~~~~~~~~~~~~~~
+QAction (1 file)
+    browser_window.py [lines: 890, 899, 910]
+QPushButton (6 files)
+    approval/approval_widget.py [lines: 142, 145]
+    browser_window.py
+    chat_window.py [lines: 524, 580, 631, 645]
+    filesystem/filesystem_workspace.py [lines: 85]
+    task_bar.py [lines: 97]
+    task_observation_engine/task_observation/qt/observation_header.py [lines: 57]
+QToolButton (1 file)
+    browser_window.py [lines: 330, 344, 952]
+
+
+INPUT CONTROLS
+~~~~~~~~~~~~~~
+QComboBox (3 files)
+    chat_window.py [lines: 612]
+    task_observation_engine/task_observation/qt/observation_continuous.py [lines: 46]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 90, 122]
+QLineEdit (5 files)
+    browser_window.py [lines: 311]
+    chat_window.py [lines: 594]
+    filesystem/filesystem_workspace.py [lines: 81]
+    task_bar.py [lines: 130]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 58]
+
+
+LIST / TREE / TABLE
+~~~~~~~~~~~~~~~~~~~
+QAbstractItemView (1 file)
+    filesystem/filesystem_workspace.py
+QListWidget (3 files)
+    task_bar.py [lines: 199]
+    task_observation_engine/task_observation/qt/observation_activity.py [lines: 39]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 150]
+QListWidgetItem (3 files)
+    task_bar.py [lines: 373, 500]
+    task_observation_engine/task_observation/qt/observation_activity.py [lines: 78]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 263]
+QTableWidget (1 file)
+    filesystem/filesystem_workspace.py [lines: 197]
+QTableWidgetItem (1 file)
+    filesystem/filesystem_workspace.py [lines: 591]
+QTreeWidget (1 file)
+    filesystem/filesystem_workspace.py [lines: 110]
+QTreeWidgetItem (1 file)
+    filesystem/filesystem_workspace.py [lines: 364]
+
+
+NAVIGATION
+~~~~~~~~~~
+QMenu (1 file)
+    browser_window.py [lines: 888]
+QMenuBar (1 file)
+    app_menu_bar.py
+QTabBar (1 file)
+    browser_window.py [lines: 211]
+QTabWidget (1 file)
+    browser_window.py [lines: 362]
+
+
+DIALOGS / POPUPS
+~~~~~~~~~~~~~~~~
+QMessageBox (1 file)
+    app_menu_bar.py
+
+
+SCROLLING
+~~~~~~~~~
+  <none detected>
+
+
+GRAPHICS / PAINTING
+~~~~~~~~~~~~~~~~~~~
+QFont (1 file)
+    task_bar.py
+QIcon (1 file)
+    browser_window.py
+QPainter (1 file)
+    task_observation_engine/task_observation/qt/observation_plot.py [lines: 68]
+
+
+MODEL / VIEW / CORE
+~~~~~~~~~~~~~~~~~~~
+QObject (2 files)
+    task_observation_engine/task_observation/qt/observation_bridge.py
+    task_observation_engine/task_observation/qt/observation_thread.py
+
+
+WEB / BROWSER
+~~~~~~~~~~~~~
+QWebEngineView (1 file)
+    browser_window.py [lines: 70]
+
+
+APPLICATION / EVENT LOOP
+~~~~~~~~~~~~~~~~~~~~~~~~
+QApplication (3 files)
+    main.py [lines: 748]
+    task_observation_engine/tests/test_qt_observation_plot.py [lines: 17]
+    task_observation_engine/tests/test_qt_observation_widget.py [lines: 25]
+QCoreApplication (2 files)
+    task_observation_engine/tests/test_qt_observation_bridge.py [lines: 21]
+    task_observation_engine/tests/test_qt_observation_worker.py [lines: 19]
+QThread (4 files)
+    agent_engine.py
+    chat_window.py
+    filesystem/filesystem_worker.py
+    task_observation_engine/task_observation/qt/observation_bridge.py [lines: 41]
+
+
+WINDOW / SCREEN / SYSTEM
+~~~~~~~~~~~~~~~~~~~~~~~~
+  <none detected>
+
+
+OTHER QT COMPONENTS
+~~~~~~~~~~~~~~~~~~~
+  <none detected>
+
+
+3. OTHER / UNCLASSIFIED QT COMPONENTS
+------------------------------------------------------------------------------
+
+QKeySequence
+    browser_window.py
+QPointF
+    task_observation_engine/task_observation/qt/observation_plot.py
+QSignalSpy
+    task_observation_engine/tests/test_qt_observation_bridge.py
+    task_observation_engine/tests/test_qt_observation_worker.py
+QSizePolicy
+    browser_window.py
+    chat_window.py
+QTextCursor
+    chat_window.py
+QUrl
+    browser_window.py
+Qt
+    browser_window.py
+    chat_window.py
+    filesystem/filesystem_workspace.py
+    main.py
+    task_bar.py
+    task_observation_engine/task_observation/qt/observation_plot.py
+    task_observation_engine/task_observation/qt/observation_sidebar.py
+    task_observation_engine/task_observation/qt/observation_widget.py
+Signal
+    agent_engine.py
+    approval/approval_widget.py
+    browser_window.py
+    chat_window.py
+    filesystem/filesystem_worker.py
+    filesystem/filesystem_workspace.py
+    task_bar.py
+    task_observation_engine/task_observation/qt/observation_bridge.py
+    task_observation_engine/task_observation/qt/observation_header.py
+    task_observation_engine/task_observation/qt/observation_sidebar.py
+    task_observation_engine/task_observation/qt/observation_thread.py
+Slot
+    task_observation_engine/task_observation/qt/observation_bridge.py
+    task_observation_engine/task_observation/qt/observation_thread.py
+
+4. QT MODULES
+------------------------------------------------------------------------------
+
+PySide6.QtCore
+    agent_engine.py
+    approval/approval_widget.py
+    browser_window.py
+    chat_window.py
+    filesystem/filesystem_worker.py
+    filesystem/filesystem_workspace.py
+    main.py
+    task_bar.py
+    task_observation_engine/task_observation/qt/observation_bridge.py
+    task_observation_engine/task_observation/qt/observation_header.py
+    task_observation_engine/task_observation/qt/observation_plot.py
+    task_observation_engine/task_observation/qt/observation_sidebar.py
+    task_observation_engine/task_observation/qt/observation_thread.py
+    task_observation_engine/task_observation/qt/observation_widget.py
+    task_observation_engine/tests/test_qt_observation_bridge.py
+    task_observation_engine/tests/test_qt_observation_worker.py
+PySide6.QtGui
+    browser_window.py
+    chat_window.py
+    task_bar.py
+    task_observation_engine/task_observation/qt/observation_plot.py
+PySide6.QtTest
+    task_observation_engine/tests/test_qt_observation_bridge.py
+    task_observation_engine/tests/test_qt_observation_worker.py
+PySide6.QtWebEngineWidgets
+    browser_window.py
+PySide6.QtWidgets
+    app_menu_bar.py
+    approval/approval_widget.py
+    browser_window.py
+    chat_window.py
+    filesystem/filesystem_workspace.py
+    main.py
+    task_bar.py
+    task_observation_engine/task_observation/qt/observation_activity.py
+    task_observation_engine/task_observation/qt/observation_continuous.py
+    task_observation_engine/task_observation/qt/observation_header.py
+    task_observation_engine/task_observation/qt/observation_metrics.py
+    task_observation_engine/task_observation/qt/observation_plot.py
+    task_observation_engine/task_observation/qt/observation_sidebar.py
+    task_observation_engine/task_observation/qt/observation_trace.py
+    task_observation_engine/task_observation/qt/observation_widget.py
+    task_observation_engine/tests/test_qt_observation_plot.py
+    task_observation_engine/tests/test_qt_observation_widget.py
+
+5. THEME / STYLE RISK ANALYSIS
+------------------------------------------------------------------------------
+
+These findings identify existing code that may override or conflict with the global theme.
+
+
+QColor
+~~~~~~
+    scan_qt_components.py [lines: 147, 212]
+
+QPalette
+~~~~~~~~
+    scan_qt_components.py [lines: 153, 209]
+
+hex color
+~~~~~~~~~
+    agent_response_parser.py [lines: 51, 52, 60, 69, 100, 113, 114, 121, 132]
+    approval/approval_widget.py [lines: 40, 41, 48, 54, 60, 73, 74, 78, 88]
+    browser_window.py [lines: 461, 462, 467, 468, 473, 481, 482, 487, 493, 498, 499, 505, 512, 516, 520, 521, 525, 529, 530, 535, 539, 540, 544, 545, 548, 552, 553, 557, 558, 562, 567, 574, 579]
+    chat_formatter.py [lines: 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 36, 41, 46, 51, 56, 61, 62, 63, 68, 69, 71, 99, 100, 103, 112]
+    chat_window.py [lines: 710, 719, 720, 724, 725, 732, 738, 743, 749, 750, 751, 758, 759, 767, 768, 772, 773, 783, 789, 807, 815, 816, 820, 821, 826, 832, 835, 839, 844, 852, 853, 857, 861, 862, 863, 871, 872, 881, 882, 883, 884, 885, 890, 891, 899, 903, 907, 908, 912, 917]
+    filesystem/filesystem_workspace.py [lines: 242, 249, 251, 252, 257, 258, 266, 267, 269]
+    task_bar.py [lines: 582, 583, 592, 599, 605, 614, 624, 628, 633, 634, 643, 649, 656, 670, 677, 682, 683, 696, 697, 702, 708, 736, 741, 742, 746, 747, 751, 757, 762, 771, 777, 782, 798, 804]
+
+rgb()/rgba()
+~~~~~~~~~~~~
+    scan_qt_components.py [lines: 218]
+
+setStyleSheet()
+~~~~~~~~~~~~~~~
+    approval/approval_widget.py [lines: 38]
+    browser_window.py [lines: 459]
+    chat_window.py [lines: 704]
+    filesystem/filesystem_workspace.py [lines: 240]
+    task_bar.py [lines: 576]
+    task_observation_engine/task_observation/qt/observation_header.py [lines: 39, 51]
+    task_observation_engine/task_observation/qt/observation_metrics.py [lines: 81]
+    task_observation_engine/task_observation/qt/observation_sidebar.py [lines: 52, 72, 144]
+
+6. QT USAGE BY SOURCE FILE
+------------------------------------------------------------------------------
+
+
+agent_engine.py
+~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+
+agent_response_parser.py
+~~~~~~~~~~~~~~~~~~~~~~~~
+Theme risks:
+    hex color [lines: 51, 52, 60, 69, 100, 113, 114, 121, 132]
+
+app_menu_bar.py
+~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtWidgets
+
+approval/approval_widget.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtWidgets
+Components:
+    QHBoxLayout [lines: 139]
+    QLabel [lines: 99, 106, 109, 114, 119, 129, 134]
+    QPushButton [lines: 142, 145]
+    QVBoxLayout [lines: 95]
+Theme risks:
+    hex color [lines: 40, 41, 48, 54, 60, 73, 74, 78, 88]
+    setStyleSheet() [lines: 38]
+
+browser_window.py
+~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtGui
+    PySide6.QtWebEngineWidgets
+    PySide6.QtWidgets
+Components:
+    QAction [lines: 890, 899, 910]
+    QFrame [lines: 197, 265, 411]
+    QHBoxLayout [lines: 200, 268, 414]
+    QLabel [lines: 227, 230, 425, 429, 433, 437]
+    QLineEdit [lines: 311]
+    QMenu [lines: 888]
+    QStackedWidget [lines: 244]
+    QTabBar [lines: 211]
+    QTabWidget [lines: 362]
+    QTextEdit [lines: 94]
+    QToolButton [lines: 330, 344, 952]
+    QVBoxLayout [lines: 65, 182, 250]
+    QWebEngineView [lines: 70]
+    QWidget [lines: 248]
+Theme risks:
+    hex color [lines: 461, 462, 467, 468, 473, 481, 482, 487, 493, 498, 499, 505, 512, 516, 520, 521, 525, 529, 530, 535, 539, 540, 544, 545, 548, 552, 553, 557, 558, 562, 567, 574, 579]
+    setStyleSheet() [lines: 459]
+
+chat_formatter.py
+~~~~~~~~~~~~~~~~~
+Theme risks:
+    hex color [lines: 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 36, 41, 46, 51, 56, 61, 62, 63, 68, 69, 71, 99, 100, 103, 112]
+
+chat_window.py
+~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtGui
+    PySide6.QtWidgets
+Components:
+    QComboBox [lines: 612]
+    QFrame [lines: 458, 545, 564]
+    QHBoxLayout [lines: 464, 568, 665]
+    QLabel [lines: 476, 501, 505, 518, 674, 682]
+    QLineEdit [lines: 594]
+    QPushButton [lines: 524, 580, 631, 645]
+    QTextEdit [lines: 390]
+    QVBoxLayout [lines: 368, 428, 490, 549]
+    QWidget [lines: 422]
+Theme risks:
+    hex color [lines: 710, 719, 720, 724, 725, 732, 738, 743, 749, 750, 751, 758, 759, 767, 768, 772, 773, 783, 789, 807, 815, 816, 820, 821, 826, 832, 835, 839, 844, 852, 853, 857, 861, 862, 863, 871, 872, 881, 882, 883, 884, 885, 890, 891, 899, 903, 907, 908, 912, 917]
+    setStyleSheet() [lines: 704]
+
+filesystem/filesystem_worker.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+
+filesystem/filesystem_workspace.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtWidgets
+Components:
+    QHBoxLayout [lines: 79]
+    QLabel [lines: 89, 152, 173]
+    QLineEdit [lines: 81]
+    QPlainTextEdit [lines: 185]
+    QPushButton [lines: 85]
+    QSplitter [lines: 104]
+    QStackedWidget [lines: 167]
+    QTableWidget [lines: 197]
+    QTableWidgetItem [lines: 591]
+    QTreeWidget [lines: 110]
+    QTreeWidgetItem [lines: 364]
+    QVBoxLayout [lines: 64, 137]
+    QWidget [lines: 135]
+Theme risks:
+    hex color [lines: 242, 249, 251, 252, 257, 258, 266, 267, 269]
+    setStyleSheet() [lines: 240]
+
+main.py
+~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtWidgets
+Components:
+    QApplication [lines: 748]
+    QHBoxLayout [lines: 62]
+    QSplitter [lines: 65]
+    QWidget [lines: 59]
+
+scan_qt_components.py
+~~~~~~~~~~~~~~~~~~~~~
+Theme risks:
+    QColor [lines: 147, 212]
+    QPalette [lines: 153, 209]
+    rgb()/rgba() [lines: 218]
+
+task_bar.py
+~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtGui
+    PySide6.QtWidgets
+Components:
+    QFrame [lines: 113, 224, 296, 443]
+    QHBoxLayout [lines: 116, 168, 228, 267, 466]
+    QLabel [lines: 78, 81, 84, 127, 179, 183, 239, 243, 279, 285, 311, 315, 458, 477, 481]
+    QLineEdit [lines: 130]
+    QListWidget [lines: 199]
+    QListWidgetItem [lines: 373, 500]
+    QPushButton [lines: 97]
+    QVBoxLayout [lines: 57, 73, 300, 447]
+    QWidget [lines: 72, 166, 265, 464]
+Theme risks:
+    hex color [lines: 582, 583, 592, 599, 605, 614, 624, 628, 633, 634, 643, 649, 656, 670, 677, 682, 683, 696, 697, 702, 708, 736, 741, 742, 746, 747, 751, 757, 762, 771, 777, 782, 798, 804]
+    setStyleSheet() [lines: 576]
+
+task_observation_engine/task_observation/qt/observation_activity.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtWidgets
+Components:
+    QGroupBox [lines: 31]
+    QListWidget [lines: 39]
+    QListWidgetItem [lines: 78]
+    QVBoxLayout [lines: 29, 35]
+
+task_observation_engine/task_observation/qt/observation_bridge.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+Components:
+    QThread [lines: 41]
+
+task_observation_engine/task_observation/qt/observation_continuous.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtWidgets
+Components:
+    QComboBox [lines: 46]
+    QGroupBox [lines: 32]
+    QHBoxLayout [lines: 40]
+    QLabel [lines: 43]
+    QVBoxLayout [lines: 30, 36]
+
+task_observation_engine/task_observation/qt/observation_header.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtWidgets
+Components:
+    QHBoxLayout [lines: 26]
+    QLabel [lines: 35, 47]
+    QPushButton [lines: 57]
+Theme risks:
+    setStyleSheet() [lines: 39, 51]
+
+task_observation_engine/task_observation/qt/observation_metrics.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtWidgets
+Components:
+    QGridLayout [lines: 27, 33]
+    QGroupBox [lines: 29]
+    QLabel [lines: 73, 77]
+Theme risks:
+    setStyleSheet() [lines: 81]
+
+task_observation_engine/task_observation/qt/observation_plot.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtGui
+    PySide6.QtWidgets
+Components:
+    QPainter [lines: 68]
+
+task_observation_engine/task_observation/qt/observation_sidebar.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtWidgets
+Components:
+    QComboBox [lines: 90, 122]
+    QGroupBox [lines: 82, 114]
+    QLabel [lines: 48, 68, 140]
+    QLineEdit [lines: 58]
+    QListWidget [lines: 150]
+    QListWidgetItem [lines: 263]
+    QVBoxLayout [lines: 37, 86, 118]
+Theme risks:
+    setStyleSheet() [lines: 52, 72, 144]
+
+task_observation_engine/task_observation/qt/observation_thread.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+
+task_observation_engine/task_observation/qt/observation_trace.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtWidgets
+Components:
+    QFormLayout [lines: 39]
+    QGroupBox [lines: 31]
+    QLabel [lines: 41, 42, 43, 44, 45, 77]
+    QPlainTextEdit [lines: 80]
+    QVBoxLayout [lines: 29, 35]
+
+task_observation_engine/task_observation/qt/observation_widget.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtWidgets
+Components:
+    QSplitter [lines: 89, 130, 150]
+    QVBoxLayout [lines: 60, 113]
+    QWidget [lines: 111]
+
+task_observation_engine/tests/test_qt_observation_bridge.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtTest
+Components:
+    QCoreApplication [lines: 21]
+
+task_observation_engine/tests/test_qt_observation_plot.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtWidgets
+Components:
+    QApplication [lines: 17]
+
+task_observation_engine/tests/test_qt_observation_widget.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtWidgets
+Components:
+    QApplication [lines: 25]
+
+task_observation_engine/tests/test_qt_observation_worker.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qt modules:
+    PySide6.QtCore
+    PySide6.QtTest
+Components:
+    QCoreApplication [lines: 19]
+
+7. SCANNER ERRORS
+------------------------------------------------------------------------------
+
+  None.
