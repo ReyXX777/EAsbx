@@ -750,7 +750,7 @@ if __name__ == "__main__":
 
     ThemeManager.instance().apply(
         app,
-        ThemeMode.LIGHT,
+        ThemeMode.DARK,
     )
 
     window = MainWindow()

@@ -7,18 +7,13 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import (
-    QAction,
-    QIcon,
-    QKeySequence,
-)
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMenu,
-    QPushButton,
     QSizePolicy,
     QStackedWidget,
     QTabBar,
@@ -165,10 +160,12 @@ class BrowserWindowWidget(QFrame):
 
         self.setObjectName("browserWorkspace")
 
+        self.setProperty("role", "panel")
+
         self._tabs: list[BrowserTab] = []
 
         self._build_ui()
-        self._apply_style()
+
         self._connect_signals()
 
         self._create_initial_tab()
@@ -196,6 +193,7 @@ class BrowserWindowWidget(QFrame):
 
         workspace_header = QFrame()
         workspace_header.setObjectName("workspaceHeader")
+        workspace_header.setProperty("role", "panel")
 
         header_layout = QHBoxLayout(workspace_header)
 
@@ -226,11 +224,12 @@ class BrowserWindowWidget(QFrame):
 
         self.agent_status_dot = QLabel("●")
         self.agent_status_dot.setObjectName("agentStatusDot")
-
+        self.agent_status_dot.setProperty("status", "live")
         self.agent_status_label = QLabel("Agent Ready")
 
         self.agent_status_label.setObjectName("agentStatusLabel")
-
+        self.agent_status_label.setProperty("role", "muted")
+        self.agent_status_label.setProperty("status", "live")
         header_layout.addWidget(self.agent_status_dot)
 
         header_layout.addWidget(self.agent_status_label)
@@ -264,6 +263,7 @@ class BrowserWindowWidget(QFrame):
 
         navigation_bar = QFrame()
         navigation_bar.setObjectName("navigationBar")
+        navigation_bar.setProperty("role", "panel")
 
         navigation_layout = QHBoxLayout(navigation_bar)
 
@@ -315,8 +315,6 @@ class BrowserWindowWidget(QFrame):
         self.url_bar.setPlaceholderText("Search or enter a URL...")
 
         self.url_bar.setClearButtonEnabled(True)
-
-        self.url_bar.setMinimumHeight(34)
 
         self.url_bar.returnPressed.connect(self.load_url)
 
@@ -410,6 +408,7 @@ class BrowserWindowWidget(QFrame):
 
         status_bar = QFrame()
         status_bar.setObjectName("browserStatusBar")
+        status_bar.setProperty("role", "panel")
 
         status_layout = QHBoxLayout(status_bar)
 
@@ -425,19 +424,19 @@ class BrowserWindowWidget(QFrame):
         self.connection_indicator = QLabel("●")
 
         self.connection_indicator.setObjectName("connectionIndicator")
-
+        self.connection_indicator.setProperty("status", "live")
         self.connection_label = QLabel("Browser connected")
 
         self.connection_label.setObjectName("statusText")
-
+        self.connection_label.setProperty("role", "muted")
         self.page_status_label = QLabel("Ready")
 
         self.page_status_label.setObjectName("statusText")
-
+        self.page_status_label.setProperty("role", "muted")
         self.agent_activity_label = QLabel("Agent: Idle")
 
         self.agent_activity_label.setObjectName("statusText")
-
+        self.agent_activity_label.setProperty("role", "muted")
         status_layout.addWidget(self.connection_indicator)
 
         status_layout.addWidget(self.connection_label)
@@ -449,136 +448,6 @@ class BrowserWindowWidget(QFrame):
         status_layout.addWidget(self.agent_activity_label)
 
         main_layout.addWidget(status_bar)
-
-    # =====================================================
-    # Styling
-    # =====================================================
-
-    def _apply_style(self):
-
-        self.setStyleSheet("""
-            QFrame#browserWorkspace {
-                background: #ffffff;
-                border: 1px solid #d6d6d6;
-                border-radius: 8px;
-            }
-
-            QFrame#workspaceHeader {
-                background: #f7f7f7;
-                border-bottom: 1px solid #dedede;
-            }
-
-            QTabBar::tab {
-                background: transparent;
-                color: #666666;
-                padding: 7px 14px;
-                border: none;
-                font-size: 12px;
-                font-weight: 600;
-            }
-
-            QTabBar::tab:selected {
-                color: #111111;
-                background: #ffffff;
-                border-radius: 5px;
-            }
-
-            QLabel#agentStatusLabel {
-                color: #444444;
-                font-size: 11px;
-                font-weight: 600;
-            }
-
-            QLabel#agentStatusDot {
-                color: #666666;
-                font-size: 10px;
-            }
-
-            QFrame#navigationBar {
-                background: #ffffff;
-                border-bottom: 1px solid #dedede;
-            }
-
-            QToolButton {
-                border: none;
-                background: transparent;
-                color: #333333;
-                font-size: 18px;
-                padding: 4px 8px;
-                border-radius: 5px;
-            }
-
-            QToolButton:hover {
-                background: #eeeeee;
-            }
-
-            QToolButton:pressed {
-                background: #dddddd;
-            }
-
-            QLineEdit#addressBar {
-                background: #f3f3f3;
-                border: 1px solid #dedede;
-                border-radius: 17px;
-                padding: 6px 14px;
-                font-size: 12px;
-                color: #222222;
-            }
-
-            QLineEdit#addressBar:focus {
-                background: #ffffff;
-                border: 1px solid #999999;
-            }
-
-            QTabWidget#browserTabs::pane {
-                border: none;
-                background: #ffffff;
-            }
-
-            QTabWidget#browserTabs QTabBar {
-                background: #f4f4f4;
-                border-bottom: 1px solid #dedede;
-            }
-
-            QTabWidget#browserTabs QTabBar::tab {
-                background: #eeeeee;
-                color: #555555;
-                padding: 7px 14px;
-                margin-right: 2px;
-                border-right: 1px solid #dddddd;
-            }
-
-            QTabWidget#browserTabs QTabBar::tab:selected {
-                background: #ffffff;
-                color: #111111;
-            }
-
-            QFrame#browserStatusBar {
-                background: #f7f7f7;
-                border-top: 1px solid #dedede;
-            }
-
-            QLabel#connectionIndicator {
-                color: #555555;
-                font-size: 8px;
-            }
-
-            QLabel#statusText {
-                color: #777777;
-                font-size: 10px;
-            }
-
-            QLabel#workspacePlaceholder {
-                font-size: 18px;
-                font-weight: 600;
-                color: #222222;
-            }
-
-            QLabel#workspaceDescription {
-                font-size: 12px;
-                color: #777777;
-            }
-            """)
 
     # =====================================================
     # Signals
@@ -852,15 +721,36 @@ class BrowserWindowWidget(QFrame):
             "error": "Agent Error",
         }
 
-        self.agent_status_label.setText(
-            labels.get(
-                status,
-                status.title(),
-            )
+        display_status = labels.get(
+            status,
+            status.title(),
         )
 
-        self.agent_activity_label.setText(
-            f"Agent: {labels.get(status, status.title())}"
+        self.agent_status_label.setText(display_status)
+
+        self.agent_activity_label.setText(f"Agent: {display_status}")
+
+        theme_status = {
+            "idle": "live",
+            "running": "running",
+            "waiting": "running",
+            "completed": "completed",
+            "error": "failed",
+        }.get(
+            status,
+            "live",
+        )
+
+        self._set_theme_property(
+            self.agent_status_label,
+            "status",
+            theme_status,
+        )
+
+        self._set_theme_property(
+            self.agent_status_dot,
+            "status",
+            theme_status,
         )
 
     def set_browser_connection_status(
@@ -874,10 +764,22 @@ class BrowserWindowWidget(QFrame):
 
             self.connection_label.setText(message or "Browser connected")
 
+            self._set_theme_property(
+                self.connection_indicator,
+                "status",
+                "live",
+            )
+
         else:
             self.connection_indicator.setText("●")
 
             self.connection_label.setText(message or "Browser disconnected")
+
+            self._set_theme_property(
+                self.connection_indicator,
+                "status",
+                "failed",
+            )
 
     # =====================================================
     # Context menu
@@ -942,6 +844,22 @@ class BrowserWindowWidget(QFrame):
     # =====================================================
     # Helpers
     # =====================================================
+    @staticmethod
+    def _set_theme_property(
+        widget,
+        name: str,
+        value: str,
+    ) -> None:
+
+        widget.setProperty(name, value)
+
+        style = widget.style()
+
+        if style is not None:
+            style.unpolish(widget)
+            style.polish(widget)
+
+        widget.update()
 
     @staticmethod
     def _create_tool_button(
