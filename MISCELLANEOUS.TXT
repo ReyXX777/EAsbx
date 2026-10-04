@@ -34,3 +34,23 @@ pytest task_observation_engine/tests/test_qt_observation_widget.py -q
 │ browser        │                              │       Values: {...}         │
 │                │                              │                             │
 └────────────────┴──────────────────────────────┴─────────────────────────────┘
+
+
+1. EXTRACT
+   chat_window.py
+        ↓
+   chat_window_objects.json
+
+2. REVIEW / CLASSIFY
+   Existing theme role
+        OR
+   New reusable role
+        OR
+   Component-specific property
+
+3. MIGRATE
+   chat_window.py
+        ↓
+   semantic properties
+        ↓
+   stylesheet.py

@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from approval.approval_widget import ApprovalWidget
 from approval.models import ApprovalDecision
 from chat_formatter import ChatMessageFormatter
+from qt_theme import ThemeManager
 
 # ============================================================================
 # Gemini Worker
@@ -391,6 +392,11 @@ class ChatWindowWidget(QFrame):
 
         self.chat_display.setObjectName("chatDisplay")
 
+        self.chat_display.setProperty(
+            "role",
+            "conversation_display",
+        )
+
         self.chat_display.setReadOnly(True)
 
         self.chat_display.setAcceptRichText(True)
@@ -422,7 +428,10 @@ class ChatWindowWidget(QFrame):
         self.approval_container = QWidget()
 
         self.approval_container.setObjectName("approvalContainer")
-
+        self.approval_container.setProperty(
+            "role",
+            "approval_container",
+        )
         self.approval_container.setVisible(False)
 
         self.approval_layout = QVBoxLayout(self.approval_container)
@@ -459,6 +468,11 @@ class ChatWindowWidget(QFrame):
 
         header.setObjectName("chatHeader")
 
+        header.setProperty(
+            "role",
+            "header",
+        )
+
         header.setFixedHeight(64)
 
         layout = QHBoxLayout(header)
@@ -476,6 +490,11 @@ class ChatWindowWidget(QFrame):
         icon = QLabel("✦")
 
         icon.setObjectName("agentIcon")
+
+        icon.setProperty(
+            "role",
+            "agent_icon",
+        )
 
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -502,9 +521,19 @@ class ChatWindowWidget(QFrame):
 
         self.agent_title.setObjectName("agentTitle")
 
+        self.agent_title.setProperty(
+            "role",
+            "title",
+        )
+
         self.agent_status = QLabel("Ready")
 
         self.agent_status.setObjectName("agentStatus")
+
+        self.agent_status.setProperty(
+            "role",
+            "muted",
+        )
 
         title_layout.addWidget(self.agent_title)
 
@@ -518,13 +547,23 @@ class ChatWindowWidget(QFrame):
         self.status_indicator = QLabel("●")
 
         self.status_indicator.setObjectName("statusIndicator")
-
+        self.status_indicator.setProperty(
+            "role",
+            "status_indicator",
+        )
+        self.status_indicator.setProperty(
+            "status",
+            "live",
+        )
         layout.addWidget(self.status_indicator)
 
         self.new_chat_btn = QPushButton("New chat")
 
         self.new_chat_btn.setObjectName("headerButton")
-
+        self.new_chat_btn.setProperty(
+            "role",
+            "secondary_action",
+        )
         self.new_chat_btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self.new_chat_btn.clicked.connect(self.clear_conversation)
@@ -545,7 +584,10 @@ class ChatWindowWidget(QFrame):
         outer = QFrame()
 
         outer.setObjectName("composerOuter")
-
+        outer.setProperty(
+            "role",
+            "composer",
+        )
         outer_layout = QVBoxLayout(outer)
 
         outer_layout.setContentsMargins(
@@ -565,6 +607,11 @@ class ChatWindowWidget(QFrame):
 
         input_card.setObjectName("inputCard")
 
+        input_card.setProperty(
+            "role",
+            "text_input",
+        )
+
         input_layout = QHBoxLayout(input_card)
 
         input_layout.setContentsMargins(
@@ -580,7 +627,10 @@ class ChatWindowWidget(QFrame):
         self.add_btn = QPushButton("+")
 
         self.add_btn.setObjectName("composerIconButton")
-
+        self.add_btn.setProperty(
+            "role",
+            "icon_button",
+        )
         self.add_btn.setToolTip("Add files or context")
 
         self.add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -594,7 +644,10 @@ class ChatWindowWidget(QFrame):
         self.input_field = QLineEdit()
 
         self.input_field.setObjectName("messageInput")
-
+        self.input_field.setProperty(
+            "role",
+            "text_input",
+        )
         self.input_field.setPlaceholderText("Ask the agent to do something...")
 
         self.input_field.setClearButtonEnabled(False)
@@ -612,7 +665,10 @@ class ChatWindowWidget(QFrame):
         self.mode_dropdown = QComboBox()
 
         self.mode_dropdown.setObjectName("modeDropdown")
-
+        self.mode_dropdown.setProperty(
+            "role",
+            "selector",
+        )
         self.mode_dropdown.addItems(
             [
                 "Auto",
@@ -631,7 +687,10 @@ class ChatWindowWidget(QFrame):
         self.mic_btn = QPushButton("◉")
 
         self.mic_btn.setObjectName("composerIconButton")
-
+        self.mic_btn.setProperty(
+            "role",
+            "icon_button",
+        )
         self.mic_btn.setToolTip("Voice input")
 
         self.mic_btn.setFixedSize(
@@ -645,7 +704,10 @@ class ChatWindowWidget(QFrame):
         self.send_btn = QPushButton("↑")
 
         self.send_btn.setObjectName("sendButton")
-
+        self.send_btn.setProperty(
+            "role",
+            "primary_action",
+        )
         self.send_btn.setToolTip("Send")
 
         self.send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -675,6 +737,11 @@ class ChatWindowWidget(QFrame):
 
         hint.setObjectName("composerHint")
 
+        hint.setProperty(
+            "role",
+            "muted",
+        )
+
         hint_layout.addWidget(hint)
 
         hint_layout.addStretch()
@@ -682,6 +749,11 @@ class ChatWindowWidget(QFrame):
         shortcut = QLabel("Enter to send")
 
         shortcut.setObjectName("composerShortcut")
+
+        shortcut.setProperty(
+            "role",
+            "muted",
+        )
 
         hint_layout.addWidget(shortcut)
 
@@ -695,229 +767,14 @@ class ChatWindowWidget(QFrame):
 
     def _apply_styles(self):
         """
-        Apply the complete visual theme.
+        Refresh this widget through the global Qt theme system.
 
-        Kept local to this widget so the chat UI can evolve independently
-        from the rest of the application.
+        ChatWindowWidget intentionally does not own a local stylesheet.
+        ThemeManager is the single source of truth for application-wide
+        colors, typography, controls, spacing, and dark/light mode.
         """
 
-        self.setStyleSheet("""
-            /* ==========================================================
-               Main container
-               ========================================================== */
-
-            QFrame#chatWindow {
-                background: #f7f8fa;
-                border: none;
-            }
-
-            /* ==========================================================
-               Header
-               ========================================================== */
-
-            QFrame#chatHeader {
-                background: #ffffff;
-                border-bottom: 1px solid #e5e7eb;
-            }
-
-            QLabel#agentIcon {
-                background: #111827;
-                color: #ffffff;
-                border-radius: 18px;
-                font-size: 19px;
-                font-weight: 700;
-            }
-
-            QLabel#agentTitle {
-                color: #111827;
-                font-size: 14px;
-                font-weight: 700;
-            }
-
-            QLabel#agentStatus {
-                color: #6b7280;
-                font-size: 11px;
-            }
-
-            QLabel#statusIndicator {
-                color: #22c55e;
-                font-size: 10px;
-                padding-right: 5px;
-            }
-
-            QPushButton#headerButton {
-                background: #ffffff;
-                color: #374151;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 6px 11px;
-                font-size: 11px;
-            }
-
-            QPushButton#headerButton:hover {
-                background: #f3f4f6;
-                border-color: #d1d5db;
-            }
-
-            /* ==========================================================
-               Chat display
-               ========================================================== */
-
-            QTextEdit#chatDisplay {
-                background: #f7f8fa;
-                color: #111827;
-                border: none;
-                padding: 18px;
-                font-size: 13px;
-                selection-background-color: #dbeafe;
-                selection-color: #111827;
-            }
-
-            QTextEdit#chatDisplay QScrollBar:vertical {
-                background: transparent;
-                width: 8px;
-                margin: 3px;
-            }
-
-            QTextEdit#chatDisplay QScrollBar::handle:vertical {
-                background: #d1d5db;
-                border-radius: 4px;
-                min-height: 40px;
-            }
-
-            QTextEdit#chatDisplay QScrollBar::handle:vertical:hover {
-                background: #9ca3af;
-            }
-
-            QTextEdit#chatDisplay QScrollBar::add-line:vertical,
-            QTextEdit#chatDisplay QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-
-            QTextEdit#chatDisplay QScrollBar::add-page:vertical,
-            QTextEdit#chatDisplay QScrollBar::sub-page:vertical {
-                background: transparent;
-            }
-
-            /* ==========================================================
-               Approval
-               ========================================================== */
-
-            QWidget#approvalContainer {
-                background: #f7f8fa;
-            }
-
-            /* ==========================================================
-               Composer
-               ========================================================== */
-
-            QFrame#composerOuter {
-                background: #f7f8fa;
-                border-top: 1px solid #e5e7eb;
-            }
-
-            QFrame#inputCard {
-                background: #ffffff;
-                border: 1px solid #dfe3e8;
-                border-radius: 14px;
-            }
-
-            QFrame#inputCard:focus-within {
-                border: 1px solid #9ca3af;
-            }
-
-            QLineEdit#messageInput {
-                background: transparent;
-                border: none;
-                color: #111827;
-                font-size: 13px;
-                padding: 6px 4px;
-                selection-background-color: #dbeafe;
-            }
-
-            QLineEdit#messageInput:disabled {
-                color: #9ca3af;
-            }
-
-            QPushButton#composerIconButton {
-                background: transparent;
-                color: #6b7280;
-                border: none;
-                border-radius: 8px;
-                font-size: 18px;
-                font-weight: 600;
-            }
-
-            QPushButton#composerIconButton:hover {
-                background: #f3f4f6;
-                color: #111827;
-            }
-
-            QPushButton#composerIconButton:pressed {
-                background: #e5e7eb;
-            }
-
-            QComboBox#modeDropdown {
-                background: #f8fafc;
-                color: #374151;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 6px 10px;
-                font-size: 11px;
-                font-weight: 600;
-            }
-
-            QComboBox#modeDropdown:hover {
-                border-color: #d1d5db;
-                background: #ffffff;
-            }
-
-            QComboBox#modeDropdown::drop-down {
-                border: none;
-                width: 22px;
-            }
-
-            QComboBox#modeDropdown QAbstractItemView {
-                background: #ffffff;
-                color: #111827;
-                border: 1px solid #e5e7eb;
-                selection-background-color: #f3f4f6;
-                selection-color: #111827;
-                padding: 4px;
-            }
-
-            QPushButton#sendButton {
-                background: #111827;
-                color: #ffffff;
-                border: none;
-                border-radius: 18px;
-                font-size: 19px;
-                font-weight: 700;
-            }
-
-            QPushButton#sendButton:hover {
-                background: #1f2937;
-            }
-
-            QPushButton#sendButton:pressed {
-                background: #374151;
-            }
-
-            QPushButton#sendButton:disabled {
-                background: #d1d5db;
-                color: #f9fafb;
-            }
-
-            QLabel#composerHint {
-                color: #9ca3af;
-                font-size: 10px;
-            }
-
-            QLabel#composerShortcut {
-                color: #9ca3af;
-                font-size: 10px;
-            }
-            """)
+        ThemeManager.instance().refresh_widget(self)
 
     # ========================================================================
     # Messaging

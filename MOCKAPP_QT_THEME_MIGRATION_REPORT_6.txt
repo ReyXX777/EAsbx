@@ -1,0 +1,404 @@
+==========================================================================================
+MOCKAPP QT THEME MIGRATION REPORT
+==========================================================================================
+
+Project root: X:\MOCKAPP
+
+Purpose:
+  Analyze selected MOCKAPP Qt source files before migrating
+  local styling to the global qt_theme package.
+
+The report records:
+  - Qt imports
+  - Qt component construction
+  - Qt inheritance
+  - widget variable names
+  - object names
+  - dynamic properties
+  - theme-relevant method calls
+  - local stylesheets
+  - hard-coded colors
+  - typography
+  - dimensions
+  - semantic theme hints
+  - nearby source context
+
+==========================================================================================
+
+1. SUMMARY
+------------------------------------------------------------------------------------------
+
+Requested targets: 1
+Resolved files: 1
+Qt usages detected: 12
+Widget instances detected: 9
+Theme/style findings: 40
+Scanner errors: 0
+
+2. SOURCE FILE ANALYSIS
+------------------------------------------------------------------------------------------
+
+
+##########################################################################################
+FILE: approval/approval_widget.py
+##########################################################################################
+
+2.1 QT IMPORTS
+------------------------------------------------------------
+  from PySide6.QtCore import Signal
+  from PySide6.QtWidgets import QFrame
+  from PySide6.QtWidgets import QHBoxLayout
+  from PySide6.QtWidgets import QLabel
+  from PySide6.QtWidgets import QPushButton
+  from PySide6.QtWidgets import QVBoxLayout
+
+2.2 CLASSES / QT INHERITANCE
+------------------------------------------------------------
+  ApprovalWidget (QFrame) [line 15]
+
+2.3 WIDGET / COMPONENT RECORDS
+------------------------------------------------------------
+
+[WIDGET 1]
+  Variable: layout
+  Component: QVBoxLayout
+  Created at line: 95
+
+[WIDGET 2]
+  Variable: title
+  Component: QLabel
+  Created at line: 99
+  Semantic hints:
+    title text
+
+[WIDGET 3]
+  Variable: operation
+  Component: QLabel
+  Created at line: 106
+
+[WIDGET 4]
+  Variable: sensitivity
+  Component: QLabel
+  Created at line: 109
+
+[WIDGET 5]
+  Variable: side_effect
+  Component: QLabel
+  Created at line: 114
+
+[WIDGET 6]
+  Variable: credential_use
+  Component: QLabel
+  Created at line: 119
+
+[WIDGET 7]
+  Variable: reason_title
+  Component: QLabel
+  Created at line: 129
+  Semantic hints:
+    title text
+
+[WIDGET 8]
+  Variable: button_layout
+  Component: QHBoxLayout
+  Created at line: 139
+
+[WIDGET 9]
+  Variable: reason_label
+  Component: QLabel
+  Created at line: 134
+
+2.4 QT USAGE WITH SOURCE CONTEXT
+------------------------------------------------------------
+
+[QT USAGE 1]
+  Component: QFrame
+  Type: class inheritance
+  Line: 15
+  Column: 0
+  Expression: class ApprovalWidget(QFrame)
+
+  Context:
+    Class derives from a Qt visual/component class.
+
+[QT USAGE 2]
+  Component: QVBoxLayout
+  Type: constructor
+  Line: 95
+  Column: 17
+  Expression: QVBoxLayout
+
+  Context:
+          93: 
+          94:     def _build_ui(self):
+    >>    95:         layout = QVBoxLayout(self)
+          96:         layout.setContentsMargins(14, 12, 14, 12)
+          97:         layout.setSpacing(8)
+
+[QT USAGE 3]
+  Component: QLabel
+  Type: constructor
+  Line: 99
+  Column: 16
+  Expression: QLabel
+
+  Context:
+          97:         layout.setSpacing(8)
+          98: 
+    >>    99:         title = QLabel("🔐 Human approval required")
+         100:         title.setObjectName("title")
+         101: 
+
+[QT USAGE 4]
+  Component: QLabel
+  Type: constructor
+  Line: 106
+  Column: 20
+  Expression: QLabel
+
+  Context:
+         104:         classification = self.decision.classification
+         105: 
+    >>   106:         operation = QLabel(f"<b>Operation:</b> {classification.operation_type}")
+         107:         operation.setObjectName("details")
+         108: 
+
+[QT USAGE 5]
+  Component: QLabel
+  Type: constructor
+  Line: 109
+  Column: 22
+  Expression: QLabel
+
+  Context:
+         107:         operation.setObjectName("details")
+         108: 
+    >>   109:         sensitivity = QLabel(
+         110:             f"<b>Data sensitivity:</b> " f"{classification.data_sensitivity}"
+         111:         )
+
+[QT USAGE 6]
+  Component: QLabel
+  Type: constructor
+  Line: 114
+  Column: 22
+  Expression: QLabel
+
+  Context:
+         112:         sensitivity.setObjectName("details")
+         113: 
+    >>   114:         side_effect = QLabel(
+         115:             f"<b>External side effect:</b> " f"{classification.external_side_effect}"
+         116:         )
+
+[QT USAGE 7]
+  Component: QLabel
+  Type: constructor
+  Line: 119
+  Column: 25
+  Expression: QLabel
+
+  Context:
+         117:         side_effect.setObjectName("details")
+         118: 
+    >>   119:         credential_use = QLabel(
+         120:             f"<b>Credential use:</b> " f"{classification.credential_use}"
+         121:         )
+
+[QT USAGE 8]
+  Component: QLabel
+  Type: constructor
+  Line: 129
+  Column: 23
+  Expression: QLabel
+
+  Context:
+         127:         layout.addWidget(credential_use)
+         128: 
+    >>   129:         reason_title = QLabel("<b>Why approval is required:</b>")
+         130:         reason_title.setObjectName("details")
+         131:         layout.addWidget(reason_title)
+
+[QT USAGE 9]
+  Component: QHBoxLayout
+  Type: constructor
+  Line: 139
+  Column: 24
+  Expression: QHBoxLayout
+
+  Context:
+         137:             layout.addWidget(reason_label)
+         138: 
+    >>   139:         button_layout = QHBoxLayout()
+         140:         button_layout.setSpacing(8)
+         141: 
+
+[QT USAGE 10]
+  Component: QPushButton
+  Type: constructor
+  Line: 142
+  Column: 27
+  Expression: QPushButton
+
+  Context:
+         140:         button_layout.setSpacing(8)
+         141: 
+    >>   142:         self.deny_button = QPushButton("Deny")
+         143:         self.deny_button.setObjectName("deny_button")
+         144: 
+
+[QT USAGE 11]
+  Component: QPushButton
+  Type: constructor
+  Line: 145
+  Column: 30
+  Expression: QPushButton
+
+  Context:
+         143:         self.deny_button.setObjectName("deny_button")
+         144: 
+    >>   145:         self.approve_button = QPushButton("Approve & Continue")
+         146:         self.approve_button.setObjectName("approve_button")
+         147: 
+
+[QT USAGE 12]
+  Component: QLabel
+  Type: constructor
+  Line: 134
+  Column: 27
+  Expression: QLabel
+
+  Context:
+         132: 
+         133:         for reason in self.decision.reasons:
+    >>   134:             reason_label = QLabel(f"• {reason}")
+         135:             reason_label.setObjectName("details")
+         136:             reason_label.setWordWrap(True)
+
+2.5 LOCAL STYLE / THEME FINDINGS
+------------------------------------------------------------
+
+  line 38 | setStyleSheet
+      self.setStyleSheet("""
+  line 40 | hex color
+      background-color: #f7f7f7;
+  line 40 | background
+      background-color: #f7f7f7;
+  line 40 | foreground/color
+      background-color: #f7f7f7;
+  line 41 | hex color
+      border: 1px solid #bdbdbd;
+  line 41 | border
+      border: 1px solid #bdbdbd;
+  line 42 | border
+      border-radius: 8px;
+  line 42 | border-radius
+      border-radius: 8px;
+  line 46 | font-size
+      font-size: 15px;
+  line 48 | hex color
+      color: #111111;
+  line 48 | foreground/color
+      color: #111111;
+  line 49 | border
+      border: none;
+  line 53 | font-size
+      font-size: 13px;
+  line 54 | hex color
+      color: #222222;
+  line 54 | foreground/color
+      color: #222222;
+  line 55 | border
+      border: none;
+  line 59 | font-size
+      font-size: 12px;
+  line 60 | hex color
+      color: #555555;
+  line 60 | foreground/color
+      color: #555555;
+  line 61 | border
+      border: none;
+  line 65 | min-height
+      min-height: 32px;
+  line 66 | padding
+      padding: 4px 16px;
+  line 67 | border
+      border-radius: 5px;
+  line 67 | border-radius
+      border-radius: 5px;
+  line 72 | background
+      background-color: white;
+  line 72 | foreground/color
+      background-color: white;
+  line 73 | hex color
+      color: #111111;
+  line 73 | foreground/color
+      color: #111111;
+  line 74 | hex color
+      border: 1px solid #999999;
+  line 74 | border
+      border: 1px solid #999999;
+  line 78 | hex color
+      background-color: #eeeeee;
+  line 78 | background
+      background-color: #eeeeee;
+  line 78 | foreground/color
+      background-color: #eeeeee;
+  line 82 | background
+      background-color: black;
+  line 82 | foreground/color
+      background-color: black;
+  line 83 | foreground/color
+      color: white;
+  line 84 | border
+      border: 1px solid black;
+  line 88 | hex color
+      background-color: #333333;
+  line 88 | background
+      background-color: #333333;
+  line 88 | foreground/color
+      background-color: #333333;
+
+2.6 POTENTIAL GLOBAL THEME MAPPING
+------------------------------------------------------------
+
+  layout (QVBoxLayout)
+    Theme role: <manual review required>
+
+  title (QLabel)
+    title text -> setProperty("role", "title")
+
+  operation (QLabel)
+    Theme role: <manual review required>
+
+  sensitivity (QLabel)
+    Theme role: <manual review required>
+
+  side_effect (QLabel)
+    Theme role: <manual review required>
+
+  credential_use (QLabel)
+    Theme role: <manual review required>
+
+  reason_title (QLabel)
+    title text -> setProperty("role", "title")
+
+  button_layout (QHBoxLayout)
+    Theme role: <manual review required>
+
+  reason_label (QLabel)
+    Theme role: <manual review required>
+
+
+3. SCANNER ERRORS
+------------------------------------------------------------------------------------------
+
+  None.
+
+==========================================================================================
+END OF REPORT
+==========================================================================================
+
+IMPORTANT:
+  This report does not modify any MOCKAPP source file.
+  It is an analysis artifact for deterministic theme migration.

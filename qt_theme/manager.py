@@ -7,6 +7,8 @@ from .palette import ThemePalette, palette_for_dark
 from .stylesheet import build_stylesheet
 from .system import system_prefers_dark
 from .typography import ThemeTypography
+from .html import ThemeHtml
+
 
 class _ThemeEventFilter(QObject):
     def __init__(self, manager):
@@ -14,10 +16,15 @@ class _ThemeEventFilter(QObject):
         self.manager = manager
 
     def eventFilter(self, watched, event):
-        if event.type() in (QEvent.Type.ApplicationPaletteChange, QEvent.Type.Polish, QEvent.Type.Show):
+        if event.type() in (
+            QEvent.Type.ApplicationPaletteChange,
+            QEvent.Type.Polish,
+            QEvent.Type.Show,
+        ):
             if isinstance(watched, QWidget):
                 self.manager.refresh_widget(watched)
         return False
+
 
 class ThemeManager(QObject):
     theme_changed = Signal(str)
@@ -39,13 +46,27 @@ class ThemeManager(QObject):
         return cls._instance
 
     @property
-    def mode(self): return self._mode
+    def mode(self):
+        return self._mode
+
     @property
-    def dark(self): return self._dark
+    def dark(self):
+        return self._dark
+
     @property
-    def palette(self) -> ThemePalette: return self._palette
+    def palette(self) -> ThemePalette:
+        return self._palette
+
     @property
-    def typography(self): return self._typography
+    def typography(self):
+        return self._typography
+
+    @property
+    def html(self) -> ThemeHtml:
+        return ThemeHtml.from_theme(
+            self._palette,
+            self._typography,
+        )
 
     def apply(self, app: QApplication, mode=ThemeMode.SYSTEM):
         self._app = app
@@ -59,7 +80,11 @@ class ThemeManager(QObject):
         if isinstance(mode, str):
             mode = ThemeMode(mode.lower())
         self._mode = mode
-        self._dark = system_prefers_dark() if mode is ThemeMode.SYSTEM else mode is ThemeMode.DARK
+        self._dark = (
+            system_prefers_dark()
+            if mode is ThemeMode.SYSTEM
+            else mode is ThemeMode.DARK
+        )
         self._palette = palette_for_dark(self._dark)
         if self._app is not None:
             self._app.setFont(self._typography.base_font())

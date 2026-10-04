@@ -1,127 +1,239 @@
-# chat_formatter.py
 import html
 import re
 from datetime import datetime
 
+from qt_theme import ThemeManager
+
 
 class ChatMessageFormatter:
-    """Single-responsibility class for parsing raw AI/User text and rendering
+    """Single-responsibility formatter for rendering chat messages as
+    theme-aware HTML suitable for PySide6 QTextEdit/QTextBrowser display.
 
-    industrial-grade CSS styled HTML bubbles for PySide6 QTextEdit display.
+    All colors and typography are obtained from the global MOCKAPP Qt theme.
+    No local light/dark palette is maintained here.
     """
 
-    # Industrial Theme Palette
-    COLOR_USER_BG = "#f4f4f5"
-    COLOR_USER_BORDER = "#e4e4e7"
-    COLOR_ASSISTANT_BG = "#f0f7ff"
-    COLOR_ASSISTANT_BORDER = "#bfdbfe"
-    COLOR_SYSTEM_BG = "#fefce8"
-    COLOR_SYSTEM_BORDER = "#fef08a"
-    COLOR_AGENT_BG = "#faf5ff"
-    COLOR_AGENT_BORDER = "#e9d5ff"
-    COLOR_ERROR_BG = "#fef2f2"
-    COLOR_ERROR_BORDER = "#fecaca"
+    @classmethod
+    def _theme(cls):
+        """Return the active global theme manager."""
+        return ThemeManager.instance()
 
     @classmethod
     def format_message(cls, role: str, raw_text: str) -> str:
-        """Formats raw input text into a styled HTML card based on the role.
+        """Format raw input text into a theme-aware HTML chat card.
 
-        Supported roles: 'user', 'assistant', 'system', 'agent', 'error'
+        Supported roles:
+            user
+            assistant
+            system
+            agent
+            error
+
+        The generated HTML intentionally uses the active global Qt theme
+        palette and typography rather than hard-coded colors.
         """
+        theme = cls._theme()
+        palette = theme.palette
+        typography = theme.typography
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         processed_body = cls._parse_markdown(raw_text)
 
         if role == "user":
             title = "USER"
-            badge_color = "#18181b"
-            bg_color = cls.COLOR_USER_BG
-            border_color = cls.COLOR_USER_BORDER
+            badge_color = palette.text
+            bg_color = palette.surface_alt
+            border_color = palette.border
+
         elif role == "assistant":
             title = "GEMINI AI"
-            badge_color = "#2563eb"
-            bg_color = cls.COLOR_ASSISTANT_BG
-            border_color = cls.COLOR_ASSISTANT_BORDER
+            badge_color = palette.accent
+            bg_color = palette.accent_soft
+            border_color = palette.border
+
         elif role == "agent":
             title = "BROWSER AGENT"
-            badge_color = "#9333ea"
-            bg_color = cls.COLOR_AGENT_BG
-            border_color = cls.COLOR_AGENT_BORDER
+            badge_color = palette.accent
+            bg_color = palette.accent_soft
+            border_color = palette.border
+
         elif role == "system":
             title = "SYSTEM"
-            badge_color = "#ca8a04"
-            bg_color = cls.COLOR_SYSTEM_BG
-            border_color = cls.COLOR_SYSTEM_BORDER
+            badge_color = palette.warning
+            bg_color = palette.warning_soft
+            border_color = palette.border
+
         elif role == "error":
             title = "SYSTEM ERROR"
-            badge_color = "#dc2626"
-            bg_color = cls.COLOR_ERROR_BG
-            border_color = cls.COLOR_ERROR_BORDER
+            badge_color = palette.danger
+            bg_color = palette.danger_soft
+            border_color = palette.danger
+
         else:
             title = role.upper()
-            badge_color = "#52525b"
-            bg_color = "#ffffff"
-            border_color = "#e4e4e7"
+            badge_color = palette.text_muted
+            bg_color = palette.surface_alt
+            border_color = palette.border
+
+        base_size = typography.base_size
+        mono = typography.monospace()
 
         formatted_html = f"""
-        <div style="margin-bottom: 12px; background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 6px; padding: 10px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="margin-bottom: 6px; font-size: 11px;">
-                <span style="background-color: {badge_color}; color: #ffffff; font-weight: bold; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px;">{title}</span>
-                <span style="color: #71717a; margin-left: 8px;">{timestamp}</span>
+        <div style="
+            margin-bottom: 12px;
+            background-color: {bg_color};
+            color: {palette.text};
+            border: 1px solid {border_color};
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: '{typography.family()}';
+            font-size: {base_size}pt;
+        ">
+            <div style="
+                margin-bottom: 7px;
+                font-size: {typography.small_size}pt;
+            ">
+                <span style="
+                    background-color: {badge_color};
+                    color: {palette.text_inverse};
+                    font-weight: bold;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    letter-spacing: 0.5px;
+                ">{title}</span>
+
+                <span style="
+                    color: {palette.text_muted};
+                    margin-left: 8px;
+                ">{timestamp}</span>
             </div>
-            <div style="font-size: 13px; line-height: 1.5; color: #09090b;">
+
+            <div style="
+                font-size: {base_size}pt;
+                line-height: 1.55;
+                color: {palette.text};
+            ">
                 {processed_body}
             </div>
         </div>
         """
+
         return formatted_html
 
     @classmethod
     def _parse_markdown(cls, text: str) -> str:
-        """Lightweight Markdown and Code syntax parser to convert LLM output into
+        """Convert lightweight Markdown and code syntax into theme-aware HTML.
 
-        rich HTML display format.
+        HTML input is escaped before Markdown processing so raw model output
+        cannot corrupt the QTextEdit rich-text document.
         """
         if not text:
             return ""
 
-        # Escape HTML tags to prevent XSS / render corruption
+        theme = cls._theme()
+        palette = theme.palette
+        typography = theme.typography
+        mono = typography.monospace()
+
+        # Escape HTML tags to prevent XSS / render corruption.
         escaped_text = html.escape(text)
 
-        # 1. Parse multi-line code blocks ```lang ... ```
+        # ------------------------------------------------------------------
+        # 1. Multi-line code blocks
+        # ------------------------------------------------------------------
         code_block_pattern = re.compile(
-            r"```(?:(\w+)\n)?(.*?)```", re.DOTALL
+            r"```(?:(\w+)\n)?(.*?)```",
+            re.DOTALL,
         )
 
         def replace_code_block(match):
             lang = match.group(1) or "code"
             code_content = match.group(2).strip()
+
             return f"""
-            <div style="margin: 8px 0; background-color: #1e1e2e; border-radius: 4px; border: 1px solid #313244; overflow: hidden;">
-                <div style="background-color: #181825; padding: 3px 8px; font-size: 10px; color: #a6adc8; font-family: monospace; font-weight: bold; border-bottom: 1px solid #313244;">
+            <div style="
+                margin: 8px 0;
+                background-color: {palette.surface_elevated};
+                color: {palette.text};
+                border-radius: 4px;
+                border: 1px solid {palette.border};
+                overflow: hidden;
+            ">
+                <div style="
+                    background-color: {palette.surface_alt};
+                    padding: 4px 8px;
+                    font-size: {typography.small_size}pt;
+                    color: {palette.text_muted};
+                    font-family: '{mono}';
+                    font-weight: bold;
+                    border-bottom: 1px solid {palette.border};
+                ">
                     {lang.upper()}
                 </div>
-                <pre style="margin: 0; padding: 8px; color: #cdd6f4; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; white-space: pre-wrap;">{code_content}</pre>
+
+                <pre style="
+                    margin: 0;
+                    padding: 9px;
+                    color: {palette.text};
+                    background-color: {palette.surface_elevated};
+                    font-family: '{mono}';
+                    font-size: {typography.base_size}pt;
+                    white-space: pre-wrap;
+                ">{code_content}</pre>
             </div>
             """
 
-        escaped_text = code_block_pattern.sub(replace_code_block, escaped_text)
-
-        # 2. Parse inline code `code`
-        inline_code_pattern = re.compile(r"`([^`]+)`")
-        escaped_text = inline_code_pattern.sub(
-            r'<code style="background-color: #e4e4e7; color: #09090b; padding: 2px 4px; border-radius: 3px; font-family: monospace; font-size: 12px;">\1</code>',
+        escaped_text = code_block_pattern.sub(
+            replace_code_block,
             escaped_text,
         )
 
-        # 3. Bold **text**
-        escaped_text = re.sub(
-            r"\*\*(.*?)\*\*", r"<strong>\1</strong>", escaped_text
+        # ------------------------------------------------------------------
+        # 2. Inline code
+        # ------------------------------------------------------------------
+        inline_code_pattern = re.compile(r"`([^`]+)`")
+
+        inline_code_html = (
+            f'<code style="'
+            f"background-color: {palette.surface_alt}; "
+            f"color: {palette.text}; "
+            f"padding: 2px 4px; "
+            f"border-radius: 3px; "
+            f"border: 1px solid {palette.border}; "
+            f"font-family: '{mono}'; "
+            f"font-size: {typography.base_size}pt;"
+            f'">\\1</code>'
         )
 
-        # 4. Italic *text*
-        escaped_text = re.sub(r"\*(.*?)\*", r"<em>\1</em>", escaped_text)
+        escaped_text = inline_code_pattern.sub(
+            inline_code_html,
+            escaped_text,
+        )
 
-        # 5. Convert linebreaks outside code blocks
-        escaped_text = escaped_text.replace("\n", "<br>")
+        # ------------------------------------------------------------------
+        # 3. Bold
+        # ------------------------------------------------------------------
+        escaped_text = re.sub(
+            r"\*\*(.*?)\*\*",
+            r"<strong>\1</strong>",
+            escaped_text,
+        )
+
+        # ------------------------------------------------------------------
+        # 4. Italic
+        # ------------------------------------------------------------------
+        escaped_text = re.sub(
+            r"\*(.*?)\*",
+            r"<em>\1</em>",
+            escaped_text,
+        )
+
+        # ------------------------------------------------------------------
+        # 5. Convert line breaks
+        # ------------------------------------------------------------------
+        escaped_text = escaped_text.replace(
+            "\n",
+            "<br>",
+        )
 
         return escaped_text

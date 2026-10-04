@@ -30,9 +30,9 @@ The report records:
 
 Requested targets: 1
 Resolved files: 1
-Qt usages detected: 17
-Widget instances detected: 8
-Theme/style findings: 31
+Qt usages detected: 0
+Widget instances detected: 0
+Theme/style findings: 38
 Scanner errors: 0
 
 2. SOURCE FILE ANALYSIS
@@ -40,406 +40,109 @@ Scanner errors: 0
 
 
 ##########################################################################################
-FILE: filesystem/filesystem_workspace.py
+FILE: agent_response_parser.py
 ##########################################################################################
 
 2.1 QT IMPORTS
 ------------------------------------------------------------
-  from PySide6.QtCore import Qt
-  from PySide6.QtCore import Signal
-  from PySide6.QtWidgets import QAbstractItemView
-  from PySide6.QtWidgets import QHBoxLayout
-  from PySide6.QtWidgets import QLabel
-  from PySide6.QtWidgets import QLineEdit
-  from PySide6.QtWidgets import QPlainTextEdit
-  from PySide6.QtWidgets import QPushButton
-  from PySide6.QtWidgets import QSplitter
-  from PySide6.QtWidgets import QStackedWidget
-  from PySide6.QtWidgets import QTableWidget
-  from PySide6.QtWidgets import QTableWidgetItem
-  from PySide6.QtWidgets import QTreeWidget
-  from PySide6.QtWidgets import QTreeWidgetItem
-  from PySide6.QtWidgets import QVBoxLayout
-  from PySide6.QtWidgets import QWidget
+  <none>
 
 2.2 CLASSES / QT INHERITANCE
 ------------------------------------------------------------
-  FilesWorkspace (QWidget) [line 27]
+  AgentResponseParser [line 8]
 
 2.3 WIDGET / COMPONENT RECORDS
 ------------------------------------------------------------
 
-[WIDGET 1]
-  Variable: root_layout
-  Component: QVBoxLayout
-  Created at line: 64
-
-[WIDGET 2]
-  Variable: toolbar
-  Component: QHBoxLayout
-  Created at line: 79
-
-[WIDGET 3]
-  Variable: refresh_button
-  Component: QPushButton
-  Created at line: 85
-  Semantic hints:
-    interactive control
-
-[WIDGET 4]
-  Variable: splitter
-  Component: QSplitter
-  Created at line: 104
-
-[WIDGET 5]
-  Variable: right
-  Component: QWidget
-  Created at line: 135
-
-[WIDGET 6]
-  Variable: right_layout
-  Component: QVBoxLayout
-  Created at line: 137
-
-[WIDGET 7]
-  Variable: item
-  Component: QTreeWidgetItem
-  Created at line: 364
-
-[WIDGET 8]
-  Variable: item
-  Component: QTableWidgetItem
-  Created at line: 591
+  <none detected>
 
 2.4 QT USAGE WITH SOURCE CONTEXT
 ------------------------------------------------------------
 
-[QT USAGE 1]
-  Component: QWidget
-  Type: class inheritance
-  Line: 27
-  Column: 0
-  Expression: class FilesWorkspace(QWidget)
-
-  Context:
-    Class derives from a Qt visual/component class.
-
-[QT USAGE 2]
-  Component: QVBoxLayout
-  Type: constructor
-  Line: 64
-  Column: 22
-  Expression: QVBoxLayout
-
-  Context:
-          62: 
-          63:     def _build_ui(self):
-    >>    64:         root_layout = QVBoxLayout(self)
-          65: 
-          66:         root_layout.setContentsMargins(
-
-[QT USAGE 3]
-  Component: QHBoxLayout
-  Type: constructor
-  Line: 79
-  Column: 18
-  Expression: QHBoxLayout
-
-  Context:
-          77:         # -----------------------------------------------------
-          78: 
-    >>    79:         toolbar = QHBoxLayout()
-          80: 
-          81:         self.path_field = QLineEdit(".")
-
-[QT USAGE 4]
-  Component: QLineEdit
-  Type: constructor
-  Line: 81
-  Column: 26
-  Expression: QLineEdit
-
-  Context:
-          79:         toolbar = QHBoxLayout()
-          80: 
-    >>    81:         self.path_field = QLineEdit(".")
-          82: 
-          83:         self.path_field.setPlaceholderText("Sandbox-relative path")
-
-[QT USAGE 5]
-  Component: QPushButton
-  Type: constructor
-  Line: 85
-  Column: 25
-  Expression: QPushButton
-
-  Context:
-          83:         self.path_field.setPlaceholderText("Sandbox-relative path")
-          84: 
-    >>    85:         refresh_button = QPushButton("Refresh")
-          86: 
-          87:         refresh_button.clicked.connect(self.refresh)
-
-[QT USAGE 6]
-  Component: QSplitter
-  Type: constructor
-  Line: 104
-  Column: 19
-  Expression: QSplitter
-
-  Context:
-         102:         # -----------------------------------------------------
-         103: 
-    >>   104:         splitter = QSplitter(Qt.Horizontal)
-         105: 
-         106:         # -----------------------------------------------------
-
-[QT USAGE 7]
-  Component: QTreeWidget
-  Type: constructor
-  Line: 110
-  Column: 20
-  Expression: QTreeWidget
-
-  Context:
-         108:         # -----------------------------------------------------
-         109: 
-    >>   110:         self.tree = QTreeWidget()
-         111: 
-         112:         self.tree.setHeaderLabels(
-
-[QT USAGE 8]
-  Component: QWidget
-  Type: constructor
-  Line: 135
-  Column: 16
-  Expression: QWidget
-
-  Context:
-         133:         # -----------------------------------------------------
-         134: 
-    >>   135:         right = QWidget()
-         136: 
-         137:         right_layout = QVBoxLayout(right)
-
-[QT USAGE 9]
-  Component: QVBoxLayout
-  Type: constructor
-  Line: 137
-  Column: 23
-  Expression: QVBoxLayout
-
-  Context:
-         135:         right = QWidget()
-         136: 
-    >>   137:         right_layout = QVBoxLayout(right)
-         138: 
-         139:         right_layout.setContentsMargins(
-
-[QT USAGE 10]
-  Component: QLabel
-  Type: constructor
-  Line: 152
-  Column: 30
-  Expression: QLabel
-
-  Context:
-         150:         # -----------------------------------------------------
-         151: 
-    >>   152:         self.preview_header = QLabel("File Preview")
-         153: 
-         154:         self.preview_header.setObjectName("filesystemPreviewHeader")
-
-[QT USAGE 11]
-  Component: QStackedWidget
-  Type: constructor
-  Line: 167
-  Column: 29
-  Expression: QStackedWidget
-
-  Context:
-         165:         from PySide6.QtWidgets import QStackedWidget
-         166: 
-    >>   167:         self.preview_stack = QStackedWidget()
-         168: 
-         169:         # -----------------------------------------------------
-
-[QT USAGE 12]
-  Component: QLabel
-  Type: constructor
-  Line: 173
-  Column: 29
-  Expression: QLabel
-
-  Context:
-         171:         # -----------------------------------------------------
-         172: 
-    >>   173:         self.empty_preview = QLabel("Select a file to preview it.")
-         174: 
-         175:         self.empty_preview.setAlignment(Qt.AlignCenter)
-
-[QT USAGE 13]
-  Component: QPlainTextEdit
-  Type: constructor
-  Line: 185
-  Column: 23
-  Expression: QPlainTextEdit
-
-  Context:
-         183:         # -----------------------------------------------------
-         184: 
-    >>   185:         self.preview = QPlainTextEdit()
-         186: 
-         187:         self.preview.setReadOnly(True)
-
-[QT USAGE 14]
-  Component: QTableWidget
-  Type: constructor
-  Line: 197
-  Column: 21
-  Expression: QTableWidget
-
-  Context:
-         195:         # -----------------------------------------------------
-         196: 
-    >>   197:         self.table = QTableWidget()
-         198: 
-         199:         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-
-[QT USAGE 15]
-  Component: QLabel
-  Type: constructor
-  Line: 89
-  Column: 26
-  Expression: QLabel
-
-  Context:
-          87:         refresh_button.clicked.connect(self.refresh)
-          88: 
-    >>    89:         toolbar.addWidget(QLabel("Path:"))
-          90: 
-          91:         toolbar.addWidget(
-
-[QT USAGE 16]
-  Component: QTreeWidgetItem
-  Type: constructor
-  Line: 364
-  Column: 19
-  Expression: QTreeWidgetItem
-
-  Context:
-         362:         for entry in result.data:
-         363: 
-    >>   364:             item = QTreeWidgetItem(
-         365:                 [
-         366:                     entry.name,
-
-[QT USAGE 17]
-  Component: QTableWidgetItem
-  Type: constructor
-  Line: 591
-  Column: 23
-  Expression: QTableWidgetItem
-
-  Context:
-         589:             for column_index, value in enumerate(row):
-         590: 
-    >>   591:                 item = QTableWidgetItem(str(value))
-         592: 
-         593:                 self.table.setItem(
-
 2.5 LOCAL STYLE / THEME FINDINGS
 ------------------------------------------------------------
 
-  line 240 | setStyleSheet
-      self.setStyleSheet("""
-  line 242 | hex color
-      color: #444444;
-  line 242 | foreground/color
-      color: #444444;
-  line 243 | font-size
-      font-size: 11px;
-  line 245 | padding
-      padding: 3px 4px;
-  line 249 | hex color
-      color: #999999;
-  line 249 | foreground/color
-      color: #999999;
-  line 250 | font-size
+  line 51 | hex color
+      background-color: #f8fafc;
+  line 51 | background
+      background-color: #f8fafc;
+  line 51 | foreground/color
+      background-color: #f8fafc;
+  line 52 | hex color
+      border-left: 4px solid #16a34a;
+  line 52 | border
+      border-left: 4px solid #16a34a;
+  line 53 | padding
+      padding: 10px 12px;
+  line 54 | margin
+      margin-top: 6px;
+  line 55 | margin
+      margin-bottom: 8px;
+  line 56 | border
+      border-radius: 4px;
+  line 56 | border-radius
+      border-radius: 4px;
+  line 60 | hex color
+      color: #1e293b;
+  line 60 | foreground/color
+      color: #1e293b;
+  line 61 | font-size
+      font-size: 13px;
+  line 62 | margin
+      margin-bottom: 6px;
+  line 68 | font-size
+      font-size: 13px;
+  line 69 | hex color
+      color: #334155;
+  line 69 | foreground/color
+      color: #334155;
+  line 99 | margin
+      <li style="margin-bottom: 4px;">
+  line 100 | hex color
+      <strong style="color: #64748b;">
+  line 100 | foreground/color
+      <strong style="color: #64748b;">
+  line 112 | margin
+      margin-top: 6px;
+  line 113 | hex color
+      background-color: #f1f5f9;
+  line 113 | background
+      background-color: #f1f5f9;
+  line 113 | foreground/color
+      background-color: #f1f5f9;
+  line 114 | hex color
+      border: 1px solid #cbd5e1;
+  line 114 | border
+      border: 1px solid #cbd5e1;
+  line 115 | border
+      border-radius: 4px;
+  line 115 | border-radius
+      border-radius: 4px;
+  line 116 | padding
+      padding: 6px 10px;
+  line 117 | font-size
       font-size: 12px;
-  line 251 | hex color
-      background: #fafafa;
-  line 251 | background
-      background: #fafafa;
-  line 252 | hex color
-      border: 1px solid #e5e5e5;
-  line 252 | border
-      border: 1px solid #e5e5e5;
-  line 253 | border
-      border-radius: 4px;
-  line 253 | border-radius
-      border-radius: 4px;
-  line 257 | hex color
-      background: #ffffff;
-  line 257 | background
-      background: #ffffff;
-  line 258 | hex color
-      border: 1px solid #e0e0e0;
-  line 258 | border
-      border: 1px solid #e0e0e0;
-  line 259 | border
-      border-radius: 4px;
-  line 259 | border-radius
-      border-radius: 4px;
-  line 260 | padding
-      padding: 6px;
-  line 261 | font-family
-      font-family: Consolas, "Courier New", monospace;
-  line 262 | font-size
-      font-size: 11px;
-  line 266 | hex color
-      background: #ffffff;
-  line 266 | background
-      background: #ffffff;
-  line 267 | hex color
-      border: 1px solid #e0e0e0;
-  line 267 | border
-      border: 1px solid #e0e0e0;
-  line 268 | border
-      border-radius: 4px;
-  line 268 | border-radius
-      border-radius: 4px;
-  line 269 | hex color
-      gridline-color: #e5e5e5;
-  line 269 | foreground/color
-      gridline-color: #e5e5e5;
+  line 121 | hex color
+      color: #475569;
+  line 121 | foreground/color
+      color: #475569;
+  line 130 | margin
+      margin: 8px 0 4px 18px;
+  line 131 | padding
+      padding: 0;
+  line 132 | hex color
+      color: #334155;
+  line 132 | foreground/color
+      color: #334155;
+  line 133 | font-family
+      font-family: monospace;
+  line 179 | margin
+      f"<li style='margin-left: 15px;'>"
 
 2.6 POTENTIAL GLOBAL THEME MAPPING
 ------------------------------------------------------------
 
-  root_layout (QVBoxLayout)
-    Theme role: <manual review required>
-
-  toolbar (QHBoxLayout)
-    Theme role: <manual review required>
-
-  refresh_button (QPushButton)
-    interactive control -> global QPushButton/QToolButton styling
-
-  splitter (QSplitter)
-    Theme role: <manual review required>
-
-  right (QWidget)
-    Theme role: <manual review required>
-
-  right_layout (QVBoxLayout)
-    Theme role: <manual review required>
-
-  item (QTreeWidgetItem)
-    Theme role: <manual review required>
-
-  item (QTableWidgetItem)
-    Theme role: <manual review required>
+  No widget records available.
 
 
 3. SCANNER ERRORS

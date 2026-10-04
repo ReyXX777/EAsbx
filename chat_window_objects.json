@@ -1,0 +1,385 @@
+{
+    "schema_version": 1,
+    "source_file": "X:\\MOCKAPP\\chat_window.py",
+    "summary": {
+        "total_objects": 17,
+        "classes": {
+            "QComboBox": 1,
+            "QFrame": 3,
+            "QLabel": 6,
+            "QLineEdit": 1,
+            "QPushButton": 4,
+            "QTextEdit": 1,
+            "QWidget": 1
+        },
+        "semantic_roles": {
+            "approval_container": 1,
+            "conversation_display": 1,
+            "frame": 1,
+            "header": 1,
+            "hint": 1,
+            "icon_button": 2,
+            "primary_action": 1,
+            "secondary_action": 1,
+            "selector": 1,
+            "shortcut": 1,
+            "status": 1,
+            "status_indicator": 1,
+            "text_input": 2,
+            "title": 1,
+            "unclassified": 1
+        },
+        "objects_without_object_name": [
+            "header",
+            "hint",
+            "icon",
+            "input_card",
+            "outer",
+            "shortcut"
+        ]
+    },
+    "objects": [
+        {
+            "class_name": "QTextEdit",
+            "variable_name": "chat_display",
+            "object_name": "chatDisplay",
+            "semantic_role": "conversation_display",
+            "confidence": "very_high",
+            "source_line": 391,
+            "parent_variable": null,
+            "constructor_text": "QTextEdit()",
+            "properties": {
+                "read_only": true,
+                "accept_rich_text": true
+            },
+            "suggested_selectors": [
+                "QTextEdit[role=\"conversation_display\"]",
+                "#chatDisplay",
+                "QTextEdit"
+            ],
+            "notes": [
+                "Input/control can normally reuse the existing global input-control API."
+            ]
+        },
+        {
+            "class_name": "QWidget",
+            "variable_name": "approval_container",
+            "object_name": "approvalContainer",
+            "semantic_role": "approval_container",
+            "confidence": "very_high",
+            "source_line": 423,
+            "parent_variable": null,
+            "constructor_text": "QWidget()",
+            "properties": {
+                "visible": false
+            },
+            "suggested_selectors": [
+                "QWidget[role=\"approval_container\"]",
+                "#approvalContainer",
+                "QWidget"
+            ],
+            "notes": []
+        },
+        {
+            "class_name": "QFrame",
+            "variable_name": "header",
+            "object_name": null,
+            "semantic_role": "header",
+            "confidence": "high",
+            "source_line": 459,
+            "parent_variable": null,
+            "constructor_text": "QFrame()",
+            "properties": {},
+            "suggested_selectors": [
+                "QFrame[role=\"header\"]",
+                "QFrame"
+            ],
+            "notes": [
+                "No setObjectName() detected; semantic styling should prefer a role property or class-level selector."
+            ]
+        },
+        {
+            "class_name": "QLabel",
+            "variable_name": "icon",
+            "object_name": null,
+            "semantic_role": "unclassified",
+            "confidence": "unknown",
+            "source_line": 477,
+            "parent_variable": null,
+            "constructor_text": "QLabel(\"✦\")",
+            "properties": {},
+            "suggested_selectors": [
+                "QLabel"
+            ],
+            "notes": [
+                "No setObjectName() detected; semantic styling should prefer a role property or class-level selector.",
+                "Review manually before adding a stylesheet rule."
+            ]
+        },
+        {
+            "class_name": "QLabel",
+            "variable_name": "agent_title",
+            "object_name": "agentTitle",
+            "semantic_role": "title",
+            "confidence": "very_high",
+            "source_line": 502,
+            "parent_variable": null,
+            "constructor_text": "QLabel(\"Cowork Agent\")",
+            "properties": {},
+            "suggested_selectors": [
+                "QLabel[role=\"title\"]",
+                "#agentTitle",
+                "QLabel"
+            ],
+            "notes": []
+        },
+        {
+            "class_name": "QLabel",
+            "variable_name": "agent_status",
+            "object_name": "agentStatus",
+            "semantic_role": "status",
+            "confidence": "very_high",
+            "source_line": 506,
+            "parent_variable": null,
+            "constructor_text": "QLabel(\"Ready\")",
+            "properties": {},
+            "suggested_selectors": [
+                "QLabel[role=\"status\"]",
+                "#agentStatus",
+                "QLabel"
+            ],
+            "notes": []
+        },
+        {
+            "class_name": "QLabel",
+            "variable_name": "status_indicator",
+            "object_name": "statusIndicator",
+            "semantic_role": "status_indicator",
+            "confidence": "very_high",
+            "source_line": 519,
+            "parent_variable": null,
+            "constructor_text": "QLabel(\"●\")",
+            "properties": {
+                "text": "●"
+            },
+            "suggested_selectors": [
+                "QLabel[role=\"status_indicator\"]",
+                "#statusIndicator",
+                "QLabel"
+            ],
+            "notes": []
+        },
+        {
+            "class_name": "QPushButton",
+            "variable_name": "new_chat_btn",
+            "object_name": "headerButton",
+            "semantic_role": "secondary_action",
+            "confidence": "very_high",
+            "source_line": 525,
+            "parent_variable": null,
+            "constructor_text": "QPushButton(\"New chat\")",
+            "properties": {},
+            "suggested_selectors": [
+                "QPushButton[role=\"secondary_action\"]",
+                "#headerButton",
+                "QPushButton"
+            ],
+            "notes": [
+                "Button is a candidate for a semantic role such as primary_action, secondary_action, danger, or icon_button."
+            ]
+        },
+        {
+            "class_name": "QFrame",
+            "variable_name": "outer",
+            "object_name": null,
+            "semantic_role": "frame",
+            "confidence": "low",
+            "source_line": 546,
+            "parent_variable": null,
+            "constructor_text": "QFrame()",
+            "properties": {},
+            "suggested_selectors": [
+                "QFrame[role=\"frame\"]",
+                "QFrame"
+            ],
+            "notes": [
+                "No setObjectName() detected; semantic styling should prefer a role property or class-level selector."
+            ]
+        },
+        {
+            "class_name": "QFrame",
+            "variable_name": "input_card",
+            "object_name": null,
+            "semantic_role": "text_input",
+            "confidence": "high",
+            "source_line": 565,
+            "parent_variable": null,
+            "constructor_text": "QFrame()",
+            "properties": {},
+            "suggested_selectors": [
+                "QFrame[role=\"text_input\"]",
+                "QFrame"
+            ],
+            "notes": [
+                "No setObjectName() detected; semantic styling should prefer a role property or class-level selector."
+            ]
+        },
+        {
+            "class_name": "QPushButton",
+            "variable_name": "add_btn",
+            "object_name": "composerIconButton",
+            "semantic_role": "icon_button",
+            "confidence": "very_high",
+            "source_line": 581,
+            "parent_variable": null,
+            "constructor_text": "QPushButton(\"+\")",
+            "properties": {
+                "tooltip": "Add files or context",
+                "fixed_size": [
+                    34,
+                    34
+                ]
+            },
+            "suggested_selectors": [
+                "QPushButton[role=\"icon_button\"]",
+                "#composerIconButton",
+                "QPushButton"
+            ],
+            "notes": [
+                "Button is a candidate for a semantic role such as primary_action, secondary_action, danger, or icon_button.",
+                "Fixed size detected; verify whether this should remain component-specific or move into ResponsiveMetrics."
+            ]
+        },
+        {
+            "class_name": "QLineEdit",
+            "variable_name": "input_field",
+            "object_name": "messageInput",
+            "semantic_role": "text_input",
+            "confidence": "very_high",
+            "source_line": 595,
+            "parent_variable": null,
+            "constructor_text": "QLineEdit()",
+            "properties": {
+                "placeholder_text": "Ask the agent to do something..."
+            },
+            "suggested_selectors": [
+                "QLineEdit[role=\"text_input\"]",
+                "#messageInput",
+                "QLineEdit"
+            ],
+            "notes": [
+                "Input/control can normally reuse the existing global input-control API."
+            ]
+        },
+        {
+            "class_name": "QComboBox",
+            "variable_name": "mode_dropdown",
+            "object_name": "modeDropdown",
+            "semantic_role": "selector",
+            "confidence": "very_high",
+            "source_line": 613,
+            "parent_variable": null,
+            "constructor_text": "QComboBox()",
+            "properties": {
+                "tooltip": "Agent execution mode",
+                "minimum_width": 110
+            },
+            "suggested_selectors": [
+                "QComboBox[role=\"selector\"]",
+                "#modeDropdown",
+                "QComboBox"
+            ],
+            "notes": [
+                "Input/control can normally reuse the existing global input-control API."
+            ]
+        },
+        {
+            "class_name": "QPushButton",
+            "variable_name": "mic_btn",
+            "object_name": "composerIconButton",
+            "semantic_role": "icon_button",
+            "confidence": "very_high",
+            "source_line": 632,
+            "parent_variable": null,
+            "constructor_text": "QPushButton(\"◉\")",
+            "properties": {
+                "tooltip": "Voice input",
+                "fixed_size": [
+                    34,
+                    34
+                ]
+            },
+            "suggested_selectors": [
+                "QPushButton[role=\"icon_button\"]",
+                "#composerIconButton",
+                "QPushButton"
+            ],
+            "notes": [
+                "Button is a candidate for a semantic role such as primary_action, secondary_action, danger, or icon_button.",
+                "Fixed size detected; verify whether this should remain component-specific or move into ResponsiveMetrics."
+            ]
+        },
+        {
+            "class_name": "QPushButton",
+            "variable_name": "send_btn",
+            "object_name": "sendButton",
+            "semantic_role": "primary_action",
+            "confidence": "very_high",
+            "source_line": 646,
+            "parent_variable": null,
+            "constructor_text": "QPushButton(\"↑\")",
+            "properties": {
+                "tooltip": "Send",
+                "fixed_size": [
+                    36,
+                    36
+                ]
+            },
+            "suggested_selectors": [
+                "QPushButton[role=\"primary_action\"]",
+                "#sendButton",
+                "QPushButton"
+            ],
+            "notes": [
+                "Button is a candidate for a semantic role such as primary_action, secondary_action, danger, or icon_button.",
+                "Fixed size detected; verify whether this should remain component-specific or move into ResponsiveMetrics."
+            ]
+        },
+        {
+            "class_name": "QLabel",
+            "variable_name": "hint",
+            "object_name": null,
+            "semantic_role": "hint",
+            "confidence": "high",
+            "source_line": 675,
+            "parent_variable": null,
+            "constructor_text": "QLabel(\"Agent actions may require your approval\")",
+            "properties": {},
+            "suggested_selectors": [
+                "QLabel[role=\"hint\"]",
+                "QLabel"
+            ],
+            "notes": [
+                "No setObjectName() detected; semantic styling should prefer a role property or class-level selector."
+            ]
+        },
+        {
+            "class_name": "QLabel",
+            "variable_name": "shortcut",
+            "object_name": null,
+            "semantic_role": "shortcut",
+            "confidence": "high",
+            "source_line": 683,
+            "parent_variable": null,
+            "constructor_text": "QLabel(\"Enter to send\")",
+            "properties": {},
+            "suggested_selectors": [
+                "QLabel[role=\"shortcut\"]",
+                "QLabel"
+            ],
+            "notes": [
+                "No setObjectName() detected; semantic styling should prefer a role property or class-level selector."
+            ]
+        }
+    ]
+}

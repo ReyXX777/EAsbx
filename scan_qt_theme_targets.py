@@ -35,7 +35,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 #
 # This is intentional so that the user must explicitly select files.
 TARGET_FILES: list[str] = [
-    "filesystem_workspace.py",
+    "agent_response_parser.py",
 ]
 
 

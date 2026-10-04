@@ -2,8 +2,10 @@ from .metrics import ResponsiveMetrics
 from .palette import ThemePalette
 from .typography import ThemeTypography
 
-def build_stylesheet(palette: ThemePalette, typography: ThemeTypography,
-                     metrics: ResponsiveMetrics) -> str:
+
+def build_stylesheet(
+    palette: ThemePalette, typography: ThemeTypography, metrics: ResponsiveMetrics
+) -> str:
     f = typography.family()
     mono = typography.monospace()
     s = metrics.spacing()
@@ -64,13 +66,28 @@ QPushButton:pressed, QToolButton:pressed {{
 QPushButton:disabled, QToolButton:disabled {{
     color: {palette.text_disabled}; background: {palette.surface_alt};
 }}
-QPushButton[role="primary"], QPushButton.primary {{
+QPushButton[role="primary_action"], QPushButton.primary_action {{
     background: {palette.accent}; color: {palette.text_inverse};
     border-color: {palette.accent};
 }}
 QPushButton[role="danger"], QPushButton.danger {{
     background: {palette.danger}; color: {palette.text_inverse};
     border-color: {palette.danger};
+}}
+QPushButton[role="secondary_action"], QPushButton.secondary_action {{
+    background: {palette.surface_alt}; color: {palette.text};
+    border-color: {palette.border};
+}}
+QPushButton[role="icon_button"], QPushButton.icon_button {{
+    background: transparent; color: {palette.text};
+    border: 1px solid transparent; border-radius: {r}px;
+    padding: 0;
+}}
+QPushButton[role="icon_button"]:hover {{
+    background: {palette.accent_soft}; border-color: {palette.accent};
+}}
+QPushButton[role="icon_button"]:pressed {{
+    background: {palette.accent}; color: {palette.text_inverse};
 }}
 QCheckBox, QRadioButton {{ background: transparent; color: {palette.text}; spacing: {s}px; }}
 QListWidget, QTreeWidget, QTableWidget, QTableView {{
@@ -122,6 +139,11 @@ QToolTip {{
     border: 1px solid {palette.border_strong}; padding: 4px 8px;
 }}
 QTextEdit, QPlainTextEdit {{ font-family: "{mono}"; }}
+QTextEdit[role="conversation_display"] {{
+    background: {palette.surface};
+    color: {palette.text};
+    border: none;
+}}
 QWebEngineView {{ background: {palette.surface}; }}
 QFrame[role="panel"], QWidget[role="panel"] {{
     background: {palette.surface}; border: 1px solid {palette.border};
@@ -129,10 +151,50 @@ QFrame[role="panel"], QWidget[role="panel"] {{
 QFrame[role="sidebar"], QWidget[role="sidebar"] {{
     background: {palette.surface_alt}; border-right: 1px solid {palette.border};
 }}
+
+QFrame#chatHeader {{
+    background: {palette.surface};
+    color: {palette.text};
+    border-bottom: 1px solid {palette.border};
+}}
+
+QLabel#agentIcon {{
+    background: {palette.accent_soft};
+    color: {palette.accent};
+    border: 1px solid {palette.border};
+    border-radius: {r}px;
+    font-weight: 700;
+}}
+
+QLabel[role="status_indicator"] {{
+    background: transparent;
+    border: none;
+    font-weight: 700;
+}}
+
 QLabel[status="live"] {{ color: {palette.live}; }}
 QLabel[status="running"] {{ color: {palette.running}; }}
 QLabel[status="completed"] {{ color: {palette.completed}; }}
 QLabel[status="failed"] {{ color: {palette.failed}; }}
 QLabel[status="cancelled"] {{ color: {palette.cancelled}; }}
+
+QFrame[role="composer"] {{
+    background: {palette.surface};
+    color: {palette.text};
+    border-top: 1px solid {palette.border};
+}}
+
+QFrame#inputCard {{
+    background: {palette.input};
+    color: {palette.text};
+    border: 1px solid {palette.border};
+    border-radius: {r}px;
+}}
+
+QWidget#approvalContainer {{
+    background: {palette.surface};
+    color: {palette.text};
+}}
+
 QTableCornerButton::section {{ background: {palette.surface_alt}; border: 1px solid {palette.border}; }}
 """.strip()
