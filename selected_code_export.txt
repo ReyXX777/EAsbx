@@ -4,7 +4,7 @@ COWORK AI AGENT SUITE - SELECTED CODE EXPORT
 
 PROJECT ROOT: X:\MOCKAPP
 
-TOTAL FILES REQUESTED: 5
+TOTAL FILES REQUESTED: 24
 
 
 ================================================================================
@@ -248,11 +248,7 @@ class ObservationBridge(QObject):
         if not self._thread.isRunning():
             return
 
-        # The shutdown request is queued to the worker so that the
-        # session reference is released on the worker thread.
         self.request_shutdown.emit()
-
-        # Stop the event loop after queued work has been processed.
         self._thread.quit()
 
         if not self._thread.wait(3000):
@@ -277,6 +273,7 @@ from typing import Any, Mapping
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from ..models import ObservationSnapshot
 from ..session import TaskObservationEngine, TaskObservationSession
 
 
@@ -297,14 +294,16 @@ class ObservationWorker(QObject):
     - finish sessions
     - release the active session
 
-    Persistence is handled by TaskObservationSession through the current
-    SessionStore/storage architecture.
+    Persistence and feature derivation remain owned by the observation
+    engine/session layer.
     """
 
     task_started = Signal(str)
     observation_updated = Signal(object)
     task_finished = Signal(object)
     worker_error = Signal(str)
+
+    EVENT_SOURCE = "qt_observation_worker"
 
     def __init__(
         self,
@@ -355,9 +354,7 @@ class ObservationWorker(QObject):
                 metadata=metadata,
             )
 
-            self.task_started.emit(
-                family_key,
-            )
+            self.task_started.emit(family_key)
 
             self.observation_updated.emit(
                 self._session.snapshot(),
@@ -368,7 +365,12 @@ class ObservationWorker(QObject):
 
     @Slot()
     def finish_task(self) -> None:
-        """Finish the active observation session."""
+        """Finish the active observation session.
+
+        TaskObservationSession.finish() is deliberately responsible for
+        producing the final snapshot, including any configured feature
+        derivation/persistence performed by the observation engine.
+        """
 
         session = self._session
 
@@ -462,7 +464,7 @@ class ObservationWorker(QObject):
         event_type: str,
         payload: Any = None,
     ) -> None:
-        """Record an event through the current event collector."""
+        """Record an event and its canonical trace representation."""
 
         session = self._session
 
@@ -471,10 +473,48 @@ class ObservationWorker(QObject):
             return
 
         try:
-            session.events.record(
-                event_type,
-                payload,
+            normalized_payload = (
+                {}
+                if payload is None
+                else (
+                    dict(payload)
+                    if isinstance(payload, Mapping)
+                    else {"value": payload}
+                )
             )
+
+            session.events.event(
+                event_type,
+                source=self.EVENT_SOURCE,
+                payload=normalized_payload,
+            )
+
+            # Tool lifecycle events participate in both the event stream
+            # and the canonical trace stream.
+            if event_type in {
+                "tool_started",
+                "tool_completed",
+                "tool_failed",
+            }:
+                tool_name = normalized_payload.get("tool_name")
+
+                if tool_name:
+                    path = normalized_payload.get("path")
+
+                    trace_discrete = {
+                        key: value
+                        for key, value in normalized_payload.items()
+                        if key not in {"tool_name", "path"}
+                    }
+
+                    trace_discrete["tool_name"] = str(tool_name)
+
+                    session.events.trace(
+                        event_type,
+                        action=str(tool_name),
+                        path=(str(path) if path is not None else None),
+                        discrete=trace_discrete,
+                    )
 
         except Exception as exc:
             self.worker_error.emit(
@@ -518,6 +558,14 @@ class ObservationWorker(QObject):
 
         self._session = None
 
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/qt/observation_worker.py
+================================================================================
+
+[ERROR] File not found:
+        X:\MOCKAPP\task_observation_engine\task_observation\qt\observation_worker.py
 
 
 ================================================================================
@@ -725,7 +773,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..models import ObservationSnapshot
+from ..models import (
+    ObservationSnapshot,
+    TaskEvent,
+    TracePoint,
+)
 from ..replay import ReplayAPI
 from .observation_bridge import ObservationBridge
 from .observation_plot import ObservationPlot
@@ -738,7 +790,8 @@ class ObservationWidget(QWidget):
 
     It:
 
-    - starts and finishes live observation sessions through ObservationBridge
+    - starts and finishes live observation sessions through
+      ObservationBridge
     - displays live snapshots
     - displays persisted snapshots through ReplayAPI
     - visualizes discrete observations
@@ -1052,14 +1105,15 @@ class ObservationWidget(QWidget):
         self.event_table = QTableWidget()
 
         self.event_table.setColumnCount(
-            3,
+            4,
         )
 
         self.event_table.setHorizontalHeaderLabels(
             [
                 "Type",
-                "Name",
-                "Value",
+                "Name / Action",
+                "Source / Path",
+                "Payload / Values",
             ],
         )
 
@@ -1253,14 +1307,9 @@ class ObservationWidget(QWidget):
             snapshot,
         )
 
-        if snapshot.status == "running":
-            self._set_running_state(
-                True,
-            )
-        else:
-            self._set_running_state(
-                False,
-            )
+        self._set_running_state(
+            snapshot.status == "running",
+        )
 
     # ==================================================================
     # Discrete observations
@@ -1409,82 +1458,90 @@ class ObservationWidget(QWidget):
             0,
         )
 
-        # Current ObservationSnapshot explicitly exposes both event
-        # collections. They are rendered in one presentation table.
-        collections = (
-            snapshot.events,
-            snapshot.traces,
-        )
+        for event in snapshot.events:
+            if not isinstance(event, TaskEvent):
+                continue
 
-        for collection in collections:
-            for event in collection:
-                row = self.event_table.rowCount()
+            row = self.event_table.rowCount()
 
-                self.event_table.insertRow(
-                    row,
-                )
+            self.event_table.insertRow(
+                row,
+            )
 
-                event_type = getattr(
-                    event,
-                    "event_type",
-                    getattr(
-                        event,
-                        "type",
-                        "",
-                    ),
-                )
+            self._set_event_row(
+                row=row,
+                event_type="event",
+                name=event.name,
+                source_or_path=event.source,
+                payload_or_values=event.payload,
+            )
 
-                name = getattr(
-                    event,
-                    "name",
-                    getattr(
-                        event,
-                        "operation",
-                        "",
-                    ),
-                )
+        for trace in snapshot.traces:
+            if not isinstance(trace, TracePoint):
+                continue
 
-                value = getattr(
-                    event,
-                    "value",
-                    getattr(
-                        event,
-                        "payload",
-                        "",
-                    ),
-                )
+            row = self.event_table.rowCount()
 
-                self.event_table.setItem(
-                    row,
-                    0,
-                    QTableWidgetItem(
-                        self._safe_text(
-                            event_type,
-                        )
-                    ),
-                )
+            self.event_table.insertRow(
+                row,
+            )
 
-                self.event_table.setItem(
-                    row,
-                    1,
-                    QTableWidgetItem(
-                        self._safe_text(
-                            name,
-                        )
-                    ),
-                )
+            values = {
+                "discrete": dict(trace.discrete),
+                "continuous": dict(trace.continuous),
+            }
 
-                self.event_table.setItem(
-                    row,
-                    2,
-                    QTableWidgetItem(
-                        self._safe_text(
-                            value,
-                        )
-                    ),
-                )
+            self._set_event_row(
+                row=row,
+                event_type=trace.phase,
+                name=trace.action,
+                source_or_path=trace.path,
+                payload_or_values=values,
+            )
 
         self.event_table.resizeColumnsToContents()
+
+    def _set_event_row(
+        self,
+        row: int,
+        event_type: Any,
+        name: Any,
+        source_or_path: Any,
+        payload_or_values: Any,
+    ) -> None:
+        values = self._safe_text(payload_or_values)
+
+        self.event_table.setItem(
+            row,
+            0,
+            QTableWidgetItem(
+                self._safe_text(event_type),
+            ),
+        )
+
+        self.event_table.setItem(
+            row,
+            1,
+            QTableWidgetItem(
+                self._safe_text(name),
+            ),
+        )
+
+        self.event_table.setItem(
+            row,
+            2,
+            QTableWidgetItem(
+                self._safe_text(source_or_path),
+            ),
+        )
+
+        self.event_table.setItem(
+            row,
+            3,
+            QTableWidgetItem(
+                values,
+            ),
+        )
 
     # ==================================================================
     # Replay / history
@@ -1577,4 +1634,3158 @@ class ObservationWidget(QWidget):
         super().closeEvent(
             event,
         )
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/__init__.py
+================================================================================
+
+"""Standalone Stage 6 task observation and trace collection package."""
+
+from .adapter import MathematicalApprovalAdapter
+from .buckets import BucketManager
+from .collectors import (
+    ContinuousFeatureCollector,
+    DiscreteFeatureCollector,
+    EventTraceCollector,
+)
+from .models import (
+    BucketKey,
+    ContinuousObservation,
+    DiscreteObservation,
+    ObservationBucket,
+    ObservationKind,
+    ObservationSnapshot,
+    TaskEvent,
+    TaskIdentity,
+    TracePoint,
+)
+from .replay import ReplayAPI
+from .session import TaskObservationEngine, TaskObservationSession
+from .simulation import generate_runs
+from .session_store import SessionStore
+from .qt import (
+    ObservationBridge,
+    ObservationPlot,
+    ObservationWorker,
+    ObservationWidget,
+)
+
+__all__ = [
+    "MathematicalApprovalAdapter",
+    "BucketManager",
+    "ContinuousFeatureCollector",
+    "DiscreteFeatureCollector",
+    "EventTraceCollector",
+    "BucketKey",
+    "ContinuousObservation",
+    "DiscreteObservation",
+    "ObservationBucket",
+    "ObservationKind",
+    "ObservationSnapshot",
+    "TaskEvent",
+    "TaskIdentity",
+    "TracePoint",
+    "ReplayAPI",
+    "TaskObservationEngine",
+    "TaskObservationSession",
+    "generate_runs",
+    "SessionStore",
+    "ObservationBridge",
+    "ObservationPlot",
+    "ObservationWorker",
+    "ObservationWidget",
+]
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/models.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from types import MappingProxyType
+from typing import Any, Mapping
+import math
+import uuid
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class ObservationKind(str, Enum):
+    SESSION_STARTED = "session_started"
+    SESSION_FINISHED = "session_finished"
+    FEATURE = "feature"
+    EVENT = "event"
+    TRACE = "trace"
+    DECISION = "decision"
+    ERROR = "error"
+
+
+@dataclass(frozen=True)
+class TaskIdentity:
+    session_id: str
+    family_key: str
+    task_key: str = ""
+    started_at: str = field(default_factory=utc_now_iso)
+
+    @classmethod
+    def create(cls, family_key: str, task_key: str = "") -> "TaskIdentity":
+        return cls(
+            session_id=uuid.uuid4().hex,
+            family_key=family_key,
+            task_key=task_key,
+        )
+
+
+@dataclass(frozen=True)
+class DiscreteObservation:
+    name: str
+    value: str | int | bool | None
+    timestamp: str = field(default_factory=utc_now_iso)
+    source: str = "unknown"
+    step: int | None = None
+
+
+@dataclass(frozen=True)
+class ContinuousObservation:
+    name: str
+    value: float | None
+    timestamp: str = field(default_factory=utc_now_iso)
+    source: str = "unknown"
+    step: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.value is not None and not math.isfinite(float(self.value)):
+            object.__setattr__(self, "value", None)
+
+
+@dataclass(frozen=True)
+class TaskEvent:
+    name: str
+    timestamp: str = field(default_factory=utc_now_iso)
+    source: str = "unknown"
+    payload: Mapping[str, Any] = field(default_factory=dict)
+    step: int | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "payload", MappingProxyType(dict(self.payload)))
+
+
+@dataclass(frozen=True)
+class TracePoint:
+    sequence: int
+    timestamp: str
+    phase: str
+    action: str = ""
+    path: str | None = None
+    discrete: Mapping[str, str | int | bool | None] = field(default_factory=dict)
+    continuous: Mapping[str, float | None] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "discrete", MappingProxyType(dict(self.discrete)))
+        object.__setattr__(self, "continuous", MappingProxyType(dict(self.continuous)))
+
+
+@dataclass(frozen=True)
+class ObservationSnapshot:
+    identity: TaskIdentity
+    discrete: tuple[DiscreteObservation, ...]
+    continuous: tuple[ContinuousObservation, ...]
+    events: tuple[TaskEvent, ...]
+    traces: tuple[TracePoint, ...]
+    started_at: str
+    finished_at: str | None
+    status: str
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+    def to_feature_vector(self, names: tuple[str, ...]) -> tuple[float, ...]:
+        latest: dict[str, float] = {}
+        for item in self.continuous:
+            if item.value is not None:
+                latest[item.name] = float(item.value)
+        return tuple(latest.get(name, 0.0) for name in names)
+
+
+@dataclass(frozen=True)
+class BucketKey:
+    name: str
+    value: str
+
+
+@dataclass
+class ObservationBucket:
+    key: BucketKey
+    count: int = 0
+    sessions: list[str] = field(default_factory=list)
+
+    def add(self, session_id: str) -> None:
+        self.count += 1
+        if session_id not in self.sessions:
+            self.sessions.append(session_id)
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/session.py
+================================================================================
+
+from __future__ import annotations
+
+from threading import RLock
+from typing import Any, Mapping
+
+from .buckets import BucketManager
+from .collectors import (
+    ContinuousFeatureCollector,
+    DiscreteFeatureCollector,
+    EventTraceCollector,
+)
+from .models import ObservationSnapshot, TaskIdentity, utc_now_iso
+
+from .session_store import SessionStore
+from .observation.feature_deriver import FeatureDeriver
+
+
+class TaskObservationSession:
+    """Live observation session owned by a separate observation thread/process."""
+
+    def __init__(
+        self,
+        identity: TaskIdentity,
+        store: SessionStore | None = None,
+        buckets: BucketManager | None = None,
+        feature_deriver: FeatureDeriver | None = None,
+    ) -> None:
+        self.identity = identity
+
+        self.discrete = DiscreteFeatureCollector()
+        self.continuous = ContinuousFeatureCollector()
+        self.events = EventTraceCollector()
+
+        self.store = store
+        self.buckets = buckets
+        self.feature_deriver = feature_deriver or FeatureDeriver()
+
+        self._started_at = identity.started_at
+        self._finished_at: str | None = None
+        self._status = "running"
+        self._metadata: dict[str, Any] = {}
+
+        self._lock = RLock()
+
+    def set_metadata(self, values: Mapping[str, Any]) -> None:
+        with self._lock:
+            self._metadata.update(values)
+
+    def finish(
+        self,
+        status: str = "completed",
+    ) -> ObservationSnapshot:
+        with self._lock:
+            self._finished_at = utc_now_iso()
+            self._status = status
+
+            # --------------------------------------------------
+            # Build the complete raw observation snapshot first.
+            #
+            # All task events, traces, timestamps and raw
+            # observations are now available to the derivation
+            # layer.
+            # --------------------------------------------------
+            raw_snapshot = self.snapshot()
+
+            # --------------------------------------------------
+            # Derive higher-level observations.
+            #
+            # FeatureDeriver coordinates the independent
+            # ToolObserver, NavigationObserver, TimingObserver,
+            # and OutcomeObserver components.
+            # --------------------------------------------------
+            derived = self.feature_deriver.derive(raw_snapshot)
+
+            # --------------------------------------------------
+            # Persist derived continuous features.
+            # --------------------------------------------------
+            self.continuous.record_many(
+                derived.continuous_features(),
+                source="feature_deriver",
+            )
+
+            # --------------------------------------------------
+            # Persist derived discrete features.
+            # --------------------------------------------------
+            self.discrete.record_many(
+                derived.discrete_features(),
+                source="feature_deriver",
+            )
+
+            # --------------------------------------------------
+            # Rebuild the snapshot so the persisted observation
+            # contains both raw and derived observations.
+            # --------------------------------------------------
+            snapshot = self.snapshot()
+
+        if self.buckets is not None:
+            self.buckets.add(snapshot)
+
+        if self.store is not None:
+            self.store.save(snapshot)
+
+        return snapshot
+
+    def snapshot(self) -> ObservationSnapshot:
+        with self._lock:
+            return ObservationSnapshot(
+                identity=self.identity,
+                discrete=self.discrete.snapshot(),
+                continuous=self.continuous.snapshot(),
+                events=self.events.events(),
+                traces=self.events.traces(),
+                started_at=self._started_at,
+                finished_at=self._finished_at,
+                status=self._status,
+                metadata=self._metadata,
+            )
+
+
+class TaskObservationEngine:
+    """Public facade used by filesystem, browser, and other adapters."""
+
+    def __init__(
+        self,
+        storage_root: str | None = None,
+        feature_deriver: FeatureDeriver | None = None,
+    ) -> None:
+        self.store = SessionStore(storage_root) if storage_root else None
+
+        self.buckets = BucketManager()
+        self.feature_deriver = feature_deriver or FeatureDeriver()
+
+        self._sessions: dict[
+            str,
+            TaskObservationSession,
+        ] = {}
+
+        self._lock = RLock()
+
+    def start(
+        self,
+        family_key: str,
+        *,
+        task_key: str = "",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> TaskObservationSession:
+        identity = TaskIdentity.create(
+            family_key,
+            task_key,
+        )
+
+        session = TaskObservationSession(
+            identity,
+            self.store,
+            self.buckets,
+            feature_deriver=self.feature_deriver,
+        )
+
+        if metadata:
+            session.set_metadata(metadata)
+
+        with self._lock:
+            self._sessions[identity.session_id] = session
+
+        return session
+
+    def get(
+        self,
+        session_id: str,
+    ) -> TaskObservationSession | None:
+        with self._lock:
+            return self._sessions.get(session_id)
+
+    def finish(
+        self,
+        session_id: str,
+        status: str = "completed",
+    ) -> ObservationSnapshot | None:
+        session = self.get(session_id)
+
+        if session is None:
+            return None
+
+        snapshot = session.finish(status)
+
+        with self._lock:
+            self._sessions.pop(
+                session_id,
+                None,
+            )
+
+        return snapshot
+
+    def replay(
+        self,
+        session_id: str,
+    ) -> ObservationSnapshot:
+        if self.store is None:
+            raise RuntimeError("Persistent storage is not configured.")
+
+        return self.store.replay(session_id)
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/session_store.py
+================================================================================
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from .models import ObservationSnapshot
+from .storage.base import ObservationStorage
+from .storage.json_store import JSONObservationStore
+
+
+class SessionStore(ObservationStorage):
+    """Stable storage facade used by the observation engine."""
+
+    def __init__(self, root: str | Path) -> None:
+        self._backend = JSONObservationStore(root)
+
+    def save(self, snapshot: ObservationSnapshot):
+        return self._backend.save(snapshot)
+
+    def load(self, session_id: str) -> ObservationSnapshot:
+        return self._backend.load(session_id)
+
+    def list_session_ids(self) -> list[str]:
+        return self._backend.list_session_ids()
+
+    def replay(self, session_id: str) -> ObservationSnapshot:
+        return self._backend.replay(session_id)
+
+    def close(self) -> None:
+        self._backend.close()
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/replay.py
+================================================================================
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Iterable
+
+from .models import ObservationSnapshot
+from .session_store import SessionStore
+
+
+class ReplayAPI:
+    """Read-only API for visualization, experiments and mathematical adapters."""
+
+    def __init__(self, root: str | Path) -> None:
+        self.store = SessionStore(root)
+
+    def session_ids(self) -> list[str]:
+        return self.store.list_session_ids()
+
+    def session(self, session_id: str) -> ObservationSnapshot:
+        return self.store.load(session_id)
+
+    def sessions(
+        self, session_ids: Iterable[str] | None = None
+    ) -> list[ObservationSnapshot]:
+        ids = list(session_ids) if session_ids is not None else self.session_ids()
+        return [self.session(session_id) for session_id in ids]
+
+    def feature_rows(
+        self, session_ids: Iterable[str] | None = None
+    ) -> list[dict[str, object]]:
+        rows: list[dict[str, object]] = []
+        for snapshot in self.sessions(session_ids):
+            row: dict[str, object] = {
+                "session_id": snapshot.identity.session_id,
+                "family_key": snapshot.identity.family_key,
+                "status": snapshot.status,
+            }
+            for item in snapshot.discrete:
+                row[f"discrete.{item.name}"] = item.value
+            for item in snapshot.continuous:
+                if item.value is not None:
+                    row[f"continuous.{item.name}"] = item.value
+            rows.append(row)
+        return rows
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/collectors.py
+================================================================================
+
+from __future__ import annotations
+
+from threading import Lock
+from typing import Any, Mapping
+from datetime import datetime, timezone
+
+from .models import ContinuousObservation, DiscreteObservation, TaskEvent, TracePoint
+
+
+class DiscreteFeatureCollector:
+    """Thread-safe collector for categorical/state-like task features."""
+
+    def __init__(self) -> None:
+        self._items: list[DiscreteObservation] = []
+        self._lock = Lock()
+
+    def record(self, name: str, value: str | int | bool | None, *, source: str = "unknown", step: int | None = None) -> None:
+        with self._lock:
+            self._items.append(DiscreteObservation(name, value, source=source, step=step))
+
+    def record_many(self, values: Mapping[str, str | int | bool | None], *, source: str = "unknown", step: int | None = None) -> None:
+        with self._lock:
+            for name, value in values.items():
+                self._items.append(DiscreteObservation(name, value, source=source, step=step))
+
+    def snapshot(self) -> tuple[DiscreteObservation, ...]:
+        with self._lock:
+            return tuple(self._items)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+
+class ContinuousFeatureCollector:
+    """Thread-safe collector for numeric task features.
+
+    Missing/invalid numeric values are accepted and represented as None rather
+    than terminating the observation process.
+    """
+
+    def __init__(self) -> None:
+        self._items: list[ContinuousObservation] = []
+        self._lock = Lock()
+
+    def record(self, name: str, value: float | int | None, *, source: str = "unknown", step: int | None = None) -> None:
+        safe_value: float | None
+        try:
+            safe_value = None if value is None else float(value)
+        except (TypeError, ValueError):
+            safe_value = None
+        with self._lock:
+            self._items.append(ContinuousObservation(name, safe_value, source=source, step=step))
+
+    def record_many(self, values: Mapping[str, float | int | None], *, source: str = "unknown", step: int | None = None) -> None:
+        for name, value in values.items():
+            self.record(name, value, source=source, step=step)
+
+    def snapshot(self) -> tuple[ContinuousObservation, ...]:
+        with self._lock:
+            return tuple(self._items)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+
+class EventTraceCollector:
+    """Thread-safe event and trace recorder."""
+
+    def __init__(self) -> None:
+        self._events: list[TaskEvent] = []
+        self._traces: list[TracePoint] = []
+        self._lock = Lock()
+
+    def event(self, name: str, *, source: str = "unknown", payload: Mapping[str, Any] | None = None, step: int | None = None) -> None:
+        with self._lock:
+            self._events.append(TaskEvent(name=name, source=source, payload=payload or {}, step=step))
+
+    def trace(
+        self,
+        phase: str,
+        *,
+        action: str = "",
+        path: str | None = None,
+        discrete: Mapping[str, str | int | bool | None] | None = None,
+        continuous: Mapping[str, float | None] | None = None,
+    ) -> int:
+        with self._lock:
+            sequence = len(self._traces)
+            self._traces.append(
+                TracePoint(
+                    sequence=sequence,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    phase=phase,
+                    action=action,
+                    path=path,
+                    discrete=discrete or {},
+                    continuous=continuous or {},
+                )
+            )
+            return sequence
+
+    def events(self) -> tuple[TaskEvent, ...]:
+        with self._lock:
+            return tuple(self._events)
+
+    def traces(self) -> tuple[TracePoint, ...]:
+        with self._lock:
+            return tuple(self._traces)
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/buckets.py
+================================================================================
+
+from __future__ import annotations
+
+from collections import defaultdict
+from threading import Lock
+from typing import Iterable
+
+from .models import BucketKey, ObservationBucket, ObservationSnapshot
+
+
+class BucketManager:
+    """Groups sessions by stable categorical features without altering raw data."""
+
+    def __init__(self) -> None:
+        self._buckets: dict[BucketKey, ObservationBucket] = {}
+        self._lock = Lock()
+
+    def add(self, snapshot: ObservationSnapshot) -> None:
+        session_id = snapshot.identity.session_id
+        values: dict[str, set[str]] = defaultdict(set)
+        for item in snapshot.discrete:
+            values[item.name].add(self._normalize(item.value))
+
+        with self._lock:
+            for name, bucket_values in values.items():
+                for value in bucket_values:
+                    key = BucketKey(name, value)
+                    bucket = self._buckets.setdefault(key, ObservationBucket(key))
+                    bucket.add(session_id)
+
+    def get(self, name: str, value: object) -> ObservationBucket | None:
+        with self._lock:
+            bucket = self._buckets.get(BucketKey(name, self._normalize(value)))
+            if bucket is None:
+                return None
+            return ObservationBucket(bucket.key, bucket.count, list(bucket.sessions))
+
+    def all(self) -> tuple[ObservationBucket, ...]:
+        with self._lock:
+            return tuple(ObservationBucket(b.key, b.count, list(b.sessions)) for b in self._buckets.values())
+
+    @staticmethod
+    def _normalize(value: object) -> str:
+        return "<MISSING>" if value is None else str(value)
+
+
+
+================================================================================
+FILE: task_observation_engine/task_observation/derivers.py
+================================================================================
+
+[ERROR] File not found:
+        X:\MOCKAPP\task_observation_engine\task_observation\derivers.py
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_qt_observation.py
+================================================================================
+
+[ERROR] File not found:
+        X:\MOCKAPP\task_observation_engine\tests\test_qt_observation.py
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_qt_observation_widget.py
+================================================================================
+
+from __future__ import annotations
+
+import pytest
+
+pytest.importorskip("PySide6")
+
+from PySide6.QtWidgets import QApplication
+
+from task_observation.models import (
+    ContinuousObservation,
+    DiscreteObservation,
+    ObservationSnapshot,
+    TaskEvent,
+    TaskIdentity,
+    TracePoint,
+)
+from task_observation.qt.observation_widget import ObservationWidget
+
+
+@pytest.fixture
+def qt_app():
+    app = QApplication.instance()
+
+    if app is None:
+        app = QApplication([])
+
+    return app
+
+
+def make_snapshot() -> ObservationSnapshot:
+    identity = TaskIdentity(
+        session_id="qt-test-session",
+        family_key="filesystem",
+        task_key="",
+        started_at="2026-10-03T13:03:33+00:00",
+    )
+
+    return ObservationSnapshot(
+        identity=identity,
+        started_at="2026-10-03T13:03:33+00:00",
+        finished_at="2026-10-03T13:03:43+00:00",
+        status="completed",
+        metadata={
+            "agent_type": "filesystem",
+        },
+        discrete=(
+            DiscreteObservation(
+                name="task_status",
+                value="completed",
+            ),
+            DiscreteObservation(
+                name="task_completed",
+                value=True,
+            ),
+        ),
+        continuous=(
+            ContinuousObservation(
+                name="total_tool_calls",
+                value=4.0,
+            ),
+            ContinuousObservation(
+                name="compute_count",
+                value=1.0,
+            ),
+        ),
+        events=(
+            TaskEvent(
+                name="tool_completed",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "read_table",
+                    "path": "Employees.csv",
+                    "success": True,
+                },
+            ),
+        ),
+        traces=(
+            TracePoint(
+                sequence=0,
+                timestamp="2026-10-03T13:03:34+00:00",
+                phase="tool_started",
+                action="read_table",
+                path="Employees.csv",
+                discrete={
+                    "tool_name": "read_table",
+                },
+            ),
+        ),
+    )
+
+
+def test_widget_displays_snapshot(
+    tmp_path,
+    qt_app,
+) -> None:
+    widget = ObservationWidget(
+        str(tmp_path),
+    )
+
+    try:
+        snapshot = make_snapshot()
+
+        widget._display_snapshot(
+            snapshot,
+        )
+
+        assert widget.session_id_label.text() == ("qt-test-session")
+
+        assert widget.family_label.text() == ("filesystem")
+
+        assert widget.session_status_label.text() == ("completed")
+
+        assert widget.discrete_table.rowCount() == 2
+
+        assert widget.feature_selector.count() == 2
+
+        assert widget.feature_selector.itemText(0) == ("total_tool_calls")
+
+        assert widget.feature_selector.itemText(1) == ("compute_count")
+
+        assert widget.event_table.rowCount() == 2
+
+    finally:
+        widget.close()
+
+
+def test_widget_displays_actual_event_and_trace_attributes(
+    tmp_path,
+    qt_app,
+) -> None:
+    widget = ObservationWidget(
+        str(tmp_path),
+    )
+
+    try:
+        snapshot = make_snapshot()
+
+        widget._display_snapshot(
+            snapshot,
+        )
+
+        # TaskEvent
+        assert (
+            widget.event_table.item(
+                0,
+                0,
+            ).text()
+            == "event"
+        )
+
+        assert (
+            widget.event_table.item(
+                0,
+                1,
+            ).text()
+            == "tool_completed"
+        )
+
+        assert (
+            widget.event_table.item(
+                0,
+                2,
+            ).text()
+            == "filesystem_worker"
+        )
+
+        # TracePoint
+        assert (
+            widget.event_table.item(
+                1,
+                0,
+            ).text()
+            == "tool_started"
+        )
+
+        assert (
+            widget.event_table.item(
+                1,
+                1,
+            ).text()
+            == "read_table"
+        )
+
+        assert (
+            widget.event_table.item(
+                1,
+                2,
+            ).text()
+            == "Employees.csv"
+        )
+
+    finally:
+        widget.close()
+
+
+def test_widget_selects_continuous_feature_for_plot(
+    tmp_path,
+    qt_app,
+) -> None:
+    widget = ObservationWidget(
+        str(tmp_path),
+    )
+
+    try:
+        snapshot = make_snapshot()
+
+        widget._display_snapshot(
+            snapshot,
+        )
+
+        widget.feature_selector.setCurrentText(
+            "compute_count",
+        )
+
+        assert widget.plot._title == "compute_count"
+        assert widget.plot._values == [1.0]
+
+    finally:
+        widget.close()
+
+
+def test_widget_replays_persisted_session(
+    tmp_path,
+    qt_app,
+) -> None:
+    from task_observation import TaskObservationEngine
+
+    engine = TaskObservationEngine(
+        tmp_path,
+    )
+
+    session = engine.start(
+        "filesystem",
+    )
+
+    session.events.event(
+        "tool_started",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "search_files",
+            "path": ".",
+        },
+    )
+
+    session.events.event(
+        "tool_completed",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "search_files",
+            "path": ".",
+            "success": True,
+        },
+    )
+
+    snapshot = session.finish()
+
+    widget = ObservationWidget(
+        str(tmp_path),
+    )
+
+    try:
+        widget.refresh_history()
+
+        assert widget.history_list.count() == 1
+
+        item = widget.history_list.item(0)
+
+        widget._load_history_item(
+            item,
+        )
+
+        assert widget._snapshot is not None
+
+        assert widget._snapshot.identity.session_id == snapshot.identity.session_id
+
+        assert widget.session_status_label.text() == "completed"
+
+        continuous = {item.name: item.value for item in widget._snapshot.continuous}
+
+        assert continuous["total_tool_calls"] == 1.0
+
+        assert continuous["search_files_count"] == 1.0
+
+    finally:
+        widget.close()
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_qt_observation_worker.py
+================================================================================
+
+from __future__ import annotations
+
+import pytest
+
+pytest.importorskip("PySide6")
+
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtTest import QSignalSpy
+
+from task_observation.models import ObservationSnapshot
+from task_observation.qt.observation_thread import ObservationWorker
+
+
+@pytest.fixture
+def qt_core_app():
+    app = QCoreApplication.instance()
+
+    if app is None:
+        app = QCoreApplication([])
+
+    return app
+
+
+def test_observation_worker_records_event(
+    tmp_path,
+    qt_core_app,
+) -> None:
+    worker = ObservationWorker(
+        str(tmp_path),
+    )
+
+    errors = QSignalSpy(
+        worker.worker_error,
+    )
+
+    worker.start_task(
+        "filesystem",
+        metadata={
+            "agent_type": "filesystem",
+        },
+    )
+
+    worker.record_event(
+        "tool_started",
+        {
+            "tool_name": "list_directory",
+            "path": ".",
+        },
+    )
+
+    assert errors.count() == 0
+
+    assert worker._session is not None
+
+    snapshot = worker._session.snapshot()
+
+    assert len(snapshot.events) == 1
+
+    event = snapshot.events[0]
+
+    assert event.name == "tool_started"
+    assert event.source == "qt_observation_worker"
+    assert event.payload["tool_name"] == "list_directory"
+    assert event.payload["path"] == "."
+
+
+def test_observation_worker_records_discrete_and_continuous(
+    tmp_path,
+    qt_core_app,
+) -> None:
+    worker = ObservationWorker(
+        str(tmp_path),
+    )
+
+    errors = QSignalSpy(
+        worker.worker_error,
+    )
+
+    worker.start_task(
+        "filesystem",
+    )
+
+    worker.record_discrete(
+        "extension",
+        ".csv",
+    )
+
+    worker.record_continuous(
+        "row_count",
+        1000,
+    )
+
+    assert errors.count() == 0
+    assert worker._session is not None
+
+    snapshot = worker._session.snapshot()
+
+    assert snapshot.discrete[0].name == "extension"
+    assert snapshot.discrete[0].value == ".csv"
+
+    assert snapshot.continuous[0].name == "row_count"
+    assert snapshot.continuous[0].value == 1000.0
+
+
+def test_observation_worker_finish_produces_derived_snapshot(
+    tmp_path,
+    qt_core_app,
+) -> None:
+    worker = ObservationWorker(
+        str(tmp_path),
+    )
+
+    errors = QSignalSpy(
+        worker.worker_error,
+    )
+
+    finished = QSignalSpy(
+        worker.task_finished,
+    )
+
+    worker.start_task(
+        "filesystem",
+        metadata={
+            "agent_type": "filesystem",
+        },
+    )
+
+    worker.record_event(
+        "task_started",
+    )
+
+    worker.record_event(
+        "tool_started",
+        {
+            "tool_name": "search_files",
+            "path": ".",
+        },
+    )
+
+    worker.record_event(
+        "tool_completed",
+        {
+            "tool_name": "search_files",
+            "path": ".",
+            "success": True,
+        },
+    )
+
+    worker.record_event(
+        "task_completed",
+        {
+            "status": "completed",
+        },
+    )
+
+    worker.finish_task()
+
+    assert errors.count() == 0
+    assert finished.count() == 1
+    assert worker._session is None
+
+    snapshot = finished.at(0)[0]
+
+    assert isinstance(
+        snapshot,
+        ObservationSnapshot,
+    )
+
+    assert snapshot.status == "completed"
+
+    continuous = {item.name: item.value for item in snapshot.continuous}
+
+    discrete = {item.name: item.value for item in snapshot.discrete}
+
+    assert continuous["total_tool_calls"] == 1.0
+    assert continuous["successful_tool_calls"] == 1.0
+    assert continuous["failed_tool_calls"] == 0.0
+    assert continuous["search_files_count"] == 1.0
+
+    assert discrete["task_status"] == "completed"
+    assert discrete["task_completed"] is True
+    assert discrete["task_failed"] is False
+    assert discrete["used_search"] is True
+
+
+def test_observation_worker_finish_persists_finished_snapshot(
+    tmp_path,
+    qt_core_app,
+) -> None:
+    worker = ObservationWorker(
+        str(tmp_path),
+    )
+
+    worker.start_task(
+        "filesystem",
+    )
+
+    worker.record_event(
+        "tool_started",
+        {
+            "tool_name": "read_table",
+            "path": "Employees.csv",
+        },
+    )
+
+    worker.record_event(
+        "tool_completed",
+        {
+            "tool_name": "read_table",
+            "path": "Employees.csv",
+            "success": True,
+        },
+    )
+
+    worker.finish_task()
+
+    from task_observation.replay import ReplayAPI
+
+    replay = ReplayAPI(
+        tmp_path,
+    )
+
+    session_ids = replay.session_ids()
+
+    assert len(session_ids) == 1
+
+    loaded = replay.session(
+        session_ids[0],
+    )
+
+    continuous = {item.name: item.value for item in loaded.continuous}
+
+    discrete = {item.name: item.value for item in loaded.discrete}
+
+    assert continuous["total_tool_calls"] == 1.0
+    assert continuous["read_table_count"] == 1.0
+    assert continuous["file_access_count"] == 1.0
+
+    assert discrete["task_status"] == "completed"
+    assert discrete["task_completed"] is True
+    assert discrete["used_file_read"] is True
+
+
+def test_observation_worker_rejects_second_active_task(
+    tmp_path,
+    qt_core_app,
+) -> None:
+    worker = ObservationWorker(
+        str(tmp_path),
+    )
+
+    errors = QSignalSpy(
+        worker.worker_error,
+    )
+
+    worker.start_task(
+        "filesystem",
+    )
+
+    worker.start_task(
+        "browser",
+    )
+
+    assert errors.count() == 1
+    assert "another task is active" in errors.at(0)[0]
+
+    worker.shutdown()
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_qt_observation_bridge.py
+================================================================================
+
+from __future__ import annotations
+
+import time
+
+import pytest
+
+pytest.importorskip("PySide6")
+
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtTest import QSignalSpy
+
+from task_observation.models import ObservationSnapshot
+from task_observation.qt.observation_bridge import ObservationBridge
+
+
+@pytest.fixture
+def qt_core_app():
+    app = QCoreApplication.instance()
+
+    if app is None:
+        app = QCoreApplication([])
+
+    return app
+
+
+def wait_for_spy(
+    app,
+    spy: QSignalSpy,
+    timeout_ms: int = 3000,
+) -> bool:
+    if spy.count() > 0:
+        return True
+
+    deadline = time.monotonic() + (timeout_ms / 1000.0)
+
+    while time.monotonic() < deadline:
+        app.processEvents()
+
+        if spy.count() > 0:
+            return True
+
+        time.sleep(0.005)
+
+    return False
+
+
+def test_bridge_forwards_start_event_and_finish(
+    tmp_path,
+    qt_core_app,
+) -> None:
+    bridge = ObservationBridge(
+        str(tmp_path),
+    )
+
+    started = QSignalSpy(
+        bridge.task_started,
+    )
+
+    updated = QSignalSpy(
+        bridge.observation_updated,
+    )
+
+    finished = QSignalSpy(
+        bridge.task_finished,
+    )
+
+    errors = QSignalSpy(
+        bridge.error,
+    )
+
+    try:
+        bridge.start_task(
+            "filesystem",
+            metadata={
+                "agent_type": "filesystem",
+            },
+        )
+
+        assert wait_for_spy(
+            qt_core_app,
+            started,
+        )
+
+        assert started.at(0)[0] == "filesystem"
+
+        bridge.record_event(
+            "tool_started",
+            {
+                "tool_name": "list_directory",
+                "path": ".",
+            },
+        )
+
+        bridge.record_event(
+            "tool_completed",
+            {
+                "tool_name": "list_directory",
+                "path": ".",
+                "success": True,
+            },
+        )
+
+        bridge.finish_task()
+
+        assert wait_for_spy(
+            qt_core_app,
+            finished,
+        )
+
+        assert errors.count() == 0
+
+        snapshot = finished.at(0)[0]
+
+        assert isinstance(
+            snapshot,
+            ObservationSnapshot,
+        )
+
+        assert snapshot.status == "completed"
+
+        event_names = [event.name for event in snapshot.events]
+
+        assert "tool_started" in event_names
+        assert "tool_completed" in event_names
+
+        continuous = {item.name: item.value for item in snapshot.continuous}
+
+        assert continuous["total_tool_calls"] == 1.0
+        assert continuous["successful_tool_calls"] == 1.0
+
+        assert updated.count() >= 2
+
+    finally:
+        bridge.close()
+
+
+def test_bridge_ignores_commands_after_close(
+    tmp_path,
+    qt_core_app,
+) -> None:
+    bridge = ObservationBridge(
+        str(tmp_path),
+    )
+
+    errors = QSignalSpy(
+        bridge.error,
+    )
+
+    bridge.close()
+
+    bridge.start_task(
+        "filesystem",
+    )
+
+    bridge.record_event(
+        "tool_started",
+    )
+
+    bridge.finish_task()
+
+    qt_core_app.processEvents()
+
+    assert errors.count() == 0
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_qt_observation_plot.py
+================================================================================
+
+from __future__ import annotations
+
+import pytest
+
+pytest.importorskip("PySide6")
+
+from PySide6.QtWidgets import QApplication
+
+from task_observation.qt.observation_plot import ObservationPlot
+
+
+@pytest.fixture
+def qt_app():
+    app = QApplication.instance()
+
+    if app is None:
+        app = QApplication([])
+
+    return app
+
+
+def test_plot_filters_invalid_numeric_values(
+    qt_app,
+) -> None:
+    plot = ObservationPlot()
+
+    plot.set_data(
+        [
+            1,
+            "2.5",
+            None,
+            "bad",
+            float("nan"),
+            float("inf"),
+            4,
+        ],
+        title="row_count",
+    )
+
+    assert plot._values == [
+        1.0,
+        2.5,
+        4.0,
+    ]
+
+    assert plot._title == "row_count"
+
+
+def test_plot_clear_removes_values(
+    qt_app,
+) -> None:
+    plot = ObservationPlot()
+
+    plot.set_data(
+        [1, 2, 3],
+    )
+
+    assert plot._values == [
+        1.0,
+        2.0,
+        3.0,
+    ]
+
+    plot.clear()
+
+    assert plot._values == []
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_observation_engine.py
+================================================================================
+
+from pathlib import Path
+
+from task_observation import ReplayAPI, TaskObservationEngine, generate_runs
+
+
+def test_missing_values_do_not_stop_collection(tmp_path: Path) -> None:
+    engine = TaskObservationEngine(tmp_path)
+    session = engine.start("demo.family")
+
+    session.discrete.record("optional", None)
+    session.continuous.record("optional_number", None)
+    session.continuous.record("bad_number", "not-a-number")
+
+    snapshot = session.finish()
+
+    assert snapshot.status == "completed"
+
+    # ----------------------------------------------------------
+    # Raw observations must survive derivation unchanged.
+    # ----------------------------------------------------------
+
+    optional = [
+        item
+        for item in snapshot.discrete
+        if item.name == "optional" and item.source == "unknown"
+    ]
+
+    assert len(optional) == 1
+    assert optional[0].value is None
+
+    optional_number = [
+        item
+        for item in snapshot.continuous
+        if item.name == "optional_number" and item.source == "unknown"
+    ]
+
+    assert len(optional_number) == 1
+    assert optional_number[0].value is None
+
+    bad_number = [
+        item
+        for item in snapshot.continuous
+        if item.name == "bad_number" and item.source == "unknown"
+    ]
+
+    assert len(bad_number) == 1
+    assert bad_number[0].value is None
+
+    # ----------------------------------------------------------
+    # Derived observations must also have been produced.
+    # ----------------------------------------------------------
+
+    assert any(
+        item.name == "task_status"
+        and item.value == "completed"
+        and item.source == "feature_deriver"
+        for item in snapshot.discrete
+    )
+
+    assert any(
+        item.name == "task_completed"
+        and item.value is True
+        and item.source == "feature_deriver"
+        for item in snapshot.discrete
+    )
+
+    assert any(
+        item.name == "total_tool_calls"
+        and item.value == 0.0
+        and item.source == "feature_deriver"
+        for item in snapshot.continuous
+    )
+
+
+def test_persistence_and_replay(tmp_path: Path) -> None:
+    engine = TaskObservationEngine(tmp_path)
+    session = engine.start("filesystem.read_table.calculate")
+    session.continuous.record("row_count", 1000)
+    session.discrete.record("extension", ".csv")
+    snapshot = session.finish()
+
+    replay = ReplayAPI(tmp_path)
+    loaded = replay.session(snapshot.identity.session_id)
+    assert loaded.identity.session_id == snapshot.identity.session_id
+    assert loaded.continuous[0].value == 1000.0
+    assert loaded.discrete[0].value == ".csv"
+
+
+def test_simulation_produces_multiple_replayable_runs(tmp_path: Path) -> None:
+    snapshots = generate_runs(tmp_path, count=5, seed=42)
+    assert len(snapshots) == 5
+    replay = ReplayAPI(tmp_path)
+    assert len(replay.session_ids()) == 5
+    assert len(replay.feature_rows()) == 5
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_observation_derivers.py
+================================================================================
+
+from __future__ import annotations
+
+from task_observation.models import (
+    ContinuousObservation,
+    DiscreteObservation,
+    ObservationSnapshot,
+    TaskEvent,
+    TaskIdentity,
+    TracePoint,
+)
+from task_observation.observation import (
+    FeatureDeriver,
+    NavigationObserver,
+    OutcomeObserver,
+    TimingObserver,
+    ToolObserver,
+)
+
+
+def make_snapshot() -> ObservationSnapshot:
+    identity = TaskIdentity(
+        session_id="test-session",
+        family_key="filesystem",
+        task_key="",
+        started_at="2026-10-03T13:03:33+00:00",
+    )
+
+    return ObservationSnapshot(
+        identity=identity,
+        started_at="2026-10-03T13:03:33+00:00",
+        finished_at="2026-10-03T13:03:43+00:00",
+        status="completed",
+        metadata={
+            "agent_type": "filesystem",
+        },
+        discrete=(
+            DiscreteObservation(
+                name="approval_label",
+                value=True,
+            ),
+        ),
+        continuous=(),
+        events=(
+            TaskEvent(
+                name="task_started",
+                timestamp="2026-10-03T13:03:33+00:00",
+                source="filesystem_worker",
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:34+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "list_directory",
+                    "path": ".",
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:35+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "list_directory",
+                    "path": ".",
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:36+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "search_files",
+                    "path": ".",
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:37+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "search_files",
+                    "path": ".",
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:38+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "read_table",
+                    "path": "Level_1/Level_2/Employees.csv",
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:39+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "read_table",
+                    "path": "Level_1/Level_2/Employees.csv",
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="tool_started",
+                timestamp="2026-10-03T13:03:40+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "compute_sum",
+                    "path": None,
+                },
+            ),
+            TaskEvent(
+                name="tool_completed",
+                timestamp="2026-10-03T13:03:41+00:00",
+                source="filesystem_worker",
+                payload={
+                    "tool_name": "compute_sum",
+                    "path": None,
+                    "success": True,
+                },
+            ),
+            TaskEvent(
+                name="task_completed",
+                timestamp="2026-10-03T13:03:43+00:00",
+                source="filesystem_worker",
+                payload={
+                    "status": "completed",
+                },
+            ),
+        ),
+        traces=(
+            TracePoint(
+                sequence=0,
+                timestamp="2026-10-03T13:03:34+00:00",
+                phase="tool_started",
+                action="list_directory",
+                path=".",
+                discrete={
+                    "tool_name": "list_directory",
+                },
+            ),
+            TracePoint(
+                sequence=1,
+                timestamp="2026-10-03T13:03:35+00:00",
+                phase="tool_completed",
+                action="list_directory",
+                path=".",
+                discrete={
+                    "success": True,
+                },
+            ),
+            TracePoint(
+                sequence=2,
+                timestamp="2026-10-03T13:03:36+00:00",
+                phase="tool_started",
+                action="search_files",
+                path=".",
+                discrete={
+                    "tool_name": "search_files",
+                },
+            ),
+            TracePoint(
+                sequence=3,
+                timestamp="2026-10-03T13:03:37+00:00",
+                phase="tool_completed",
+                action="search_files",
+                path=".",
+                discrete={
+                    "success": True,
+                },
+            ),
+            TracePoint(
+                sequence=4,
+                timestamp="2026-10-03T13:03:38+00:00",
+                phase="tool_started",
+                action="read_table",
+                path="Level_1/Level_2/Employees.csv",
+                discrete={
+                    "tool_name": "read_table",
+                },
+            ),
+            TracePoint(
+                sequence=5,
+                timestamp="2026-10-03T13:03:39+00:00",
+                phase="tool_completed",
+                action="read_table",
+                path="Level_1/Level_2/Employees.csv",
+                discrete={
+                    "success": True,
+                },
+            ),
+            TracePoint(
+                sequence=6,
+                timestamp="2026-10-03T13:03:40+00:00",
+                phase="tool_started",
+                action="compute_sum",
+                path=None,
+                discrete={
+                    "tool_name": "compute_sum",
+                },
+            ),
+            TracePoint(
+                sequence=7,
+                timestamp="2026-10-03T13:03:41+00:00",
+                phase="tool_completed",
+                action="compute_sum",
+                path=None,
+                discrete={
+                    "success": True,
+                },
+            ),
+        ),
+    )
+
+
+def test_tool_observer_derives_tool_usage():
+    observation = ToolObserver().observe(make_snapshot())
+
+    assert observation.total_tool_calls == 4
+    assert observation.successful_tool_calls == 4
+    assert observation.failed_tool_calls == 0
+    assert observation.unique_tools == 4
+
+    assert observation.list_directory_count == 1
+    assert observation.search_files_count == 1
+    assert observation.read_table_count == 1
+    assert observation.compute_count == 1
+
+
+def test_navigation_observer_derives_navigation_features():
+    observation = NavigationObserver().observe(make_snapshot())
+
+    assert observation.unique_paths == 2
+    assert observation.paths_visited == 6
+    assert observation.directory_navigation_count == 1
+    assert observation.file_access_count == 1
+    assert observation.search_count == 1
+    assert observation.maximum_path_depth == 3
+
+
+def test_timing_observer_derives_task_duration():
+    observation = TimingObserver().observe(make_snapshot())
+
+    assert observation.task_duration_seconds == 10.0
+    assert observation.average_tool_duration_seconds == 1.0
+    assert observation.minimum_tool_duration_seconds == 1.0
+    assert observation.maximum_tool_duration_seconds == 1.0
+
+
+def test_outcome_observer_derives_completed_state():
+    observation = OutcomeObserver().observe(make_snapshot())
+
+    assert observation.status == "completed"
+    assert observation.completed is True
+    assert observation.failed is False
+    assert observation.cancelled is False
+    assert observation.had_tool_failure is False
+    assert observation.recovered_from_failure is False
+    assert observation.approval_label is True
+
+
+def test_feature_deriver_combines_all_observers():
+    features = FeatureDeriver().derive(make_snapshot())
+
+    continuous = features.continuous_features()
+    discrete = features.discrete_features()
+
+    assert continuous["total_tool_calls"] == 4.0
+    assert continuous["successful_tool_calls"] == 4.0
+    assert continuous["failed_tool_calls"] == 0.0
+    assert continuous["compute_count"] == 1.0
+    assert continuous["task_duration_seconds"] == 10.0
+
+    assert discrete["task_status"] == "completed"
+    assert discrete["task_completed"] is True
+    assert discrete["task_failed"] is False
+    assert discrete["used_search"] is True
+    assert discrete["used_computation"] is True
+    assert discrete["used_file_read"] is True
+    assert discrete["approval_label"] is True
+
+
+def test_outcome_observer_detects_recovery():
+    snapshot = make_snapshot()
+
+    events = list(snapshot.events)
+
+    events.insert(
+        -1,
+        TaskEvent(
+            name="tool_completed",
+            timestamp="2026-10-03T13:03:42+00:00",
+            source="filesystem_worker",
+            payload={
+                "tool_name": "read_file",
+                "path": "recovered.txt",
+                "success": False,
+            },
+        ),
+    )
+
+    events.insert(
+        -1,
+        TaskEvent(
+            name="tool_completed",
+            timestamp="2026-10-03T13:03:42.500000+00:00",
+            source="filesystem_worker",
+            payload={
+                "tool_name": "read_file",
+                "path": "recovered.txt",
+                "success": True,
+            },
+        ),
+    )
+
+    modified = ObservationSnapshot(
+        identity=snapshot.identity,
+        discrete=snapshot.discrete,
+        continuous=snapshot.continuous,
+        events=tuple(events),
+        traces=snapshot.traces,
+        started_at=snapshot.started_at,
+        finished_at=snapshot.finished_at,
+        status=snapshot.status,
+        metadata=snapshot.metadata,
+    )
+
+    observation = OutcomeObserver().observe(modified)
+
+    assert observation.had_tool_failure is True
+    assert observation.recovered_from_failure is True
+
+
+
+================================================================================
+FILE: task_observation_engine/tests/test_observation_derivation_integration.py
+================================================================================
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from task_observation import ReplayAPI, TaskObservationEngine
+
+
+def test_engine_derives_features_on_session_finish(tmp_path: Path) -> None:
+    engine = TaskObservationEngine(tmp_path)
+
+    session = engine.start(
+        "filesystem",
+        metadata={
+            "agent_type": "filesystem",
+        },
+    )
+
+    session.events.event(
+        "task_started",
+        source="filesystem_worker",
+    )
+
+    session.events.event(
+        "tool_started",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "list_directory",
+            "path": ".",
+        },
+    )
+
+    session.events.event(
+        "tool_completed",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "list_directory",
+            "path": ".",
+            "success": True,
+        },
+    )
+
+    session.events.event(
+        "tool_started",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "search_files",
+            "path": ".",
+        },
+    )
+
+    session.events.event(
+        "tool_completed",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "search_files",
+            "path": ".",
+            "success": True,
+        },
+    )
+
+    session.events.event(
+        "tool_started",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "read_table",
+            "path": "Level_1/Employees.csv",
+        },
+    )
+
+    session.events.event(
+        "tool_completed",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "read_table",
+            "path": "Level_1/Employees.csv",
+            "success": True,
+        },
+    )
+
+    session.events.event(
+        "tool_started",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "compute_sum",
+            "path": None,
+        },
+    )
+
+    session.events.event(
+        "tool_completed",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "compute_sum",
+            "path": None,
+            "success": True,
+        },
+    )
+
+    session.events.event(
+        "task_completed",
+        source="filesystem_worker",
+        payload={
+            "status": "completed",
+        },
+    )
+
+    session.events.trace(
+        "tool_started",
+        action="list_directory",
+        path=".",
+        discrete={
+            "tool_name": "list_directory",
+        },
+    )
+
+    session.events.trace(
+        "tool_completed",
+        action="list_directory",
+        path=".",
+        discrete={
+            "success": True,
+        },
+    )
+
+    session.events.trace(
+        "tool_started",
+        action="search_files",
+        path=".",
+        discrete={
+            "tool_name": "search_files",
+        },
+    )
+
+    session.events.trace(
+        "tool_completed",
+        action="search_files",
+        path=".",
+        discrete={
+            "success": True,
+        },
+    )
+
+    session.events.trace(
+        "tool_started",
+        action="read_table",
+        path="Level_1/Employees.csv",
+        discrete={
+            "tool_name": "read_table",
+        },
+    )
+
+    session.events.trace(
+        "tool_completed",
+        action="read_table",
+        path="Level_1/Employees.csv",
+        discrete={
+            "success": True,
+        },
+    )
+
+    session.events.trace(
+        "tool_started",
+        action="compute_sum",
+        path=None,
+        discrete={
+            "tool_name": "compute_sum",
+        },
+    )
+
+    session.events.trace(
+        "tool_completed",
+        action="compute_sum",
+        path=None,
+        discrete={
+            "success": True,
+        },
+    )
+
+    snapshot = session.finish()
+
+    # ----------------------------------------------------------
+    # Raw observation data must remain present.
+    # ----------------------------------------------------------
+
+    assert len(snapshot.events) > 0
+    assert len(snapshot.traces) == 8
+
+    # ----------------------------------------------------------
+    # Derived continuous features must be generated by the
+    # observation engine automatically during finish().
+    # ----------------------------------------------------------
+
+    continuous = {item.name: item.value for item in snapshot.continuous}
+
+    assert continuous["total_tool_calls"] == 4.0
+    assert continuous["successful_tool_calls"] == 4.0
+    assert continuous["failed_tool_calls"] == 0.0
+    assert continuous["unique_tools"] == 4.0
+
+    assert continuous["list_directory_count"] == 1.0
+    assert continuous["search_files_count"] == 1.0
+    assert continuous["read_table_count"] == 1.0
+    assert continuous["compute_count"] == 1.0
+
+    assert continuous["unique_paths"] == 2.0
+    assert continuous["paths_visited"] == 6.0
+    assert continuous["directory_navigation_count"] == 1.0
+    assert continuous["file_access_count"] == 1.0
+    assert continuous["search_count"] == 1.0
+
+    # ----------------------------------------------------------
+    # Derived discrete features must also be generated.
+    # ----------------------------------------------------------
+
+    discrete = {item.name: item.value for item in snapshot.discrete}
+
+    assert discrete["task_status"] == "completed"
+    assert discrete["task_completed"] is True
+    assert discrete["task_failed"] is False
+    assert discrete["task_cancelled"] is False
+
+    assert discrete["had_tool_failure"] is False
+    assert discrete["recovered_from_failure"] is False
+
+    assert discrete["used_search"] is True
+    assert discrete["used_computation"] is True
+    assert discrete["used_file_read"] is True
+
+
+def test_derived_features_are_persisted_and_replayable(
+    tmp_path: Path,
+) -> None:
+    engine = TaskObservationEngine(tmp_path)
+
+    session = engine.start("filesystem")
+
+    session.events.event(
+        "tool_started",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "read_table",
+            "path": "Employees.csv",
+        },
+    )
+
+    session.events.event(
+        "tool_completed",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "read_table",
+            "path": "Employees.csv",
+            "success": True,
+        },
+    )
+
+    session.events.trace(
+        "tool_started",
+        action="read_table",
+        path="Employees.csv",
+        discrete={
+            "tool_name": "read_table",
+        },
+    )
+
+    session.events.trace(
+        "tool_completed",
+        action="read_table",
+        path="Employees.csv",
+        discrete={
+            "success": True,
+        },
+    )
+
+    snapshot = session.finish()
+
+    # ----------------------------------------------------------
+    # Reopen through the public replay API.
+    # ----------------------------------------------------------
+
+    replay = ReplayAPI(tmp_path)
+
+    loaded = replay.session(
+        snapshot.identity.session_id,
+    )
+
+    # ----------------------------------------------------------
+    # Verify the derived features survived persistence.
+    # ----------------------------------------------------------
+
+    continuous = {item.name: item.value for item in loaded.continuous}
+
+    assert continuous["total_tool_calls"] == 1.0
+    assert continuous["successful_tool_calls"] == 1.0
+    assert continuous["failed_tool_calls"] == 0.0
+    assert continuous["read_table_count"] == 1.0
+    assert continuous["file_access_count"] == 1.0
+
+    discrete = {item.name: item.value for item in loaded.discrete}
+
+    assert discrete["task_status"] == "completed"
+    assert discrete["task_completed"] is True
+    assert discrete["used_file_read"] is True
+
+
+def test_replay_feature_rows_include_derived_features(
+    tmp_path: Path,
+) -> None:
+    engine = TaskObservationEngine(tmp_path)
+
+    session = engine.start("filesystem")
+
+    session.events.event(
+        "tool_started",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "search_files",
+            "path": ".",
+        },
+    )
+
+    session.events.event(
+        "tool_completed",
+        source="filesystem_worker",
+        payload={
+            "tool_name": "search_files",
+            "path": ".",
+            "success": True,
+        },
+    )
+
+    session.events.trace(
+        "tool_started",
+        action="search_files",
+        path=".",
+        discrete={
+            "tool_name": "search_files",
+        },
+    )
+
+    session.events.trace(
+        "tool_completed",
+        action="search_files",
+        path=".",
+        discrete={
+            "success": True,
+        },
+    )
+
+    snapshot = session.finish()
+
+    replay = ReplayAPI(tmp_path)
+
+    rows = replay.feature_rows(
+        [snapshot.identity.session_id],
+    )
+
+    assert len(rows) == 1
+
+    row = rows[0]
+
+    assert row["session_id"] == snapshot.identity.session_id
+    assert row["family_key"] == "filesystem"
+    assert row["status"] == "completed"
+
+    assert row["continuous.total_tool_calls"] == 1.0
+    assert row["continuous.successful_tool_calls"] == 1.0
+    assert row["continuous.failed_tool_calls"] == 0.0
+    assert row["continuous.search_files_count"] == 1.0
+
+    assert row["discrete.task_status"] == "completed"
+    assert row["discrete.task_completed"] is True
+    assert row["discrete.used_search"] is True
+
+
+
+================================================================================
+FILE: main.py
+================================================================================
+
+# main.py
+
+import os
+import sys
+
+# MUST set CDP remote debugging port before initializing QApplication
+# or importing QWebEngineView.
+CDP_PORT = 9222
+os.environ["QTWEBENGINE_REMOTE_DEBUGGING"] = str(CDP_PORT)
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QMainWindow,
+    QSplitter,
+    QWidget,
+)
+
+from agent_engine import AgentExecutionWorker
+from agent_response_parser import AgentResponseParser
+from filesystem.filesystem_worker import FilesystemExecutionWorker
+from app_menu_bar import AppMenuBar
+from browser_window import BrowserWindowWidget
+from chat_formatter import ChatMessageFormatter
+from chat_window import ChatWindowWidget
+from task_bar import TaskBarWidget
+from task_models import Task
+from task_observation_engine.task_observation import ObservationWidget
+
+from approval import (
+    ApprovalEngine,
+    ApprovalStatus,
+    GeminiDecisionClassifier,
+    ApprovalPolicyEngine,
+)
+from approval.schema_loader import ApprovalSchemaLoader
+
+
+class MainWindow(QMainWindow):
+
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Cowork AI Agent Suite")
+        self.resize(1200, 750)
+
+        # ---------------------------------------------------------
+        # 1. Menu bar
+        # ---------------------------------------------------------
+
+        self.menu_bar = AppMenuBar(self)
+        self.setMenuBar(self.menu_bar)
+
+        # ---------------------------------------------------------
+        # 2. Main layout
+        # ---------------------------------------------------------
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+
+        splitter = QSplitter(Qt.Horizontal)
+
+        self.task_bar = TaskBarWidget()
+        self.chat_window = ChatWindowWidget()
+        self.browser_window = BrowserWindowWidget()
+
+        splitter.addWidget(self.task_bar)
+        splitter.addWidget(self.chat_window)
+        splitter.addWidget(self.browser_window)
+
+        splitter.setSizes([220, 500, 480])
+
+        main_layout.addWidget(splitter)
+
+        # ---------------------------------------------------------
+        # 3. Agent state
+        # ---------------------------------------------------------
+
+        self.agent_worker = None
+        self.active_agent_type = None
+        self.current_task = None
+        self.pending_approval_task = None
+        self.pending_approval_intent = None
+
+        self.observation_widget = None
+
+        self.observation_storage_root = os.path.join(
+            os.path.dirname(__file__),
+            "task_observation_data",
+        )
+
+        # ---------------------------------------------------------
+        # 4. Approval layer
+        # ---------------------------------------------------------
+
+        approval_schema_path = os.path.join(
+            os.path.dirname(__file__),
+            "schemas",
+            "approval_schema.json",
+        )
+
+        approval_schema_loader = ApprovalSchemaLoader(approval_schema_path)
+
+        self.approval_classifier = None
+        self.approval_engine = None
+
+        approval_api_key = os.getenv("GEMINI_API_KEY")
+
+        if approval_api_key:
+            self.approval_classifier = GeminiDecisionClassifier(
+                api_key=approval_api_key,
+                schema_loader=approval_schema_loader,
+            )
+
+            self.approval_engine = ApprovalEngine(
+                classifier=self.approval_classifier,
+                policy_engine=ApprovalPolicyEngine(),
+            )
+
+        # ---------------------------------------------------------
+        # 5. Signal routing
+        # ---------------------------------------------------------
+
+        self.chat_window.task_created_signal.connect(self.handle_new_task)
+        self.chat_window.approval_granted.connect(self.on_approval_granted)
+
+        self.chat_window.approval_denied.connect(self.on_approval_denied)
+
+    # =============================================================
+    # Agent status
+    # =============================================================
+
+    def get_agent_status(self) -> dict:
+        """
+        Endpoint called by AppMenuBar or UI widgets to query
+        live agent state.
+        """
+
+        if hasattr(self, "agent_worker") and self.agent_worker is not None:
+            return self.agent_worker.get_status()
+
+        return {
+            "status": "idle",
+            "current_step": 0,
+            "last_action": "No agent running",
+            "error": None,
+        }
+
+    def show_observation_widget(self):
+        """
+        Open the task observation visualization window.
+
+        MainWindow owns the visualization surface while the
+        ObservationWidget owns observation presentation and
+        observation-session interaction.
+        """
+
+        if (
+            self.observation_widget is not None
+            and not self.observation_widget.isVisible()
+        ):
+            self.observation_widget.deleteLater()
+            self.observation_widget = None
+
+        if self.observation_widget is None:
+            self.observation_widget = ObservationWidget(
+                storage_root=self.observation_storage_root,
+                parent=self,
+            )
+
+            self.observation_widget.setWindowFlag(
+                Qt.Window,
+                True,
+            )
+
+        self.observation_widget.show()
+        self.observation_widget.raise_()
+        self.observation_widget.activateWindow()
+
+    # =============================================================
+    # Task creation + approval
+    # =============================================================
+
+    def handle_new_task(
+        self,
+        intent: str,
+        task_prompt: str,
+    ):
+        """
+        Route a classified task to the appropriate agent.
+
+        MainWindow coordinates the UI and lifecycle routing.
+        Authorization itself belongs to ApprovalEngine.
+        """
+
+        # ---------------------------------------------------------
+        # 1. Prevent concurrent tasks
+        # ---------------------------------------------------------
+
+        if self.agent_worker is not None and self.agent_worker.isRunning():
+            error_html = ChatMessageFormatter.format_message(
+                "error",
+                "A task is already running. " "Cancel it before starting another task.",
+            )
+
+            self.chat_window.chat_display.append(error_html)
+
+            return
+
+        if self.pending_approval_task is not None:
+            error_html = ChatMessageFormatter.format_message(
+                "error",
+                "A task is waiting for human approval. "
+                "Approve or deny it before starting another task.",
+            )
+
+            self.chat_window.chat_display.append(error_html)
+
+            return
+
+        # ---------------------------------------------------------
+        # 2. Create canonical Task
+        # ---------------------------------------------------------
+
+        task = Task(prompt=task_prompt)
+
+        self.current_task = task
+
+        self.task_bar.task_list.addItem(f"📌 {task_prompt}")
+
+        # ---------------------------------------------------------
+        # 3. Approval layer availability check
+        # ---------------------------------------------------------
+
+        if self.approval_engine is None:
+            error_html = ChatMessageFormatter.format_message(
+                "error",
+                "Approval engine is unavailable because "
+                "GEMINI_API_KEY is not configured.",
+            )
+
+            self.chat_window.chat_display.append(error_html)
+
+            return
+
+        # ---------------------------------------------------------
+        # 4. Inform UI that approval evaluation has started
+        # ---------------------------------------------------------
+
+        approval_started_html = ChatMessageFormatter.format_message(
+            "system",
+            "🔐 Evaluating task authorization...",
+        )
+
+        self.chat_window.chat_display.append(approval_started_html)
+
+        # ---------------------------------------------------------
+        # 5. Run approval classification + policy evaluation
+        # ---------------------------------------------------------
+
+        try:
+            decision = self.approval_engine.evaluate(task_prompt)
+
+        except Exception as exc:
+            error_html = ChatMessageFormatter.format_message(
+                "error",
+                "Approval classification failed: " f"{type(exc).__name__}: {exc}",
+            )
+
+            self.chat_window.chat_display.append(error_html)
+
+            return
+
+        # ---------------------------------------------------------
+        # 6. Display classification
+        # ---------------------------------------------------------
+
+        classification = decision.classification
+
+        classification_msg = (
+            "🔍 Approval classification:\n"
+            f"- Operation: `{classification.operation_type}`\n"
+            f"- Data sensitivity: "
+            f"`{classification.data_sensitivity}`\n"
+            f"- External side effect: "
+            f"`{classification.external_side_effect}`\n"
+            f"- Destructive: "
+            f"`{classification.destructive}`\n"
+            f"- Credential use: "
+            f"`{classification.credential_use}`"
+        )
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                classification_msg,
+            )
+        )
+
+        # ---------------------------------------------------------
+        # 7. Prepare policy reasons
+        # ---------------------------------------------------------
+
+        reasons = "\n".join(f"- {reason}" for reason in decision.reasons)
+
+        # ---------------------------------------------------------
+        # 8. DENY
+        # ---------------------------------------------------------
+
+        if decision.status == ApprovalStatus.DENY:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "🛑 Task denied by the local approval policy.\n" f"{reasons}",
+                )
+            )
+
+            return
+        # ---------------------------------------------------------
+        # 9. REVIEW
+        # ---------------------------------------------------------
+
+        if decision.status == ApprovalStatus.REVIEW:
+
+            # Keep the canonical Task object alive while the
+            # human approval UI is displayed.
+            self.pending_approval_task = (
+                task,
+                intent,
+            )
+
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "system",
+                    "⏸️ Human approval required before "
+                    "browser execution.\n"
+                    f"{reasons}",
+                )
+            )
+
+            # Display the actual approval controls.
+            #
+            # The ChatWindow owns the presentation.
+            # MainWindow remains responsible for deciding what
+            # happens after Approve / Deny.
+            self.chat_window.show_approval_request(decision)
+
+            return
+
+        # ---------------------------------------------------------
+        # 10. APPROVED WITHOUT HUMAN REVIEW
+        # ---------------------------------------------------------
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                (
+                    f"✅ Task approved for {intent.replace('_', ' ').title()}.\n"
+                    f"{reasons}"
+                ),
+            )
+        )
+
+        self.dispatch_task(task, intent)
+        # =============================================================
+
+    # Agent dispatch
+    # =============================================================
+
+    def dispatch_task(
+        self,
+        task: Task,
+        intent: str,
+    ):
+        """
+        Route an approved Task to the correct execution worker.
+
+        MainWindow does not implement agent behavior.
+        It only selects the appropriate agent boundary.
+        """
+
+        if task is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Cannot dispatch task: task is missing.",
+                )
+            )
+            return
+
+        if intent == "BROWSER_TASK":
+            self.start_browser_task(task)
+            return
+
+        if intent == "FILESYSTEM_TASK":
+            self.start_filesystem_task(task)
+            return
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "error",
+                f"Unsupported task intent: {intent}",
+            )
+        )
+
+    # =============================================================
+    # Browser task execution
+    # =============================================================
+
+    def start_browser_task(self, task: Task):
+        """
+        Start the browser agent for an approved Task.
+
+        This method is intentionally separate from the approval
+        system.
+
+        It can be called by:
+
+        1. The automatic ALLOW path.
+        2. The human APPROVE path.
+
+        Approval decisions are made before this method is called.
+        """
+
+        if task is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Cannot start browser task: task is missing.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Prevent concurrent browser execution
+        # ---------------------------------------------------------
+
+        if self.agent_worker is not None and self.agent_worker.isRunning():
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "A browser task is already running.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Inform UI
+        # ---------------------------------------------------------
+
+        sys_msg = ChatMessageFormatter.format_message(
+            "system",
+            "Connecting browser agent to embedded Qt WebEngine "
+            f"over CDP (`http://127.0.0.1:{CDP_PORT}`)...",
+        )
+
+        self.chat_window.chat_display.append(sys_msg)
+
+        # ---------------------------------------------------------
+        # Gemini API key
+        # ---------------------------------------------------------
+
+        api_key = os.getenv("GEMINI_API_KEY")
+
+        if not api_key:
+            err_msg = ChatMessageFormatter.format_message(
+                "error",
+                "GEMINI_API_KEY environment variable is missing.",
+            )
+
+            self.chat_window.chat_display.append(err_msg)
+
+            return
+
+        # ---------------------------------------------------------
+        # Connect browser-use to embedded Qt WebEngine
+        # ---------------------------------------------------------
+
+        cdp_url = f"http://127.0.0.1:{CDP_PORT}"
+
+        # ---------------------------------------------------------
+        # Start browser agent worker
+        # ---------------------------------------------------------
+
+        self.agent_worker = AgentExecutionWorker(
+            task,
+            api_key,
+            cdp_url=cdp_url,
+        )
+        self.active_agent_type = "BROWSER_AGENT"
+
+        self.agent_worker.step_updated.connect(self.on_agent_step)
+
+        self.agent_worker.task_finished.connect(self.on_agent_finished)
+
+        self.agent_worker.start()
+
+    # =============================================================
+    # Filesystem task execution
+    # =============================================================
+
+    def start_filesystem_task(self, task):
+        """
+        Start the filesystem agent for an approved Task.
+
+        The filesystem agent operates exclusively inside the
+        application's sandbox filesystem.
+        """
+
+        if task is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Cannot start filesystem task: task is missing.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Prevent concurrent execution
+        # ---------------------------------------------------------
+
+        if self.agent_worker is not None and self.agent_worker.isRunning():
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Another agent task is already running.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Gemini API key
+        # ---------------------------------------------------------
+
+        api_key = os.getenv("GEMINI_API_KEY")
+
+        if not api_key:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "GEMINI_API_KEY environment variable is missing.",
+                )
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Inform UI
+        # ---------------------------------------------------------
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "🗂️ Starting Filesystem Agent inside " "the sandbox...",
+            )
+        )
+        self.active_agent_type = "FILESYSTEM_AGENT"
+        # ---------------------------------------------------------
+        # Start filesystem worker
+        # ---------------------------------------------------------
+
+        self.agent_worker = FilesystemExecutionWorker(
+            task=task,
+            api_key=api_key,
+        )
+
+        self.agent_worker.step_updated.connect(self.on_agent_step)
+        self.agent_worker.tool_started.connect(
+            self.browser_window.show_filesystem_agent_activity
+        )
+        self.agent_worker.task_finished.connect(self.on_filesystem_finished)
+
+        self.agent_worker.error_occurred.connect(self.on_filesystem_error)
+
+        self.agent_worker.start()
+
+    # =============================================================
+    # Human approval
+    # =============================================================
+
+    def on_approval_granted(self):
+        """
+        Continue execution after the human presses Approve.
+        """
+
+        pending = self.pending_approval_task
+
+        if pending is None:
+            self.chat_window.chat_display.append(
+                ChatMessageFormatter.format_message(
+                    "error",
+                    "Approval was granted, but no pending task exists.",
+                )
+            )
+
+            return
+
+        self.pending_approval_task = None
+
+        task, intent = pending
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "✅ Human approval granted. "
+                f"Starting {intent.replace('_', ' ').title()}...",
+            )
+        )
+
+        self.dispatch_task(
+            task,
+            intent,
+        )
+
+    def on_approval_denied(self):
+        """
+        Stop the pending task after the human presses Deny.
+        """
+
+        self.pending_approval_task = None
+
+        self.current_task = None
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "🛑 Human approval denied. " "The task will not be executed.",
+            )
+        )
+
+    # =============================================================
+    # Agent step updates
+    # =============================================================
+
+    def on_agent_step(self, step_msg: str):
+        """
+        Display a step update from the active agent.
+
+        Agent workers are responsible for identifying themselves.
+        MainWindow only presents the emitted message.
+        """
+
+        agent_html = ChatMessageFormatter.format_message(
+            "agent",
+            step_msg,
+        )
+
+        self.chat_window.chat_display.append(agent_html)
+
+    # =============================================================
+    # Agent completion
+    # =============================================================
+
+    def on_agent_finished(self, result):
+        """
+        Display the final browser-agent execution result.
+        """
+
+        # Generate formatted HTML block from response parser.
+        parsed_content = AgentResponseParser.parse_and_format(result)
+
+        # Wrap system header card around parsed content
+        # without escaping the inner HTML.
+        header_html = ChatMessageFormatter.format_message(
+            "system",
+            "**Task execution finished.**",
+        )
+
+        self.chat_window.chat_display.append(header_html)
+
+        self.chat_window.chat_display.append(parsed_content)
+        self.active_agent_type = None
+
+    # =============================================================
+    # Filesystem completion
+    # =============================================================
+
+    def on_filesystem_finished(self, result):
+        """
+        Display the final filesystem-agent response.
+        """
+
+        final_text = ""
+
+        if isinstance(result, dict):
+            final_text = result.get(
+                "final_text",
+                "",
+            )
+
+        if not final_text:
+            final_text = "Filesystem task completed successfully."
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "system",
+                "**Filesystem task finished.**",
+            )
+        )
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "agent",
+                final_text,
+            )
+        )
+        self.active_agent_type = None
+
+    # =============================================================
+    # Filesystem errors
+    # =============================================================
+
+    def on_filesystem_error(self, error_message: str):
+        """
+        Display filesystem-agent execution errors.
+        """
+
+        self.chat_window.chat_display.append(
+            ChatMessageFormatter.format_message(
+                "error",
+                f"Filesystem Agent Error: {error_message}",
+            )
+        )
+        self.active_agent_type = None
+
+    # =============================================================
+    # Task cancellation
+    # =============================================================
+
+    def cancel_current_task(self):
+        """
+        Request cancellation of the currently running task.
+        """
+
+        if self.agent_worker is None:
+            return
+
+        self.agent_worker.cancel()
+
+
+# ================================================================
+# Application entry point
+# ================================================================
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+
+    window = MainWindow()
+    window.show()
+
+    sys.exit(app.exec())
+
+
+
+================================================================================
+FILE: app_menu_bar.py
+================================================================================
+
+# app_menu_bar.py
+from PySide6.QtWidgets import QMenuBar, QMessageBox, QWidget
+
+
+class AppMenuBar(QMenuBar):
+    """Custom Application Menu Bar providing agent diagnostics and status monitoring."""
+
+    def __init__(self, parent: QWidget = None):
+        super().__init__(parent)
+        self.main_window = parent
+        self._init_menus()
+
+    def _init_menus(self):
+        # 1. Agent / Status Menu
+        agent_menu = self.addMenu("Agent")
+
+        # Action: Check Agent Diagnostics
+        status_action = agent_menu.addAction("🔍 Agent Diagnostics & Status")
+        status_action.setShortcut("Ctrl+D")
+        status_action.triggered.connect(self.show_agent_status_dialog)
+        # 2. Observation Menu
+        observation_menu = self.addMenu("Observation")
+
+        # Action: Open Observation Explorer
+        observation_action = observation_menu.addAction("📊 Observation Explorer")
+        observation_action.setShortcut("Ctrl+Shift+O")
+        observation_action.triggered.connect(self.show_observation_widget)
+
+    def show_agent_status_dialog(self):
+        """Fetches status from main window and displays a diagnostic popup."""
+        status_info = {
+            "status": "idle",
+            "current_step": 0,
+            "last_action": "No agent running",
+            "error": None,
+        }
+
+        # Query main window if available
+        if (
+            self.main_window
+            and hasattr(self.main_window, "get_agent_status")
+            and callable(self.main_window.get_agent_status)
+        ):
+            status_info = self.main_window.get_agent_status()
+
+        # Format diagnostic message
+        status_str = status_info.get("status", "unknown").upper()
+        step_count = status_info.get("current_step", 0)
+        last_act = status_info.get("last_action", "N/A")
+        err = status_info.get("error", None)
+
+        msg = (
+            f"<b>Agent Status:</b> {status_str}<br>"
+            f"<b>Steps Executed:</b> {step_count}<br>"
+            f"<b>Last Action:</b> {last_act}"
+        )
+
+        if err:
+            msg += f"<br><br><span style='color: red;'><b>Error:</b> {err}</span>"
+
+        # Display popup dialog
+        QMessageBox.information(self.main_window, "Agent Diagnostics", msg)
+        # Display popup dialog
+        QMessageBox.information(self.main_window, "Agent Diagnostics", msg)
+
+    def show_observation_widget(self):
+        """Open the task observation visualization window."""
+        if (
+            self.main_window
+            and hasattr(self.main_window, "show_observation_widget")
+            and callable(self.main_window.show_observation_widget)
+        ):
+            self.main_window.show_observation_widget()
 

@@ -11,20 +11,27 @@ class AppMenuBar(QMenuBar):
         self._init_menus()
 
     def _init_menus(self):
-        # 1. Agent / Status Menu
+        # --------------------------------------------------------------
+        # Agent
+        # --------------------------------------------------------------
+
         agent_menu = self.addMenu("Agent")
 
-        # Action: Check Agent Diagnostics
         status_action = agent_menu.addAction("🔍 Agent Diagnostics & Status")
-        status_action.setShortcut("Ctrl+D")
-        status_action.triggered.connect(self.show_agent_status_dialog)
-        # 2. Observation Menu
-        observation_menu = self.addMenu("Observation")
 
-        # Action: Open Observation Explorer
-        observation_action = observation_menu.addAction("📊 Observation Explorer")
+        status_action.setShortcut("Ctrl+D")
+
+        status_action.triggered.connect(self.show_agent_status_dialog)
+
+        # --------------------------------------------------------------
+        # Observation
+        # --------------------------------------------------------------
+
+        observation_action = agent_menu.addAction("📊 Observation Monitor")
+
         observation_action.setShortcut("Ctrl+Shift+O")
-        observation_action.triggered.connect(self.show_observation_widget)
+
+        observation_action.triggered.connect(self.show_observation_monitor)
 
     def show_agent_status_dialog(self):
         """Fetches status from main window and displays a diagnostic popup."""
@@ -63,11 +70,18 @@ class AppMenuBar(QMenuBar):
         # Display popup dialog
         QMessageBox.information(self.main_window, "Agent Diagnostics", msg)
 
-    def show_observation_widget(self):
-        """Open the task observation visualization window."""
-        if (
-            self.main_window
-            and hasattr(self.main_window, "show_observation_widget")
-            and callable(self.main_window.show_observation_widget)
+    def show_observation_monitor(self):
+        """Open the task observation monitor."""
+
+        if self.main_window is None or not hasattr(
+            self.main_window,
+            "show_observation_monitor",
         ):
-            self.main_window.show_observation_widget()
+            QMessageBox.warning(
+                self.main_window,
+                "Observation Monitor",
+                "Observation monitor is unavailable.",
+            )
+            return
+
+        self.main_window.show_observation_monitor()

@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
         self.pending_approval_task = None
         self.pending_approval_intent = None
 
-        self.observation_widget = None
+        self.observation_monitor = None
 
         self.observation_storage_root = os.path.join(
             os.path.dirname(__file__),
@@ -150,36 +150,29 @@ class MainWindow(QMainWindow):
             "error": None,
         }
 
-    def show_observation_widget(self):
-        """
-        Open the task observation visualization window.
+    def show_observation_monitor(self):
+        """Open or focus the task observation monitor."""
 
-        MainWindow owns the visualization surface while the
-        ObservationWidget owns observation presentation and
-        observation-session interaction.
-        """
-
-        if (
-            self.observation_widget is not None
-            and not self.observation_widget.isVisible()
-        ):
-            self.observation_widget.deleteLater()
-            self.observation_widget = None
-
-        if self.observation_widget is None:
-            self.observation_widget = ObservationWidget(
-                storage_root=self.observation_storage_root,
-                parent=self,
+        if self.observation_monitor is None:
+            observation_storage_root = os.path.join(
+                os.path.dirname(__file__),
+                "task_observation_data",
             )
 
-            self.observation_widget.setWindowFlag(
-                Qt.Window,
-                True,
+            self.observation_monitor = ObservationWidget(
+                storage_root=observation_storage_root,
             )
 
-        self.observation_widget.show()
-        self.observation_widget.raise_()
-        self.observation_widget.activateWindow()
+            self.observation_monitor.setWindowTitle("Observation Monitor")
+
+            self.observation_monitor.resize(
+                1200,
+                750,
+            )
+
+        self.observation_monitor.show()
+        self.observation_monitor.raise_()
+        self.observation_monitor.activateWindow()
 
     # =============================================================
     # Task creation + approval

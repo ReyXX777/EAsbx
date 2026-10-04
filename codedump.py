@@ -19,11 +19,42 @@ from pathlib import Path
 # Both "/" and "\" are accepted on Windows.
 
 FILES_TO_EXPORT = [
+    # ---------------------------------------------------------
+    # Qt observation package
+    # ---------------------------------------------------------
     "task_observation_engine/task_observation/qt/__init__.py",
     "task_observation_engine/task_observation/qt/observation_bridge.py",
     "task_observation_engine/task_observation/qt/observation_thread.py",
+    "task_observation_engine/task_observation/qt/observation_worker.py",
     "task_observation_engine/task_observation/qt/observation_plot.py",
     "task_observation_engine/task_observation/qt/observation_widget.py",
+    # ---------------------------------------------------------
+    # Observation data model / engine
+    # ---------------------------------------------------------
+    "task_observation_engine/task_observation/__init__.py",
+    "task_observation_engine/task_observation/models.py",
+    "task_observation_engine/task_observation/session.py",
+    "task_observation_engine/task_observation/session_store.py",
+    "task_observation_engine/task_observation/replay.py",
+    "task_observation_engine/task_observation/collectors.py",
+    "task_observation_engine/task_observation/buckets.py",
+    "task_observation_engine/task_observation/derivers.py",
+    # ---------------------------------------------------------
+    # Existing observation tests
+    # ---------------------------------------------------------
+    "task_observation_engine/tests/test_qt_observation.py",
+    "task_observation_engine/tests/test_qt_observation_widget.py",
+    "task_observation_engine/tests/test_qt_observation_worker.py",
+    "task_observation_engine/tests/test_qt_observation_bridge.py",
+    "task_observation_engine/tests/test_qt_observation_plot.py",
+    "task_observation_engine/tests/test_observation_engine.py",
+    "task_observation_engine/tests/test_observation_derivers.py",
+    "task_observation_engine/tests/test_observation_derivation_integration.py",
+    # ---------------------------------------------------------
+    # Application integration
+    # ---------------------------------------------------------
+    "main.py",
+    "app_menu_bar.py",
 ]
 
 

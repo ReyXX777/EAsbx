@@ -2,3 +2,35 @@ pytest task_observation_engine/tests/test_qt_observation_worker.py -q
 pytest task_observation_engine/tests/test_qt_observation_bridge.py -q
 pytest task_observation_engine/tests/test_qt_observation_plot.py -q
 pytest task_observation_engine/tests/test_qt_observation_widget.py -q
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ OBSERVATION MONITOR                              ● LIVE     ⟳ Refresh       │
+├────────────────┬────────────────────────────────────────────────────────────┤
+│                │  Filesystem Task                                           │
+│ 🔴 Live        │  Session abc123     ● Completed     01:42                  │
+│                │                                                            │
+│ 🔎 Search      ├──────────────────────────────┬─────────────────────────────┤
+│                │                              │                             │
+│ FILTERS        │      ① ACTIVITY             │       ② METRICS              │
+│                │      TIMELINE               │       DASHBOARD              │
+│ Status         │                              │                             │
+│ ☑ Completed    │      ● Start                │     42 Events                │
+│ ☐ Running      │      │                      │      7 Tool Calls            │
+│ ☐ Failed       │      ● read_file            │      3 File Accesses         │
+│                │      │                      │      01:42 Duration           │
+│ Family         │      ● search_files         │                             │
+│ [All ▼]        │      │                      │                             │
+│                │      ● Completed            │                             │
+│ SESSIONS       ├──────────────────────────────┼─────────────────────────────┤
+│                │                              │                             │
+│ Today          │      ③ CONTINUOUS           │       ④ TRACE               │
+│                │      OBSERVATIONS            │       INSPECTOR             │
+│ filesystem     │                              │                             │
+│ browser        │      [duration ▼]            │       read_file             │
+│ filesystem     │                              │       ──────────             │
+│                │       ╭──╮                   │       Phase: tool_started   │
+│ Yesterday      │       │  ╰──╮                │       Action: read_file     │
+│                │    ───╯     ╰──              │       Path: ...             │
+│ browser        │                              │       Values: {...}         │
+│                │                              │                             │
+└────────────────┴──────────────────────────────┴─────────────────────────────┘
