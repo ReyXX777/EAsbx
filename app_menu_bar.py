@@ -17,7 +17,7 @@ class AppMenuBar(QMenuBar):
 
         agent_menu = self.addMenu("Agent")
 
-        status_action = agent_menu.addAction("🔍 Agent Diagnostics & Status")
+        status_action = agent_menu.addAction("Diagnostics")
 
         status_action.setShortcut("Ctrl+D")
 
@@ -27,7 +27,7 @@ class AppMenuBar(QMenuBar):
         # Observation
         # --------------------------------------------------------------
 
-        observation_action = agent_menu.addAction("📊 Observation Monitor")
+        observation_action = agent_menu.addAction("Observation")
 
         observation_action.setShortcut("Ctrl+Shift+O")
 

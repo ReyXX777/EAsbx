@@ -33,7 +33,7 @@ class ObservationHeader(QWidget):
         )
 
         self.title_label = QLabel(
-            "OBSERVATION MONITOR",
+            "MONITOR",
         )
 
         self.title_label.setStyleSheet("font-size: 16px; font-weight: bold;")

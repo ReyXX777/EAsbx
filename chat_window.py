@@ -517,7 +517,7 @@ class ChatWindowWidget(QFrame):
 
         title_layout.setSpacing(1)
 
-        self.agent_title = QLabel("Cowork Agent")
+        self.agent_title = QLabel("EAgent")
 
         self.agent_title.setObjectName("agentTitle")
 
@@ -746,7 +746,7 @@ class ChatWindowWidget(QFrame):
 
         hint_layout.addStretch()
 
-        shortcut = QLabel("Enter to send")
+        shortcut = QLabel("")
 
         shortcut.setObjectName("composerShortcut")
 

@@ -84,6 +84,7 @@ class MainWindow(QMainWindow):
         self.agent_worker = None
         self.active_agent_type = None
         self.current_task = None
+        self.current_task_item = None
         self.pending_approval_task = None
         self.pending_approval_intent = None
 
@@ -224,7 +225,7 @@ class MainWindow(QMainWindow):
 
         self.current_task = task
 
-        self.task_bar.add_task(
+        self.current_task_item = self.task_bar.add_task(
             f"{task_prompt}",
             status=TaskBarWidget.STATUS_QUEUED,
         )
@@ -245,6 +246,13 @@ class MainWindow(QMainWindow):
             )
 
             self.chat_window.chat_display.append(error_html)
+            if self.current_task_item is not None:
+                self.task_bar.mark_task_failed(self.current_task_item)
+
+            self.task_bar.clear_active_task()
+
+            self.current_task = None
+            self.current_task_item = None
             self.task_bar.clear_active_task()
             return
 
@@ -277,7 +285,13 @@ class MainWindow(QMainWindow):
             )
 
             self.chat_window.chat_display.append(error_html)
+            if self.current_task_item is not None:
+                self.task_bar.mark_task_failed(self.current_task_item)
+
             self.task_bar.clear_active_task()
+
+            self.current_task = None
+            self.current_task_item = None
             return
 
         # ---------------------------------------------------------
@@ -320,10 +334,16 @@ class MainWindow(QMainWindow):
             self.chat_window.chat_display.append(
                 ChatMessageFormatter.format_message(
                     "error",
-                    "🛑 Task denied by the local approval policy.\n" f"{reasons}",
+                    "Task denied by the local approval policy.\n" f"{reasons}",
                 )
             )
+            if self.current_task_item is not None:
+                self.task_bar.mark_task_cancelled(self.current_task_item)
+
             self.task_bar.clear_active_task()
+
+            self.current_task = None
+            self.current_task_item = None
 
             return
         # ---------------------------------------------------------
@@ -423,6 +443,16 @@ class MainWindow(QMainWindow):
                 f"Unsupported task intent: {intent}",
             )
         )
+        if self.current_task_item is not None:
+            self.task_bar.mark_task_failed(self.current_task_item)
+
+        self.task_bar.clear_active_task()
+
+        self.chat_window._reset_input_state()
+
+        self.active_agent_type = None
+        self.current_task = None
+        self.current_task_item = None
 
     # =============================================================
     # Browser task execution
@@ -552,6 +582,17 @@ class MainWindow(QMainWindow):
                 )
             )
 
+            if self.current_task_item is not None:
+                self.task_bar.mark_task_failed(self.current_task_item)
+
+            self.task_bar.clear_active_task()
+
+            self.chat_window._reset_input_state()
+
+            self.active_agent_type = None
+            self.current_task = None
+            self.current_task_item = None
+
             return
 
         # ---------------------------------------------------------
@@ -567,6 +608,17 @@ class MainWindow(QMainWindow):
                     "GEMINI_API_KEY environment variable is missing.",
                 )
             )
+
+            if self.current_task_item is not None:
+                self.task_bar.mark_task_failed(self.current_task_item)
+
+            self.task_bar.clear_active_task()
+
+            self.chat_window._reset_input_state()
+
+            self.active_agent_type = None
+            self.current_task = None
+            self.current_task_item = None
 
             return
 
@@ -645,12 +697,20 @@ class MainWindow(QMainWindow):
 
         self.pending_approval_task = None
 
+        if self.current_task_item is not None:
+            self.task_bar.mark_task_cancelled(self.current_task_item)
+
+        self.task_bar.clear_active_task()
+
         self.current_task = None
+        self.current_task_item = None
+
+        self.chat_window._reset_input_state()
 
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                "🛑 Human approval denied. " "The task will not be executed.",
+                "Human approval denied. " "The task will not be executed.",
             )
         )
 
@@ -695,7 +755,17 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(header_html)
 
         self.chat_window.chat_display.append(parsed_content)
+
+        if self.current_task_item is not None:
+            self.task_bar.mark_task_completed(self.current_task_item)
+
+        self.task_bar.clear_active_task()
+
+        self.chat_window._reset_input_state()
+
         self.active_agent_type = None
+        self.current_task = None
+        self.current_task_item = None
 
     # =============================================================
     # Filesystem completion
@@ -730,7 +800,16 @@ class MainWindow(QMainWindow):
                 final_text,
             )
         )
+        if self.current_task_item is not None:
+            self.task_bar.mark_task_completed(self.current_task_item)
+
+        self.task_bar.clear_active_task()
+
+        self.chat_window._reset_input_state()
+
         self.active_agent_type = None
+        self.current_task = None
+        self.current_task_item = None
 
     # =============================================================
     # Filesystem errors
@@ -748,7 +827,16 @@ class MainWindow(QMainWindow):
                 f"Filesystem Agent Error: {error_message}",
             )
         )
+        if self.current_task_item is not None:
+            self.task_bar.mark_task_failed(self.current_task_item)
+
+        self.task_bar.clear_active_task()
+
+        self.chat_window._reset_input_state()
+
         self.active_agent_type = None
+        self.current_task = None
+        self.current_task_item = None
 
     # =============================================================
     # Task cancellation
@@ -763,6 +851,17 @@ class MainWindow(QMainWindow):
             return
 
         self.agent_worker.cancel()
+
+        if self.current_task_item is not None:
+            self.task_bar.mark_task_cancelled(self.current_task_item)
+
+        self.task_bar.clear_active_task()
+
+        self.chat_window._reset_input_state()
+
+        self.active_agent_type = None
+        self.current_task = None
+        self.current_task_item = None
 
 
 # ================================================================
