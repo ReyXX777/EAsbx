@@ -45,10 +45,18 @@ class ObservationHeader(QWidget):
         layout.addStretch()
 
         self.live_label = QLabel(
-            "● LIVE",
+            "🔴 Live",
         )
 
-        self.live_label.setStyleSheet("font-weight: bold;")
+        self.live_label.setProperty(
+            "role",
+            "status_indicator",
+        )
+
+        self.live_label.setProperty(
+            "status",
+            "live",
+        )
 
         layout.addWidget(
             self.live_label,

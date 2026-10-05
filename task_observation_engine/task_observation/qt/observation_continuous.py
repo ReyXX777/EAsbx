@@ -28,6 +28,10 @@ class ObservationContinuous(QWidget):
 
         self._build_ui()
 
+    # ==================================================================
+    # UI
+    # ==================================================================
+
     def _build_ui(self) -> None:
         layout = QVBoxLayout(
             self,
@@ -43,8 +47,17 @@ class ObservationContinuous(QWidget):
 
         selector_layout = QHBoxLayout()
 
+        feature_label = QLabel(
+            "Feature:",
+        )
+
+        feature_label.setProperty(
+            "role",
+            "muted",
+        )
+
         selector_layout.addWidget(
-            QLabel("Feature:"),
+            feature_label,
         )
 
         self.feature_selector = QComboBox()
@@ -72,6 +85,10 @@ class ObservationContinuous(QWidget):
         self.feature_selector.currentTextChanged.connect(
             self._render_selected,
         )
+
+    # ==================================================================
+    # History
+    # ==================================================================
 
     def set_history(
         self,
@@ -128,11 +145,16 @@ class ObservationContinuous(QWidget):
 
         try:
             history.refresh()
+
         except Exception:
             # History refresh must never break the observation monitor.
             pass
 
         self._refresh_features()
+
+    # ==================================================================
+    # Rendering
+    # ==================================================================
 
     def _render_selected(
         self,
@@ -148,6 +170,7 @@ class ObservationContinuous(QWidget):
             raw_values = history.get_values(
                 name,
             )
+
         except Exception:
             raw_values = []
 
@@ -161,6 +184,7 @@ class ObservationContinuous(QWidget):
                 values.append(
                     float(value),
                 )
+
             except (
                 TypeError,
                 ValueError,
@@ -173,8 +197,11 @@ class ObservationContinuous(QWidget):
 
         self.plot.set_data(
             values,
-            name,
         )
+
+    # ==================================================================
+    # Lifecycle
+    # ==================================================================
 
     def clear(self) -> None:
         self._history = None

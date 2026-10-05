@@ -4,8 +4,10 @@ import math
 from typing import Iterable
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
+
+from qt_theme import ThemeManager
 
 
 class ObservationPlot(QWidget):
@@ -20,23 +22,31 @@ class ObservationPlot(QWidget):
     - collector implementations
 
     It only receives numeric values and renders them.
+
+    Visual styling is provided by the global MOCKAPP Qt theme.
     """
 
     def __init__(
         self,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+        )
 
-        self.setMinimumHeight(220)
+        self.setMinimumHeight(
+            220,
+        )
 
         self._values: list[float] = []
-        self._title = "Continuous Feature"
+
+    # ==================================================================
+    # Data
+    # ==================================================================
 
     def set_data(
         self,
         values: Iterable[float],
-        title: str = "Continuous Feature",
     ) -> None:
         """Replace the plotted values."""
 
@@ -45,16 +55,21 @@ class ObservationPlot(QWidget):
         for value in values:
             try:
                 numeric = float(value)
-            except (TypeError, ValueError):
+
+            except (
+                TypeError,
+                ValueError,
+            ):
                 continue
 
             if not math.isfinite(numeric):
                 continue
 
-            cleaned.append(numeric)
+            cleaned.append(
+                numeric,
+            )
 
         self._values = cleaned
-        self._title = str(title)
 
         self.update()
 
@@ -62,16 +77,37 @@ class ObservationPlot(QWidget):
         """Clear the current plot."""
 
         self._values.clear()
+
         self.update()
 
-    def paintEvent(self, _event) -> None:
-        painter = QPainter(self)
+    # ==================================================================
+    # Theme
+    # ==================================================================
+
+    def _theme_palette(self):
+        """Return the current global theme palette."""
+
+        return ThemeManager.instance().palette
+
+    # ==================================================================
+    # Painting
+    # ==================================================================
+
+    def paintEvent(
+        self,
+        _event,
+    ) -> None:
+        painter = QPainter(
+            self,
+        )
 
         try:
             painter.setRenderHint(
-                QPainter.Antialiasing,
+                QPainter.RenderHint.Antialiasing,
                 True,
             )
+
+            palette = self._theme_palette()
 
             rect = self.rect().adjusted(
                 45,
@@ -80,22 +116,36 @@ class ObservationPlot(QWidget):
                 -35,
             )
 
-            painter.drawText(
-                10,
-                18,
-                self._title,
-            )
+            # ----------------------------------------------------------
+            # Empty state
+            # ----------------------------------------------------------
 
             if not self._values:
+                painter.setPen(
+                    QColor(
+                        palette.text_muted,
+                    ),
+                )
+
                 painter.drawText(
                     rect,
-                    Qt.AlignCenter,
+                    Qt.AlignmentFlag.AlignCenter,
                     "No numeric observations.",
                 )
+
                 return
 
-            minimum = min(self._values)
-            maximum = max(self._values)
+            # ----------------------------------------------------------
+            # Value range
+            # ----------------------------------------------------------
+
+            minimum = min(
+                self._values,
+            )
+
+            maximum = max(
+                self._values,
+            )
 
             if math.isclose(
                 minimum,
@@ -109,17 +159,47 @@ class ObservationPlot(QWidget):
                 minimum -= padding
                 maximum += padding
 
+            # ----------------------------------------------------------
+            # Plot frame
+            # ----------------------------------------------------------
+
+            frame_pen = QPen(
+                QColor(
+                    palette.border,
+                ),
+                1.0,
+            )
+
+            painter.setPen(
+                frame_pen,
+            )
+
+            painter.setBrush(
+                Qt.BrushStyle.NoBrush,
+            )
+
             painter.drawRect(
                 rect,
             )
 
-            point_count = len(self._values)
+            # ----------------------------------------------------------
+            # Points
+            # ----------------------------------------------------------
+
+            point_count = len(
+                self._values,
+            )
 
             points: list[QPointF] = []
 
-            for index, value in enumerate(self._values):
+            for index, value in enumerate(
+                self._values,
+            ):
                 if point_count == 1:
-                    x = float(rect.center().x())
+                    x = float(
+                        rect.center().x(),
+                    )
+
                 else:
                     x = rect.left() + (index / (point_count - 1)) * rect.width()
 
@@ -131,19 +211,59 @@ class ObservationPlot(QWidget):
                     QPointF(
                         x,
                         y,
-                    )
+                    ),
                 )
+
+            # ----------------------------------------------------------
+            # Observation line
+            # ----------------------------------------------------------
+
+            line_pen = QPen(
+                QColor(
+                    palette.accent,
+                ),
+                2.0,
+            )
+
+            line_pen.setCapStyle(
+                Qt.PenCapStyle.RoundCap,
+            )
+
+            line_pen.setJoinStyle(
+                Qt.PenJoinStyle.RoundJoin,
+            )
+
+            painter.setPen(
+                line_pen,
+            )
 
             if len(points) >= 2:
                 painter.drawPolyline(
                     points,
                 )
+
             else:
+                painter.setBrush(
+                    QColor(
+                        palette.accent,
+                    ),
+                )
+
                 painter.drawEllipse(
                     points[0],
-                    3,
-                    3,
+                    3.0,
+                    3.0,
                 )
+
+            # ----------------------------------------------------------
+            # Y-axis labels
+            # ----------------------------------------------------------
+
+            painter.setPen(
+                QColor(
+                    palette.text_muted,
+                ),
+            )
 
             painter.drawText(
                 5,
@@ -156,6 +276,10 @@ class ObservationPlot(QWidget):
                 rect.bottom(),
                 f"{minimum:.4g}",
             )
+
+            # ----------------------------------------------------------
+            # X-axis labels
+            # ----------------------------------------------------------
 
             painter.drawText(
                 rect.left(),

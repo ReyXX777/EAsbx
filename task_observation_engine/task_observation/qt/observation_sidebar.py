@@ -6,18 +6,23 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 
 class ObservationSidebar(QWidget):
-    """Navigation, search, filtering and session selection."""
+    """Navigation, search, filtering and session selection.
+
+    This widget contains presentation and filtering controls only.
+
+    Visual styling is delegated to the global MOCKAPP Qt theme.
+    """
 
     session_selected = Signal(str)
     filters_changed = Signal()
@@ -26,15 +31,33 @@ class ObservationSidebar(QWidget):
         self,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+        )
 
         self._all_sessions: list[dict] = []
+
+        self.setProperty(
+            "role",
+            "panel",
+        )
+
+        self.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Expanding,
+        )
 
         self._build_ui()
         self._connect_signals()
 
+    # ==================================================================
+    # UI
+    # ==================================================================
+
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
+        root = QVBoxLayout(
+            self,
+        )
 
         root.setContentsMargins(
             8,
@@ -43,17 +66,35 @@ class ObservationSidebar(QWidget):
             8,
         )
 
-        root.setSpacing(8)
+        root.setSpacing(
+            8,
+        )
+
+        # --------------------------------------------------------------
+        # Live status
+        # --------------------------------------------------------------
 
         self.live_label = QLabel(
             "🔴 Live",
         )
 
-        self.live_label.setStyleSheet("font-weight: bold;")
+        self.live_label.setProperty(
+            "role",
+            "status",
+        )
+
+        self.live_label.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Fixed,
+        )
 
         root.addWidget(
             self.live_label,
         )
+
+        # --------------------------------------------------------------
+        # Search
+        # --------------------------------------------------------------
 
         self.search_field = QLineEdit()
 
@@ -61,30 +102,72 @@ class ObservationSidebar(QWidget):
             "Search sessions...",
         )
 
+        self.search_field.setClearButtonEnabled(
+            True,
+        )
+
+        self.search_field.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
         root.addWidget(
             self.search_field,
         )
+
+        # --------------------------------------------------------------
+        # Filters heading
+        # --------------------------------------------------------------
 
         filters_label = QLabel(
             "FILTERS",
         )
 
-        filters_label.setStyleSheet("font-weight: bold;")
+        filters_label.setProperty(
+            "role",
+            "section",
+        )
+
+        filters_label.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Fixed,
+        )
 
         root.addWidget(
             filters_label,
         )
 
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
         # Status
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
 
         status_group = QGroupBox(
             "Status",
         )
 
+        status_group.setProperty(
+            "role",
+            "panel",
+        )
+
+        status_group.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
         status_layout = QVBoxLayout(
             status_group,
+        )
+
+        status_layout.setContentsMargins(
+            8,
+            8,
+            8,
+            8,
+        )
+
+        status_layout.setSpacing(
+            6,
         )
 
         self.status_selector = QComboBox()
@@ -99,6 +182,11 @@ class ObservationSidebar(QWidget):
             ]
         )
 
+        self.status_selector.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
         status_layout.addWidget(
             self.status_selector,
         )
@@ -107,22 +195,48 @@ class ObservationSidebar(QWidget):
             status_group,
         )
 
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
         # Family
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
 
         family_group = QGroupBox(
             "Family",
+        )
+
+        family_group.setProperty(
+            "role",
+            "panel",
+        )
+
+        family_group.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
         )
 
         family_layout = QVBoxLayout(
             family_group,
         )
 
+        family_layout.setContentsMargins(
+            8,
+            8,
+            8,
+            8,
+        )
+
+        family_layout.setSpacing(
+            6,
+        )
+
         self.family_selector = QComboBox()
 
         self.family_selector.addItem(
             "All",
+        )
+
+        self.family_selector.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
         )
 
         family_layout.addWidget(
@@ -133,26 +247,51 @@ class ObservationSidebar(QWidget):
             family_group,
         )
 
-        # ----------------------------------------------------------
-        # Sessions
-        # ----------------------------------------------------------
+        # --------------------------------------------------------------
+        # Sessions heading
+        # --------------------------------------------------------------
 
         sessions_label = QLabel(
             "SESSIONS",
         )
 
-        sessions_label.setStyleSheet("font-weight: bold;")
+        sessions_label.setProperty(
+            "role",
+            "section",
+        )
+
+        sessions_label.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Fixed,
+        )
 
         root.addWidget(
             sessions_label,
         )
 
+        # --------------------------------------------------------------
+        # Session list
+        # --------------------------------------------------------------
+
         self.session_list = QListWidget()
+
+        self.session_list.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding,
+        )
+
+        self.session_list.setSelectionMode(
+            QListWidget.SingleSelection,
+        )
 
         root.addWidget(
             self.session_list,
             1,
         )
+
+    # ==================================================================
+    # Signals
+    # ==================================================================
 
     def _connect_signals(self) -> None:
         self.search_field.textChanged.connect(
@@ -171,6 +310,10 @@ class ObservationSidebar(QWidget):
             self._session_clicked,
         )
 
+    # ==================================================================
+    # Live state
+    # ==================================================================
+
     def set_live(
         self,
         live: bool,
@@ -183,6 +326,10 @@ class ObservationSidebar(QWidget):
             self.live_label.setText(
                 "⚪ No active session",
             )
+
+    # ==================================================================
+    # Sessions
+    # ==================================================================
 
     def set_sessions(
         self,
@@ -210,7 +357,10 @@ class ObservationSidebar(QWidget):
 
         try:
             self.family_selector.clear()
-            self.family_selector.addItem("All")
+
+            self.family_selector.addItem(
+                "All",
+            )
 
             for family in families:
                 self.family_selector.addItem(
@@ -221,6 +371,7 @@ class ObservationSidebar(QWidget):
                 self.family_selector.setCurrentText(
                     current,
                 )
+
             else:
                 self.family_selector.setCurrentText(
                     "All",
@@ -230,6 +381,10 @@ class ObservationSidebar(QWidget):
             self.family_selector.blockSignals(
                 False,
             )
+
+    # ==================================================================
+    # Filtering
+    # ==================================================================
 
     def _apply_filters(self) -> None:
         search = self.search_field.text().strip().lower()
@@ -241,11 +396,26 @@ class ObservationSidebar(QWidget):
         self.session_list.clear()
 
         for session in self._all_sessions:
-            session_id = str(session.get("session_id", ""))
+            session_id = str(
+                session.get(
+                    "session_id",
+                    "",
+                )
+            )
 
-            session_family = str(session.get("family", ""))
+            session_family = str(
+                session.get(
+                    "family",
+                    "",
+                )
+            )
 
-            session_status = str(session.get("status", "")).lower()
+            session_status = str(
+                session.get(
+                    "status",
+                    "",
+                )
+            ).lower()
 
             searchable = (
                 f"{session_id} " f"{session_family} " f"{session_status}"
@@ -279,6 +449,10 @@ class ObservationSidebar(QWidget):
 
         self.filters_changed.emit()
 
+    # ==================================================================
+    # Selection
+    # ==================================================================
+
     def _session_clicked(
         self,
         item: QListWidgetItem,
@@ -292,14 +466,33 @@ class ObservationSidebar(QWidget):
                 str(session_id),
             )
 
+    # ==================================================================
+    # Formatting
+    # ==================================================================
+
     @staticmethod
     def _format_session_label(
         session: dict,
     ) -> str:
-        family = str(session.get("family", "unknown"))
+        family = str(
+            session.get(
+                "family",
+                "unknown",
+            )
+        )
 
-        status = str(session.get("status", "unknown"))
+        status = str(
+            session.get(
+                "status",
+                "unknown",
+            )
+        )
 
-        session_id = str(session.get("session_id", ""))
+        session_id = str(
+            session.get(
+                "session_id",
+                "",
+            )
+        )
 
         return f"{family}  •  " f"{status}  •  " f"{session_id}"

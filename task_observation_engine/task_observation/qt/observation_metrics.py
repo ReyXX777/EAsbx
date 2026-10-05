@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from typing import Any
+from PySide6.QtCore import Qt
 
 from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QLabel,
+    QSizePolicy,
     QWidget,
 )
 
@@ -13,25 +15,82 @@ from ..models import ObservationSnapshot
 
 
 class ObservationMetrics(QWidget):
-    """Derived task metrics dashboard."""
+    """Derived task metrics dashboard.
+
+    Visual styling is delegated to the global MOCKAPP Qt theme.
+    """
 
     def __init__(
         self,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+        )
+
+        self.setProperty(
+            "role",
+            "panel",
+        )
+
+        self.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding,
+        )
 
         self._build_ui()
 
+    # ==================================================================
+    # UI
+    # ==================================================================
+
     def _build_ui(self) -> None:
-        layout = QGridLayout(self)
+        layout = QGridLayout(
+            self,
+        )
+
+        layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        layout.setSpacing(
+            0,
+        )
 
         group = QGroupBox(
             "② METRICS DASHBOARD",
         )
 
+        group.setProperty(
+            "role",
+            "panel",
+        )
+
+        group.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding,
+        )
+
         grid = QGridLayout(
             group,
+        )
+
+        grid.setContentsMargins(
+            10,
+            10,
+            10,
+            10,
+        )
+
+        grid.setHorizontalSpacing(
+            12,
+        )
+
+        grid.setVerticalSpacing(
+            8,
         )
 
         self.events_value = self._metric(
@@ -58,11 +117,45 @@ class ObservationMetrics(QWidget):
             "Duration",
         )
 
+        # Labels remain compact while the value column absorbs
+        # additional horizontal space when the panel expands.
+        grid.setColumnStretch(
+            0,
+            0,
+        )
+
+        grid.setColumnStretch(
+            1,
+            1,
+        )
+
+        # The rows share available vertical space instead of allowing
+        # one metric to crowd or overlap another.
+        for row in range(4):
+            grid.setRowStretch(
+                row,
+                1,
+            )
+
         layout.addWidget(
             group,
             0,
             0,
         )
+
+        layout.setRowStretch(
+            0,
+            1,
+        )
+
+        layout.setColumnStretch(
+            0,
+            1,
+        )
+
+    # ==================================================================
+    # Metric construction
+    # ==================================================================
 
     @staticmethod
     def _metric(
@@ -74,11 +167,33 @@ class ObservationMetrics(QWidget):
             label,
         )
 
+        name.setProperty(
+            "role",
+            "muted",
+        )
+
+        name.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Preferred,
+        )
+
         value = QLabel(
             "—",
         )
 
-        value.setStyleSheet("font-size: 18px; font-weight: bold;")
+        value.setProperty(
+            "role",
+            "value",
+        )
+
+        value.setAlignment(
+            Qt.AlignRight | Qt.AlignVCenter,
+        )
+
+        value.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Preferred,
+        )
 
         layout.addWidget(
             name,
@@ -93,6 +208,10 @@ class ObservationMetrics(QWidget):
         )
 
         return value
+
+    # ==================================================================
+    # Snapshot
+    # ==================================================================
 
     def set_snapshot(
         self,
@@ -145,6 +264,10 @@ class ObservationMetrics(QWidget):
             )
         )
 
+    # ==================================================================
+    # Formatting
+    # ==================================================================
+
     @staticmethod
     def _first_value(
         values: dict[str, Any],
@@ -162,10 +285,14 @@ class ObservationMetrics(QWidget):
             return "—"
 
         try:
-            numeric = float(value)
+            numeric = float(
+                value,
+            )
 
             if numeric.is_integer():
-                return str(int(numeric))
+                return str(
+                    int(numeric),
+                )
 
             return f"{numeric:.2f}"
 
@@ -183,7 +310,9 @@ class ObservationMetrics(QWidget):
             return "—"
 
         try:
-            seconds = int(float(value))
+            seconds = int(
+                float(value),
+            )
 
         except (
             TypeError,
@@ -198,8 +327,23 @@ class ObservationMetrics(QWidget):
 
         return f"{minutes:02d}:{seconds:02d}"
 
+    # ==================================================================
+    # Lifecycle
+    # ==================================================================
+
     def clear(self) -> None:
-        self.events_value.setText("—")
-        self.tools_value.setText("—")
-        self.files_value.setText("—")
-        self.duration_value.setText("—")
+        self.events_value.setText(
+            "—",
+        )
+
+        self.tools_value.setText(
+            "—",
+        )
+
+        self.files_value.setText(
+            "—",
+        )
+
+        self.duration_value.setText(
+            "—",
+        )

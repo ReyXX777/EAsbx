@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
+from qt_theme import ResponsiveMetrics
+
+from ..history import ObservationHistory
 from ..models import (
     ObservationSnapshot,
     TracePoint,
@@ -24,7 +25,6 @@ from .observation_header import ObservationHeader
 from .observation_metrics import ObservationMetrics
 from .observation_sidebar import ObservationSidebar
 from .observation_trace import ObservationTrace
-from ..history import ObservationHistory
 
 
 class ObservationWidget(QWidget):
@@ -36,6 +36,15 @@ class ObservationWidget(QWidget):
 
     The filesystem agent owns the actual observation session.
     This widget reads persisted observations through ReplayAPI.
+
+    Layout responsibilities are limited to:
+
+    - responsive geometry,
+    - splitter allocation,
+    - minimum-size protection,
+    - composition of observation panels.
+
+    Visual styling is provided by the global MOCKAPP Qt theme.
     """
 
     def __init__(
@@ -43,7 +52,9 @@ class ObservationWidget(QWidget):
         storage_root: str,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(
+            parent,
+        )
 
         self.storage_root = storage_root
 
@@ -52,6 +63,8 @@ class ObservationWidget(QWidget):
         )
 
         self._snapshot: ObservationSnapshot | None = None
+
+        self._layout_initialized = False
 
         self._build_ui()
 
@@ -62,22 +75,33 @@ class ObservationWidget(QWidget):
     # ==================================================================
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
+        metrics = ResponsiveMetrics()
 
-        root.setContentsMargins(
-            0,
-            0,
-            0,
-            0,
+        root = QVBoxLayout(
+            self,
         )
 
-        root.setSpacing(0)
+        root.setContentsMargins(
+            metrics.margin(),
+            metrics.margin(),
+            metrics.margin(),
+            metrics.margin(),
+        )
+
+        root.setSpacing(
+            metrics.spacing(),
+        )
 
         # --------------------------------------------------------------
         # Header
         # --------------------------------------------------------------
 
         self.header = ObservationHeader()
+
+        self.header.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
 
         self.header.refresh_requested.connect(
             self.refresh,
@@ -88,11 +112,24 @@ class ObservationWidget(QWidget):
         )
 
         # --------------------------------------------------------------
-        # Main horizontal layout
+        # Main horizontal splitter
         # --------------------------------------------------------------
 
-        main_splitter = QSplitter(
-            Qt.Horizontal,
+        self.main_splitter = QSplitter(
+            Qt.Orientation.Horizontal,
+        )
+
+        self.main_splitter.setChildrenCollapsible(
+            False,
+        )
+
+        self.main_splitter.setHandleWidth(
+            metrics.splitter_handle(),
+        )
+
+        self.main_splitter.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
         )
 
         # --------------------------------------------------------------
@@ -101,19 +138,41 @@ class ObservationWidget(QWidget):
 
         self.sidebar = ObservationSidebar()
 
+        self.sidebar.setMinimumWidth(
+            metrics.px(
+                190,
+                170,
+            ),
+        )
+
+        self.sidebar.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Expanding,
+        )
+
         self.sidebar.session_selected.connect(
             self._load_session,
         )
 
-        main_splitter.addWidget(
+        self.main_splitter.addWidget(
             self.sidebar,
         )
 
         # --------------------------------------------------------------
-        # Four-panel display area
+        # Main content
         # --------------------------------------------------------------
 
         content = QWidget()
+
+        content.setProperty(
+            "role",
+            "panel",
+        )
+
+        content.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
 
         content_layout = QVBoxLayout(
             content,
@@ -126,37 +185,94 @@ class ObservationWidget(QWidget):
             0,
         )
 
-        content_layout.setSpacing(0)
+        content_layout.setSpacing(
+            metrics.spacing(),
+        )
 
         # ==============================================================
-        # Row 1
+        # Top row
         # ==============================================================
 
-        top_splitter = QSplitter(
-            Qt.Horizontal,
+        self.top_splitter = QSplitter(
+            Qt.Orientation.Horizontal,
+        )
+
+        self.top_splitter.setChildrenCollapsible(
+            False,
+        )
+
+        self.top_splitter.setHandleWidth(
+            metrics.splitter_handle(),
+        )
+
+        self.top_splitter.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
         )
 
         self.activity = ObservationActivity()
 
+        self.activity.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+
         self.metrics = ObservationMetrics()
 
-        top_splitter.addWidget(
+        self.metrics.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+
+        self.top_splitter.addWidget(
             self.activity,
         )
 
-        top_splitter.addWidget(
+        self.top_splitter.addWidget(
             self.metrics,
         )
 
+        self.top_splitter.setStretchFactor(
+            0,
+            1,
+        )
+
+        self.top_splitter.setStretchFactor(
+            1,
+            1,
+        )
+
         # ==============================================================
-        # Row 2
+        # Bottom row
         # ==============================================================
 
-        bottom_splitter = QSplitter(
-            Qt.Horizontal,
+        self.bottom_splitter = QSplitter(
+            Qt.Orientation.Horizontal,
+        )
+
+        self.bottom_splitter.setChildrenCollapsible(
+            False,
+        )
+
+        self.bottom_splitter.setHandleWidth(
+            metrics.splitter_handle(),
+        )
+
+        self.bottom_splitter.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
         )
 
         self.continuous = ObservationContinuous()
+
+        self.continuous.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+
+        self.continuous.setMinimumWidth(
+            metrics.panel_min_width(),
+        )
 
         self.continuous.set_history(
             self.history,
@@ -164,37 +280,67 @@ class ObservationWidget(QWidget):
 
         self.trace = ObservationTrace()
 
-        bottom_splitter.addWidget(
+        self.trace.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+
+        self.trace.setMinimumWidth(
+            metrics.panel_min_width(),
+        )
+
+        self.bottom_splitter.addWidget(
             self.continuous,
         )
 
-        bottom_splitter.addWidget(
+        self.bottom_splitter.addWidget(
             self.trace,
         )
 
+        self.bottom_splitter.setStretchFactor(
+            0,
+            1,
+        )
+
+        self.bottom_splitter.setStretchFactor(
+            1,
+            1,
+        )
+
+        # --------------------------------------------------------------
+        # Content rows
+        # --------------------------------------------------------------
+
         content_layout.addWidget(
-            top_splitter,
+            self.top_splitter,
             1,
         )
 
         content_layout.addWidget(
-            bottom_splitter,
+            self.bottom_splitter,
             1,
         )
 
-        main_splitter.addWidget(
+        # --------------------------------------------------------------
+        # Main content
+        # --------------------------------------------------------------
+
+        self.main_splitter.addWidget(
             content,
         )
 
-        main_splitter.setSizes(
-            [
-                240,
-                960,
-            ]
+        self.main_splitter.setStretchFactor(
+            0,
+            0,
+        )
+
+        self.main_splitter.setStretchFactor(
+            1,
+            1,
         )
 
         root.addWidget(
-            main_splitter,
+            self.main_splitter,
             1,
         )
 
@@ -207,12 +353,100 @@ class ObservationWidget(QWidget):
         )
 
     # ==================================================================
+    # Responsive layout
+    # ==================================================================
+
+    def _initialize_splitter_sizes(self) -> None:
+        """Initialize splitter geometry from the current available size.
+
+        This method only establishes sensible starting geometry.
+
+        After initialization, the user remains free to move the
+        splitters manually.
+        """
+
+        if self._layout_initialized:
+            return
+
+        if self.width() <= 0 or self.height() <= 0:
+            return
+
+        metrics = ResponsiveMetrics.for_widget(
+            self,
+        )
+
+        sidebar_width = metrics.sidebar_width()
+
+        total_width = self.main_splitter.width()
+
+        if total_width <= sidebar_width:
+            sidebar_width = max(
+                metrics.px(
+                    180,
+                    160,
+                ),
+                total_width // 5,
+            )
+
+        content_width = max(
+            1,
+            total_width - sidebar_width,
+        )
+
+        self.main_splitter.setSizes(
+            [
+                sidebar_width,
+                content_width,
+            ],
+        )
+
+        content_width = self.main_splitter.sizes()[1]
+
+        if content_width > 0:
+            left_width = max(
+                metrics.panel_min_width(),
+                content_width // 2,
+            )
+
+            right_width = max(
+                metrics.panel_min_width(),
+                content_width - left_width,
+            )
+
+            self.top_splitter.setSizes(
+                [
+                    left_width,
+                    right_width,
+                ],
+            )
+
+            self.bottom_splitter.setSizes(
+                [
+                    left_width,
+                    right_width,
+                ],
+            )
+
+        self._layout_initialized = True
+
+    def resizeEvent(
+        self,
+        event,
+    ) -> None:
+        super().resizeEvent(
+            event,
+        )
+
+        self._initialize_splitter_sizes()
+
+    # ==================================================================
     # Refresh
     # ==================================================================
 
     def refresh(self) -> None:
         try:
             self.history.refresh()
+
             replay = ReplayAPI(
                 self.storage_root,
             )
@@ -224,6 +458,7 @@ class ObservationWidget(QWidget):
                 f"History error: {exc}",
             )
             return
+
         self.continuous.refresh()
 
         sessions: list[dict] = []
@@ -337,7 +572,7 @@ class ObservationWidget(QWidget):
         item,
     ) -> None:
         trace = item.data(
-            256,
+            Qt.ItemDataRole.UserRole,
         )
 
         if isinstance(
@@ -380,8 +615,11 @@ class ObservationWidget(QWidget):
         self._snapshot = None
 
         self.activity.clear()
+
         self.metrics.clear()
+
         self.continuous.clear()
+
         self.trace.clear()
 
         self.header.set_live(
@@ -402,5 +640,20 @@ class ObservationWidget(QWidget):
     # Lifecycle
     # ==================================================================
 
-    def closeEvent(self, event) -> None:
-        super().closeEvent(event)
+    def showEvent(
+        self,
+        event,
+    ) -> None:
+        super().showEvent(
+            event,
+        )
+
+        self._initialize_splitter_sizes()
+
+    def closeEvent(
+        self,
+        event,
+    ) -> None:
+        super().closeEvent(
+            event,
+        )
