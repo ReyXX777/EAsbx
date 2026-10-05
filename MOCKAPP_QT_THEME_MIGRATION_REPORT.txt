@@ -30,9 +30,9 @@ The report records:
 
 Requested targets: 1
 Resolved files: 1
-Qt usages detected: 0
-Widget instances detected: 0
-Theme/style findings: 38
+Qt usages detected: 38
+Widget instances detected: 23
+Theme/style findings: 141
 Scanner errors: 0
 
 2. SOURCE FILE ANALYSIS
@@ -40,109 +40,1050 @@ Scanner errors: 0
 
 
 ##########################################################################################
-FILE: agent_response_parser.py
+FILE: task_bar.py
 ##########################################################################################
 
 2.1 QT IMPORTS
 ------------------------------------------------------------
-  <none>
+  from PySide6.QtCore import Qt
+  from PySide6.QtCore import Signal
+  from PySide6.QtGui import QFont
+  from PySide6.QtWidgets import QFrame
+  from PySide6.QtWidgets import QHBoxLayout
+  from PySide6.QtWidgets import QLabel
+  from PySide6.QtWidgets import QLineEdit
+  from PySide6.QtWidgets import QListWidget
+  from PySide6.QtWidgets import QListWidgetItem
+  from PySide6.QtWidgets import QPushButton
+  from PySide6.QtWidgets import QVBoxLayout
+  from PySide6.QtWidgets import QWidget
 
 2.2 CLASSES / QT INHERITANCE
 ------------------------------------------------------------
-  AgentResponseParser [line 8]
+  TaskBarWidget (QFrame) [line 20]
 
 2.3 WIDGET / COMPONENT RECORDS
 ------------------------------------------------------------
 
-  <none detected>
+[WIDGET 1]
+  Variable: header
+  Component: QWidget
+  Created at line: 72
+  Semantic hints:
+    navigation / header surface
+
+[WIDGET 2]
+  Variable: header_layout
+  Component: QVBoxLayout
+  Created at line: 73
+
+[WIDGET 3]
+  Variable: search_container
+  Component: QFrame
+  Created at line: 113
+  Semantic hints:
+    surface / panel
+
+[WIDGET 4]
+  Variable: search_layout
+  Component: QHBoxLayout
+  Created at line: 116
+
+[WIDGET 5]
+  Variable: history_header
+  Component: QWidget
+  Created at line: 166
+  Semantic hints:
+    navigation / header surface
+
+[WIDGET 6]
+  Variable: history_layout
+  Component: QHBoxLayout
+  Created at line: 168
+
+[WIDGET 7]
+  Variable: status_layout
+  Component: QHBoxLayout
+  Created at line: 228
+
+[WIDGET 8]
+  Variable: widget
+  Component: QWidget
+  Created at line: 265
+
+[WIDGET 9]
+  Variable: layout
+  Component: QHBoxLayout
+  Created at line: 267
+
+[WIDGET 10]
+  Variable: label
+  Component: QLabel
+  Created at line: 285
+
+[WIDGET 11]
+  Variable: card
+  Component: QFrame
+  Created at line: 296
+
+[WIDGET 12]
+  Variable: layout
+  Component: QVBoxLayout
+  Created at line: 300
+
+[WIDGET 13]
+  Variable: title
+  Component: QLabel
+  Created at line: 311
+  Semantic hints:
+    title text
+
+[WIDGET 14]
+  Variable: description
+  Component: QLabel
+  Created at line: 315
+  Semantic hints:
+    muted text
+
+[WIDGET 15]
+  Variable: item
+  Component: QListWidgetItem
+  Created at line: 373
+
+[WIDGET 16]
+  Variable: widget
+  Component: QFrame
+  Created at line: 443
+
+[WIDGET 17]
+  Variable: layout
+  Component: QVBoxLayout
+  Created at line: 447
+
+[WIDGET 18]
+  Variable: title
+  Component: QLabel
+  Created at line: 458
+  Semantic hints:
+    title text
+
+[WIDGET 19]
+  Variable: status_row
+  Component: QWidget
+  Created at line: 464
+  Semantic hints:
+    status surface
+
+[WIDGET 20]
+  Variable: status_layout
+  Component: QHBoxLayout
+  Created at line: 466
+
+[WIDGET 21]
+  Variable: indicator
+  Component: QLabel
+  Created at line: 477
+
+[WIDGET 22]
+  Variable: status_label
+  Component: QLabel
+  Created at line: 481
+  Semantic hints:
+    muted text
+
+[WIDGET 23]
+  Variable: indicator_label
+  Component: QLabel
+  Created at line: 279
 
 2.4 QT USAGE WITH SOURCE CONTEXT
 ------------------------------------------------------------
 
+[QT USAGE 1]
+  Component: QFrame
+  Type: class inheritance
+  Line: 20
+  Column: 0
+  Expression: class TaskBarWidget(QFrame)
+
+  Context:
+    Class derives from a Qt visual/component class.
+
+[QT USAGE 2]
+  Component: QVBoxLayout
+  Type: constructor
+  Line: 57
+  Column: 27
+  Expression: QVBoxLayout
+
+  Context:
+          55: 
+          56:     def _build_ui(self):
+    >>    57:         self.main_layout = QVBoxLayout(self)
+          58: 
+          59:         self.main_layout.setContentsMargins(
+
+[QT USAGE 3]
+  Component: QWidget
+  Type: constructor
+  Line: 72
+  Column: 17
+  Expression: QWidget
+
+  Context:
+          70:         # -------------------------------------------------------------
+          71: 
+    >>    72:         header = QWidget()
+          73:         header_layout = QVBoxLayout(header)
+          74: 
+
+[QT USAGE 4]
+  Component: QVBoxLayout
+  Type: constructor
+  Line: 73
+  Column: 24
+  Expression: QVBoxLayout
+
+  Context:
+          71: 
+          72:         header = QWidget()
+    >>    73:         header_layout = QVBoxLayout(header)
+          74: 
+          75:         header_layout.setContentsMargins(2, 2, 2, 0)
+
+[QT USAGE 5]
+  Component: QLabel
+  Type: constructor
+  Line: 78
+  Column: 31
+  Expression: QLabel
+
+  Context:
+          76:         header_layout.setSpacing(2)
+          77: 
+    >>    78:         self.workspace_label = QLabel("WORKSPACE")
+          79:         self.workspace_label.setObjectName("WorkspaceLabel")
+          80: 
+
+[QT USAGE 6]
+  Component: QLabel
+  Type: constructor
+  Line: 81
+  Column: 27
+  Expression: QLabel
+
+  Context:
+          79:         self.workspace_label.setObjectName("WorkspaceLabel")
+          80: 
+    >>    81:         self.title_label = QLabel("Agent Tasks")
+          82:         self.title_label.setObjectName("TitleLabel")
+          83: 
+
+[QT USAGE 7]
+  Component: QLabel
+  Type: constructor
+  Line: 84
+  Column: 30
+  Expression: QLabel
+
+  Context:
+          82:         self.title_label.setObjectName("TitleLabel")
+          83: 
+    >>    84:         self.subtitle_label = QLabel("Manage your agent sessions")
+          85:         self.subtitle_label.setObjectName("SubtitleLabel")
+          86: 
+
+[QT USAGE 8]
+  Component: QPushButton
+  Type: constructor
+  Line: 97
+  Column: 28
+  Expression: QPushButton
+
+  Context:
+          95:         # -------------------------------------------------------------
+          96: 
+    >>    97:         self.new_task_btn = QPushButton()
+          98: 
+          99:         self.new_task_btn.setObjectName("NewTaskButton")
+
+[QT USAGE 9]
+  Component: QFrame
+  Type: constructor
+  Line: 113
+  Column: 27
+  Expression: QFrame
+
+  Context:
+         111:         # -------------------------------------------------------------
+         112: 
+    >>   113:         search_container = QFrame()
+         114:         search_container.setObjectName("SearchContainer")
+         115: 
+
+[QT USAGE 10]
+  Component: QHBoxLayout
+  Type: constructor
+  Line: 116
+  Column: 24
+  Expression: QHBoxLayout
+
+  Context:
+         114:         search_container.setObjectName("SearchContainer")
+         115: 
+    >>   116:         search_layout = QHBoxLayout(search_container)
+         117: 
+         118:         search_layout.setContentsMargins(
+
+[QT USAGE 11]
+  Component: QLabel
+  Type: constructor
+  Line: 127
+  Column: 27
+  Expression: QLabel
+
+  Context:
+         125:         search_layout.setSpacing(6)
+         126: 
+    >>   127:         self.search_icon = QLabel("⌕")
+         128:         self.search_icon.setObjectName("SearchIcon")
+         129: 
+
+[QT USAGE 12]
+  Component: QLineEdit
+  Type: constructor
+  Line: 130
+  Column: 27
+  Expression: QLineEdit
+
+  Context:
+         128:         self.search_icon.setObjectName("SearchIcon")
+         129: 
+    >>   130:         self.task_search = QLineEdit()
+         131: 
+         132:         self.task_search.setObjectName("TaskSearch")
+
+[QT USAGE 13]
+  Component: QWidget
+  Type: constructor
+  Line: 166
+  Column: 25
+  Expression: QWidget
+
+  Context:
+         164:         # -------------------------------------------------------------
+         165: 
+    >>   166:         history_header = QWidget()
+         167: 
+         168:         history_layout = QHBoxLayout(history_header)
+
+[QT USAGE 14]
+  Component: QHBoxLayout
+  Type: constructor
+  Line: 168
+  Column: 25
+  Expression: QHBoxLayout
+
+  Context:
+         166:         history_header = QWidget()
+         167: 
+    >>   168:         history_layout = QHBoxLayout(history_header)
+         169: 
+         170:         history_layout.setContentsMargins(
+
+[QT USAGE 15]
+  Component: QLabel
+  Type: constructor
+  Line: 179
+  Column: 29
+  Expression: QLabel
+
+  Context:
+         177:         history_layout.setSpacing(6)
+         178: 
+    >>   179:         self.history_label = QLabel("TASK HISTORY")
+         180: 
+         181:         self.history_label.setObjectName("SectionLabel")
+
+[QT USAGE 16]
+  Component: QLabel
+  Type: constructor
+  Line: 183
+  Column: 29
+  Expression: QLabel
+
+  Context:
+         181:         self.history_label.setObjectName("SectionLabel")
+         182: 
+    >>   183:         self.history_count = QLabel("0")
+         184: 
+         185:         self.history_count.setObjectName("HistoryCount")
+
+[QT USAGE 17]
+  Component: QListWidget
+  Type: constructor
+  Line: 199
+  Column: 25
+  Expression: QListWidget
+
+  Context:
+         197:         # -------------------------------------------------------------
+         198: 
+    >>   199:         self.task_list = QListWidget()
+         200: 
+         201:         self.task_list.setObjectName("TaskList")
+
+[QT USAGE 18]
+  Component: QFrame
+  Type: constructor
+  Line: 224
+  Column: 27
+  Expression: QFrame
+
+  Context:
+         222:         # -------------------------------------------------------------
+         223: 
+    >>   224:         self.status_card = QFrame()
+         225: 
+         226:         self.status_card.setObjectName("StatusCard")
+
+[QT USAGE 19]
+  Component: QHBoxLayout
+  Type: constructor
+  Line: 228
+  Column: 24
+  Expression: QHBoxLayout
+
+  Context:
+         226:         self.status_card.setObjectName("StatusCard")
+         227: 
+    >>   228:         status_layout = QHBoxLayout(self.status_card)
+         229: 
+         230:         status_layout.setContentsMargins(
+
+[QT USAGE 20]
+  Component: QLabel
+  Type: constructor
+  Line: 239
+  Column: 32
+  Expression: QLabel
+
+  Context:
+         237:         status_layout.setSpacing(8)
+         238: 
+    >>   239:         self.status_indicator = QLabel("●")
+         240: 
+         241:         self.status_indicator.setObjectName("StatusIndicator")
+
+[QT USAGE 21]
+  Component: QLabel
+  Type: constructor
+  Line: 243
+  Column: 27
+  Expression: QLabel
+
+  Context:
+         241:         self.status_indicator.setObjectName("StatusIndicator")
+         242: 
+    >>   243:         self.status_text = QLabel("Agent ready")
+         244: 
+         245:         self.status_text.setObjectName("StatusText")
+
+[QT USAGE 22]
+  Component: QWidget
+  Type: constructor
+  Line: 265
+  Column: 17
+  Expression: QWidget
+
+  Context:
+         263:     ) -> QWidget:
+         264: 
+    >>   265:         widget = QWidget()
+         266: 
+         267:         layout = QHBoxLayout(widget)
+
+[QT USAGE 23]
+  Component: QHBoxLayout
+  Type: constructor
+  Line: 267
+  Column: 17
+  Expression: QHBoxLayout
+
+  Context:
+         265:         widget = QWidget()
+         266: 
+    >>   267:         layout = QHBoxLayout(widget)
+         268: 
+         269:         layout.setContentsMargins(
+
+[QT USAGE 24]
+  Component: QLabel
+  Type: constructor
+  Line: 285
+  Column: 16
+  Expression: QLabel
+
+  Context:
+         283:             layout.addWidget(indicator_label)
+         284: 
+    >>   285:         label = QLabel(title)
+         286: 
+         287:         label.setObjectName("SectionLabel")
+
+[QT USAGE 25]
+  Component: QFrame
+  Type: constructor
+  Line: 296
+  Column: 15
+  Expression: QFrame
+
+  Context:
+         294: 
+         295:     def _create_empty_active_card(self):
+    >>   296:         card = QFrame()
+         297: 
+         298:         card.setObjectName("ActiveTaskCard")
+
+[QT USAGE 26]
+  Component: QVBoxLayout
+  Type: constructor
+  Line: 300
+  Column: 17
+  Expression: QVBoxLayout
+
+  Context:
+         298:         card.setObjectName("ActiveTaskCard")
+         299: 
+    >>   300:         layout = QVBoxLayout(card)
+         301: 
+         302:         layout.setContentsMargins(
+
+[QT USAGE 27]
+  Component: QLabel
+  Type: constructor
+  Line: 311
+  Column: 16
+  Expression: QLabel
+
+  Context:
+         309:         layout.setSpacing(3)
+         310: 
+    >>   311:         title = QLabel("No active task")
+         312: 
+         313:         title.setObjectName("ActiveTaskTitle")
+
+[QT USAGE 28]
+  Component: QLabel
+  Type: constructor
+  Line: 315
+  Column: 22
+  Expression: QLabel
+
+  Context:
+         313:         title.setObjectName("ActiveTaskTitle")
+         314: 
+    >>   315:         description = QLabel("Your next agent task will appear here.")
+         316: 
+         317:         description.setObjectName("ActiveTaskDescription")
+
+[QT USAGE 29]
+  Component: QListWidgetItem
+  Type: constructor
+  Line: 373
+  Column: 15
+  Expression: QListWidgetItem
+
+  Context:
+         371:             return
+         372: 
+    >>   373:         item = QListWidgetItem()
+         374: 
+         375:         item.setData(
+
+[QT USAGE 30]
+  Component: QFrame
+  Type: constructor
+  Line: 443
+  Column: 17
+  Expression: QFrame
+
+  Context:
+         441:         status: str,
+         442:     ):
+    >>   443:         widget = QFrame()
+         444: 
+         445:         widget.setObjectName("TaskItem")
+
+[QT USAGE 31]
+  Component: QVBoxLayout
+  Type: constructor
+  Line: 447
+  Column: 17
+  Expression: QVBoxLayout
+
+  Context:
+         445:         widget.setObjectName("TaskItem")
+         446: 
+    >>   447:         layout = QVBoxLayout(widget)
+         448: 
+         449:         layout.setContentsMargins(
+
+[QT USAGE 32]
+  Component: QLabel
+  Type: constructor
+  Line: 458
+  Column: 16
+  Expression: QLabel
+
+  Context:
+         456:         layout.setSpacing(3)
+         457: 
+    >>   458:         title = QLabel(task_text)
+         459: 
+         460:         title.setObjectName("TaskItemTitle")
+
+[QT USAGE 33]
+  Component: QWidget
+  Type: constructor
+  Line: 464
+  Column: 21
+  Expression: QWidget
+
+  Context:
+         462:         title.setWordWrap(True)
+         463: 
+    >>   464:         status_row = QWidget()
+         465: 
+         466:         status_layout = QHBoxLayout(status_row)
+
+[QT USAGE 34]
+  Component: QHBoxLayout
+  Type: constructor
+  Line: 466
+  Column: 24
+  Expression: QHBoxLayout
+
+  Context:
+         464:         status_row = QWidget()
+         465: 
+    >>   466:         status_layout = QHBoxLayout(status_row)
+         467: 
+         468:         status_layout.setContentsMargins(
+
+[QT USAGE 35]
+  Component: QLabel
+  Type: constructor
+  Line: 477
+  Column: 20
+  Expression: QLabel
+
+  Context:
+         475:         status_layout.setSpacing(5)
+         476: 
+    >>   477:         indicator = QLabel(self._status_indicator(status))
+         478: 
+         479:         indicator.setObjectName("TaskStatusIndicator")
+
+[QT USAGE 36]
+  Component: QLabel
+  Type: constructor
+  Line: 481
+  Column: 23
+  Expression: QLabel
+
+  Context:
+         479:         indicator.setObjectName("TaskStatusIndicator")
+         480: 
+    >>   481:         status_label = QLabel(status)
+         482: 
+         483:         status_label.setObjectName("TaskStatus")
+
+[QT USAGE 37]
+  Component: QLabel
+  Type: constructor
+  Line: 279
+  Column: 30
+  Expression: QLabel
+
+  Context:
+         277: 
+         278:         if indicator:
+    >>   279:             indicator_label = QLabel(indicator)
+         280: 
+         281:             indicator_label.setObjectName("ActiveIndicator")
+
+[QT USAGE 38]
+  Component: QListWidgetItem
+  Type: constructor
+  Line: 500
+  Column: 45
+  Expression: QListWidgetItem
+
+  Context:
+         498: 
+         499:     def _task_item_size(self):
+    >>   500:         return self.task_list.sizeHintForRow(QListWidgetItem())
+         501: 
+         502:     @staticmethod
+
 2.5 LOCAL STYLE / THEME FINDINGS
 ------------------------------------------------------------
 
-  line 51 | hex color
-      background-color: #f8fafc;
-  line 51 | background
-      background-color: #f8fafc;
-  line 51 | foreground/color
-      background-color: #f8fafc;
-  line 52 | hex color
-      border-left: 4px solid #16a34a;
-  line 52 | border
-      border-left: 4px solid #16a34a;
-  line 53 | padding
-      padding: 10px 12px;
-  line 54 | margin
-      margin-top: 6px;
-  line 55 | margin
-      margin-bottom: 8px;
-  line 56 | border
-      border-radius: 4px;
-  line 56 | border-radius
-      border-radius: 4px;
-  line 60 | hex color
-      color: #1e293b;
-  line 60 | foreground/color
-      color: #1e293b;
-  line 61 | font-size
+  line 576 | setStyleSheet
+      self.setStyleSheet("""
+  line 582 | hex color
+      background-color: #f7f7f8;
+  line 582 | background
+      background-color: #f7f7f8;
+  line 582 | foreground/color
+      background-color: #f7f7f8;
+  line 583 | hex color
+      border: 1px solid #e4e4e7;
+  line 583 | border
+      border: 1px solid #e4e4e7;
+  line 584 | border
+      border-radius: 12px;
+  line 584 | border-radius
+      border-radius: 12px;
+  line 592 | hex color
+      color: #8b8b93;
+  line 592 | foreground/color
+      color: #8b8b93;
+  line 593 | font-size
+      font-size: 10px;
+  line 599 | hex color
+      color: #18181b;
+  line 599 | foreground/color
+      color: #18181b;
+  line 600 | font-size
+      font-size: 18px;
+  line 605 | hex color
+      color: #8b8b93;
+  line 605 | foreground/color
+      color: #8b8b93;
+  line 606 | font-size
+      font-size: 11px;
+  line 614 | hex color
+      background-color: #18181b;
+  line 614 | background
+      background-color: #18181b;
+  line 614 | foreground/color
+      background-color: #18181b;
+  line 615 | foreground/color
+      color: white;
+  line 616 | border
+      border: none;
+  line 617 | border
+      border-radius: 9px;
+  line 617 | border-radius
+      border-radius: 9px;
+  line 618 | padding
+      padding: 9px 13px;
+  line 619 | font-size
       font-size: 13px;
-  line 62 | margin
-      margin-bottom: 6px;
-  line 68 | font-size
-      font-size: 13px;
-  line 69 | hex color
-      color: #334155;
-  line 69 | foreground/color
-      color: #334155;
-  line 99 | margin
-      <li style="margin-bottom: 4px;">
-  line 100 | hex color
-      <strong style="color: #64748b;">
-  line 100 | foreground/color
-      <strong style="color: #64748b;">
-  line 112 | margin
-      margin-top: 6px;
-  line 113 | hex color
-      background-color: #f1f5f9;
-  line 113 | background
-      background-color: #f1f5f9;
-  line 113 | foreground/color
-      background-color: #f1f5f9;
-  line 114 | hex color
-      border: 1px solid #cbd5e1;
-  line 114 | border
-      border: 1px solid #cbd5e1;
-  line 115 | border
-      border-radius: 4px;
-  line 115 | border-radius
-      border-radius: 4px;
-  line 116 | padding
-      padding: 6px 10px;
-  line 117 | font-size
+  line 624 | hex color
+      background-color: #27272a;
+  line 624 | background
+      background-color: #27272a;
+  line 624 | foreground/color
+      background-color: #27272a;
+  line 628 | hex color
+      background-color: #09090b;
+  line 628 | background
+      background-color: #09090b;
+  line 628 | foreground/color
+      background-color: #09090b;
+  line 629 | padding
+      padding-top: 10px;
+  line 633 | hex color
+      background-color: #d4d4d8;
+  line 633 | background
+      background-color: #d4d4d8;
+  line 633 | foreground/color
+      background-color: #d4d4d8;
+  line 634 | hex color
+      color: #71717a;
+  line 634 | foreground/color
+      color: #71717a;
+  line 642 | background
+      background-color: white;
+  line 642 | foreground/color
+      background-color: white;
+  line 643 | hex color
+      border: 1px solid #e4e4e7;
+  line 643 | border
+      border: 1px solid #e4e4e7;
+  line 644 | border
+      border-radius: 8px;
+  line 644 | border-radius
+      border-radius: 8px;
+  line 645 | min-height
+      min-height: 34px;
+  line 649 | hex color
+      color: #71717a;
+  line 649 | foreground/color
+      color: #71717a;
+  line 650 | font-size
+      font-size: 18px;
+  line 654 | background
+      background: transparent;
+  line 655 | border
+      border: none;
+  line 656 | hex color
+      color: #27272a;
+  line 656 | foreground/color
+      color: #27272a;
+  line 657 | font-size
       font-size: 12px;
-  line 121 | hex color
-      color: #475569;
-  line 121 | foreground/color
-      color: #475569;
-  line 130 | margin
-      margin: 8px 0 4px 18px;
-  line 131 | padding
+  line 658 | padding
+      padding: 4px 0;
+  line 662 | border
+      border: none;
+  line 670 | hex color
+      color: #71717a;
+  line 670 | foreground/color
+      color: #71717a;
+  line 671 | font-size
+      font-size: 10px;
+  line 677 | hex color
+      color: #22c55e;
+  line 677 | foreground/color
+      color: #22c55e;
+  line 678 | font-size
+      font-size: 9px;
+  line 682 | hex color
+      background-color: #e4e4e7;
+  line 682 | background
+      background-color: #e4e4e7;
+  line 682 | foreground/color
+      background-color: #e4e4e7;
+  line 683 | hex color
+      color: #52525b;
+  line 683 | foreground/color
+      color: #52525b;
+  line 684 | border
+      border-radius: 8px;
+  line 684 | border-radius
+      border-radius: 8px;
+  line 685 | padding
+      padding: 2px 7px;
+  line 686 | font-size
+      font-size: 9px;
+  line 695 | background
+      background-color: white;
+  line 695 | foreground/color
+      background-color: white;
+  line 696 | hex color
+      border: 1px solid #e4e4e7;
+  line 696 | border
+      border: 1px solid #e4e4e7;
+  line 697 | hex color
+      border-left: 3px solid #22c55e;
+  line 697 | border
+      border-left: 3px solid #22c55e;
+  line 698 | border
+      border-radius: 8px;
+  line 698 | border-radius
+      border-radius: 8px;
+  line 702 | hex color
+      color: #27272a;
+  line 702 | foreground/color
+      color: #27272a;
+  line 703 | font-size
+      font-size: 12px;
+  line 708 | hex color
+      color: #8b8b93;
+  line 708 | foreground/color
+      color: #8b8b93;
+  line 709 | font-size
+      font-size: 10px;
+  line 717 | background
+      background: transparent;
+  line 718 | border
+      border: none;
+  line 720 | padding
       padding: 0;
-  line 132 | hex color
-      color: #334155;
-  line 132 | foreground/color
-      color: #334155;
-  line 133 | font-family
-      font-family: monospace;
-  line 179 | margin
-      f"<li style='margin-left: 15px;'>"
+  line 724 | background
+      background: transparent;
+  line 725 | border
+      border: none;
+  line 726 | padding
+      padding: 0;
+  line 727 | margin
+      margin: 0;
+  line 731 | background
+      background: transparent;
+  line 735 | background
+      background-color: white;
+  line 735 | foreground/color
+      background-color: white;
+  line 736 | hex color
+      border: 1px solid #e4e4e7;
+  line 736 | border
+      border: 1px solid #e4e4e7;
+  line 737 | border
+      border-radius: 8px;
+  line 737 | border-radius
+      border-radius: 8px;
+  line 741 | hex color
+      background-color: #fafafa;
+  line 741 | background
+      background-color: #fafafa;
+  line 741 | foreground/color
+      background-color: #fafafa;
+  line 742 | hex color
+      border-color: #d4d4d8;
+  line 742 | foreground/color
+      border-color: #d4d4d8;
+  line 742 | border
+      border-color: #d4d4d8;
+  line 746 | hex color
+      background-color: #f4f4f5;
+  line 746 | background
+      background-color: #f4f4f5;
+  line 746 | foreground/color
+      background-color: #f4f4f5;
+  line 747 | hex color
+      border-color: #a1a1aa;
+  line 747 | foreground/color
+      border-color: #a1a1aa;
+  line 747 | border
+      border-color: #a1a1aa;
+  line 751 | hex color
+      color: #27272a;
+  line 751 | foreground/color
+      color: #27272a;
+  line 752 | font-size
+      font-size: 11px;
+  line 757 | hex color
+      color: #8b8b93;
+  line 757 | foreground/color
+      color: #8b8b93;
+  line 758 | font-size
+      font-size: 9px;
+  line 762 | hex color
+      color: #71717a;
+  line 762 | foreground/color
+      color: #71717a;
+  line 763 | font-size
+      font-size: 8px;
+  line 771 | hex color
+      background-color: #18181b;
+  line 771 | background
+      background-color: #18181b;
+  line 771 | foreground/color
+      background-color: #18181b;
+  line 772 | border
+      border: none;
+  line 773 | border
+      border-radius: 8px;
+  line 773 | border-radius
+      border-radius: 8px;
+  line 777 | hex color
+      color: #22c55e;
+  line 777 | foreground/color
+      color: #22c55e;
+  line 778 | font-size
+      font-size: 9px;
+  line 782 | hex color
+      color: #d4d4d8;
+  line 782 | foreground/color
+      color: #d4d4d8;
+  line 783 | font-size
+      font-size: 10px;
+  line 792 | background
+      background: transparent;
+  line 794 | margin
+      margin: 2px 0;
+  line 798 | hex color
+      background: #d4d4d8;
+  line 798 | background
+      background: #d4d4d8;
+  line 799 | border
+      border-radius: 3px;
+  line 799 | border-radius
+      border-radius: 3px;
+  line 800 | min-height
+      min-height: 30px;
+  line 804 | hex color
+      background: #a1a1aa;
+  line 804 | background
+      background: #a1a1aa;
+  line 814 | background
+      background: transparent;
 
 2.6 POTENTIAL GLOBAL THEME MAPPING
 ------------------------------------------------------------
 
-  No widget records available.
+  header (QWidget)
+    navigation / header surface -> global QSS / surface_alt + border
+
+  header_layout (QVBoxLayout)
+    Theme role: <manual review required>
+
+  search_container (QFrame)
+    surface / panel -> setProperty("role", "panel")
+
+  search_layout (QHBoxLayout)
+    Theme role: <manual review required>
+
+  history_header (QWidget)
+    navigation / header surface -> global QSS / surface_alt + border
+
+  history_layout (QHBoxLayout)
+    Theme role: <manual review required>
+
+  status_layout (QHBoxLayout)
+    Theme role: <manual review required>
+
+  widget (QWidget)
+    Theme role: <manual review required>
+
+  layout (QHBoxLayout)
+    Theme role: <manual review required>
+
+  label (QLabel)
+    Theme role: <manual review required>
+
+  card (QFrame)
+    Theme role: <manual review required>
+
+  layout (QVBoxLayout)
+    Theme role: <manual review required>
+
+  title (QLabel)
+    title text -> setProperty("role", "title")
+
+  description (QLabel)
+    muted text -> setProperty("role", "muted")
+
+  item (QListWidgetItem)
+    Theme role: <manual review required>
+
+  widget (QFrame)
+    Theme role: <manual review required>
+
+  layout (QVBoxLayout)
+    Theme role: <manual review required>
+
+  title (QLabel)
+    title text -> setProperty("role", "title")
+
+  status_row (QWidget)
+    status surface -> global QSS / surface_alt + muted text
+
+  status_layout (QHBoxLayout)
+    Theme role: <manual review required>
+
+  indicator (QLabel)
+    Theme role: <manual review required>
+
+  status_label (QLabel)
+    muted text -> setProperty("role", "muted")
+
+  indicator_label (QLabel)
+    Theme role: <manual review required>
 
 
 3. SCANNER ERRORS

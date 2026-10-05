@@ -224,7 +224,14 @@ class MainWindow(QMainWindow):
 
         self.current_task = task
 
-        self.task_bar.task_list.addItem(f"📌 {task_prompt}")
+        self.task_bar.add_task(
+            f"📌 {task_prompt}",
+            status=TaskBarWidget.STATUS_QUEUED,
+        )
+        self.task_bar.set_active_task(
+            task_prompt,
+            status="Queued",
+        )
 
         # ---------------------------------------------------------
         # 3. Approval layer availability check
@@ -238,7 +245,7 @@ class MainWindow(QMainWindow):
             )
 
             self.chat_window.chat_display.append(error_html)
-
+            self.task_bar.clear_active_task()
             return
 
         # ---------------------------------------------------------
@@ -248,6 +255,10 @@ class MainWindow(QMainWindow):
         approval_started_html = ChatMessageFormatter.format_message(
             "system",
             "🔐 Evaluating task authorization...",
+        )
+        self.task_bar.set_active_task(
+            task_prompt,
+            status="Evaluating",
         )
 
         self.chat_window.chat_display.append(approval_started_html)
@@ -266,7 +277,7 @@ class MainWindow(QMainWindow):
             )
 
             self.chat_window.chat_display.append(error_html)
-
+            self.task_bar.clear_active_task()
             return
 
         # ---------------------------------------------------------
@@ -312,6 +323,7 @@ class MainWindow(QMainWindow):
                     "🛑 Task denied by the local approval policy.\n" f"{reasons}",
                 )
             )
+            self.task_bar.clear_active_task()
 
             return
         # ---------------------------------------------------------
@@ -325,6 +337,10 @@ class MainWindow(QMainWindow):
             self.pending_approval_task = (
                 task,
                 intent,
+            )
+            self.task_bar.set_active_task(
+                task_prompt,
+                status="Awaiting Approval",
             )
 
             self.chat_window.chat_display.append(
@@ -358,6 +374,10 @@ class MainWindow(QMainWindow):
                 ),
             )
         )
+        self.task_bar.set_active_task(
+            task_prompt,
+            status="Running",
+        )
 
         self.dispatch_task(task, intent)
         # =============================================================
@@ -385,7 +405,10 @@ class MainWindow(QMainWindow):
                 )
             )
             return
-
+        self.task_bar.set_active_task(
+            task.prompt,
+            status="Running",
+        )
         if intent == "BROWSER_TASK":
             self.start_browser_task(task)
             return

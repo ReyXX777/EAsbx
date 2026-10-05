@@ -35,7 +35,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 #
 # This is intentional so that the user must explicitly select files.
 TARGET_FILES: list[str] = [
-    "agent_response_parser.py",
+    "task_bar.py",
 ]
 
 
