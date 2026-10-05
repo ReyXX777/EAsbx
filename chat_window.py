@@ -1077,7 +1077,7 @@ class ChatWindowWidget(QFrame):
         self.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                ("✅ Approval granted. " "Continuing with task execution..."),
+                ("Approval granted. " "Continuing with task execution..."),
             )
         )
 

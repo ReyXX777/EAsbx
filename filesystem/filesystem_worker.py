@@ -124,7 +124,7 @@ class FilesystemExecutionWorker(QThread):
 
             self.state_manager.start_task()
 
-            self.step_updated.emit(f"🚀 Starting filesystem task: '{self.task.prompt}'")
+            self.step_updated.emit(f"Starting filesystem task: '{self.task.prompt}'")
 
             self.observation_session = self.observation_engine.start(
                 "filesystem",
@@ -155,7 +155,7 @@ class FilesystemExecutionWorker(QThread):
             # Create sandbox filesystem service
             # ------------------------------------------------------
 
-            self.step_updated.emit("🗂️ Initializing sandboxed filesystem...")
+            self.step_updated.emit("Initializing sandboxed filesystem...")
 
             filesystem_service = SandboxFilesystemService(self.filesystem_root)
 
@@ -163,7 +163,7 @@ class FilesystemExecutionWorker(QThread):
             # Create deterministic compute service
             # ------------------------------------------------------
 
-            self.step_updated.emit("🧮 Initializing compute service...")
+            self.step_updated.emit("Initializing compute service...")
 
             compute_service = ComputeService()
 
@@ -175,7 +175,7 @@ class FilesystemExecutionWorker(QThread):
             # filesystem or compute tools.
             # ------------------------------------------------------
 
-            self.step_updated.emit("🔧 Initializing tool dispatcher...")
+            self.step_updated.emit("Initializing tool dispatcher...")
 
             tool_dispatcher = create_tool_dispatcher(
                 filesystem_service=filesystem_service,
@@ -190,7 +190,7 @@ class FilesystemExecutionWorker(QThread):
             # or compute services directly.
             # ------------------------------------------------------
 
-            self.step_updated.emit("🤖 Initializing Gemini filesystem planner...")
+            self.step_updated.emit("Initializing Gemini filesystem planner...")
 
             planner = GeminiFilesystemToolPlanner(
                 api_key=self.api_key,
@@ -431,7 +431,7 @@ class FilesystemExecutionWorker(QThread):
 
             location_text = path or result.message or "completed"
 
-            self.step_updated.emit(f"🔧 {call.name}: {location_text}")
+            self.step_updated.emit(f"{call.name}: {location_text}")
 
         else:
 

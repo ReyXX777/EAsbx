@@ -45,7 +45,7 @@ class ApprovalWidget(QFrame):
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(8)
 
-        title = QLabel("🔐 Human approval required")
+        title = QLabel("Human approval required")
         title.setObjectName("title")
         title.setProperty("role", "title")
 

@@ -871,6 +871,11 @@ class BrowserWindowWidget(QFrame):
 
         self.files_workspace.show_agent_activity(activity)
 
+    def stop_filesystem_agent_activity(self) -> None:
+        """Stop the filesystem-agent activity indicator."""
+
+        self.files_workspace.stop_agent_activity()
+
     # =====================================================
     # Helpers
     # =====================================================

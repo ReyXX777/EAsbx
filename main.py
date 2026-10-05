@@ -225,7 +225,7 @@ class MainWindow(QMainWindow):
         self.current_task = task
 
         self.task_bar.add_task(
-            f"📌 {task_prompt}",
+            f"{task_prompt}",
             status=TaskBarWidget.STATUS_QUEUED,
         )
         self.task_bar.set_active_task(
@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
 
         approval_started_html = ChatMessageFormatter.format_message(
             "system",
-            "🔐 Evaluating task authorization...",
+            "Evaluating task authorization...",
         )
         self.task_bar.set_active_task(
             task_prompt,
@@ -369,7 +369,7 @@ class MainWindow(QMainWindow):
             ChatMessageFormatter.format_message(
                 "system",
                 (
-                    f"✅ Task approved for {intent.replace('_', ' ').title()}.\n"
+                    f"Task approved for {intent.replace('_', ' ').title()}.\n"
                     f"{reasons}"
                 ),
             )
@@ -577,7 +577,7 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                "🗂️ Starting Filesystem Agent inside " "the sandbox...",
+                "Starting Filesystem Agent inside " "the sandbox...",
             )
         )
         self.active_agent_type = "FILESYSTEM_AGENT"
@@ -628,7 +628,7 @@ class MainWindow(QMainWindow):
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
                 "system",
-                "✅ Human approval granted. "
+                "Human approval granted. "
                 f"Starting {intent.replace('_', ' ').title()}...",
             )
         )
@@ -705,7 +705,7 @@ class MainWindow(QMainWindow):
         """
         Display the final filesystem-agent response.
         """
-
+        self.browser_window.stop_filesystem_agent_activity()
         final_text = ""
 
         if isinstance(result, dict):
@@ -740,6 +740,7 @@ class MainWindow(QMainWindow):
         """
         Display filesystem-agent execution errors.
         """
+        self.browser_window.stop_filesystem_agent_activity()
 
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(

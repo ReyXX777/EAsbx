@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
+from qt_theme.moon_activity import MoonActivity
 from .filesystem_service import SandboxFilesystemService
 from .filesystem_table import TableFormatter
 from .filesystem_agent_events import FilesystemToolActivity
@@ -100,6 +100,44 @@ class FilesWorkspace(QWidget):
         toolbar.addWidget(refresh_button)
 
         root_layout.addLayout(toolbar)
+
+        activity_layout = QHBoxLayout()
+
+        activity_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        activity_layout.setSpacing(8)
+
+        self.agent_activity = MoonActivity(
+            self,
+        )
+
+        self.agent_activity.setVisible(False)
+
+        activity_layout.addWidget(
+            self.agent_activity,
+        )
+
+        self.agent_activity_label = QLabel("Filesystem agent working...")
+
+        self.agent_activity_label.setProperty(
+            "role",
+            "muted",
+        )
+
+        activity_layout.addWidget(
+            self.agent_activity_label,
+        )
+
+        activity_layout.addStretch()
+
+        root_layout.addLayout(
+            activity_layout,
+        )
 
         # -----------------------------------------------------
         # Main horizontal splitter
@@ -566,6 +604,29 @@ class FilesWorkspace(QWidget):
         self.table.resizeColumnsToContents()
 
     # =========================================================
+
+    # Agent activity indicator
+    # =========================================================
+
+    def _start_agent_activity(self) -> None:
+        """Show the indeterminate filesystem-agent activity indicator."""
+
+        self.agent_activity.setVisible(True)
+
+        self.agent_activity_label.setVisible(True)
+
+        self.agent_activity.start()
+
+    def _stop_agent_activity(self) -> None:
+        """Hide the filesystem-agent activity indicator."""
+
+        self.agent_activity.stop()
+
+        self.agent_activity.setVisible(False)
+
+        self.agent_activity_label.setVisible(False)
+
+    # =========================================================
     # Filesystem-agent activity
     # =========================================================
 
@@ -581,7 +642,7 @@ class FilesWorkspace(QWidget):
         performs the actual filesystem operation through the
         filesystem service/tool layer.
         """
-
+        self._start_agent_activity()
         if activity.is_navigation:
 
             path = activity.path or "."
@@ -597,6 +658,12 @@ class FilesWorkspace(QWidget):
             if path:
 
                 self.show_agent_file(path)
+            return
+
+    def stop_agent_activity(self) -> None:
+        """Stop and hide the filesystem-agent activity indicator."""
+
+        self._stop_agent_activity()
 
     # =========================================================
     # Agent directory navigation

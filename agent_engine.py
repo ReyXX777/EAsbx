@@ -7,6 +7,7 @@ from browser_use import Agent, Browser, ChatGoogle
 from agent_state_manager import AgentStateManager
 from agent_result_parser import AgentResultParser
 
+
 class AgentExecutionWorker(QThread):
     step_updated = Signal(str)
     task_finished = Signal(object)
@@ -34,6 +35,7 @@ class AgentExecutionWorker(QThread):
     def get_status(self) -> dict:
         """API/UI Endpoint method to query current agent state at any time."""
         return self.state_manager.get_status()
+
     def cancel(self) -> None:
         """
         Request cooperative cancellation of the current task.
@@ -71,9 +73,7 @@ class AgentExecutionWorker(QThread):
         asyncio.set_event_loop(loop)
 
         try:
-            loop.run_until_complete(
-                self._execute_agent_task()
-            )
+            loop.run_until_complete(self._execute_agent_task())
 
         except Exception as e:
             err_msg = f"Agent worker failure: {e}"
@@ -83,15 +83,12 @@ class AgentExecutionWorker(QThread):
 
         finally:
             try:
-                loop.run_until_complete(
-                    asyncio.sleep(0)
-                )
+                loop.run_until_complete(asyncio.sleep(0))
             except Exception:
                 pass
 
             asyncio.set_event_loop(None)
             loop.close()
-
 
     async def _execute_agent_task(self):
         """
@@ -109,18 +106,14 @@ class AgentExecutionWorker(QThread):
 
             self.state_manager.start_task()
 
-            self.step_updated.emit(
-                f"🚀 Starting task: '{self.task.prompt}'"
-            )
+            self.step_updated.emit(f" Starting task: '{self.task.prompt}'")
 
             # ---------------------------------------------------------
             # 2. Configure API credentials
             # ---------------------------------------------------------
 
             if not self.api_key:
-                raise ValueError(
-                "   Google API key is missing."
-                )
+                raise ValueError("   Google API key is missing.")
 
             os.environ["GOOGLE_API_KEY"] = self.api_key
 
@@ -128,9 +121,7 @@ class AgentExecutionWorker(QThread):
             # 3. Initialize LLM
             # ---------------------------------------------------------
 
-            llm = ChatGoogle(
-                model="gemini-3.5-flash-lite"
-            )
+            llm = ChatGoogle(model="gemini-3.5-flash-lite")
 
             # ---------------------------------------------------------
             # 4. Connect to browser
@@ -138,22 +129,15 @@ class AgentExecutionWorker(QThread):
 
             if self.cdp_url:
                 self.step_updated.emit(
-                    f"🌐 Connecting to embedded browser via CDP "
-                    f"({self.cdp_url})..."
+                    f"🌐 Connecting to embedded browser via CDP " f"({self.cdp_url})..."
                 )
 
-                browser = Browser(
-                    cdp_url=self.cdp_url
-                )
+                browser = Browser(cdp_url=self.cdp_url)
 
             else:
-                self.step_updated.emit(
-                    "🌐 Starting standalone browser..."
-                )
+                self.step_updated.emit("🌐 Starting standalone browser...")
 
-                browser = Browser(
-                    headless=self.headless
-                )
+                browser = Browser(headless=self.headless)
 
             # ---------------------------------------------------------
             # 5. Create agent
@@ -170,17 +154,14 @@ class AgentExecutionWorker(QThread):
             )
 
             self.step_updated.emit(
-                f"🚀 Initializing Agent for task: "
-                f"'{self.task.prompt}'"
+                f"Initializing Agent for task: " f"'{self.task.prompt}'"
             )
 
             # ---------------------------------------------------------
             # 6. Execute agent
             # ---------------------------------------------------------
 
-            history = await agent.run(
-                on_step_end=self._on_step_end_callback
-            )
+            history = await agent.run(on_step_end=self._on_step_end_callback)
 
             # ---------------------------------------------------------
             # 7. Check cancellation before processing result
@@ -189,9 +170,7 @@ class AgentExecutionWorker(QThread):
             if self._cancel_requested:
                 self.state_manager.mark_cancelled()
 
-                self.error_occurred.emit(
-                    "Task cancelled by user."
-                )
+                self.error_occurred.emit("Task cancelled by user.")
 
                 return
 
@@ -199,9 +178,7 @@ class AgentExecutionWorker(QThread):
             # 8. Convert browser-use history into our domain result
             # ---------------------------------------------------------
 
-            parsed_result = AgentResultParser.parse(
-                history
-            )
+            parsed_result = AgentResultParser.parse(history)
 
             # ---------------------------------------------------------
             # 9. Determine actual execution outcome
@@ -209,13 +186,9 @@ class AgentExecutionWorker(QThread):
 
             if parsed_result.succeeded:
 
-                self.state_manager.mark_completed(
-                    parsed_result.final_text
-                )
+                self.state_manager.mark_completed(parsed_result.final_text)
 
-                self.task_finished.emit(
-                    parsed_result
-                )
+                self.task_finished.emit(parsed_result)
 
                 return
 
@@ -232,13 +205,9 @@ class AgentExecutionWorker(QThread):
                 )
             )
 
-            self.state_manager.mark_failed(
-                error_message
-            )
+            self.state_manager.mark_failed(error_message)
 
-            self.error_occurred.emit(
-                error_message
-            )
+            self.error_occurred.emit(error_message)
 
         except asyncio.TimeoutError:
 
@@ -247,40 +216,25 @@ class AgentExecutionWorker(QThread):
                 "for the model or browser response."
             )
 
-            self.state_manager.mark_failed(
-                err_msg
-            )
+            self.state_manager.mark_failed(err_msg)
 
-            self.error_occurred.emit(
-                err_msg
-            )
+            self.error_occurred.emit(err_msg)
 
         except asyncio.CancelledError:
 
-            self.state_manager.mark_cancelled(
-                "Agent execution was cancelled."
-            )
+            self.state_manager.mark_cancelled("Agent execution was cancelled.")
 
-            self.error_occurred.emit(
-                "Agent execution was cancelled."
-            )
+            self.error_occurred.emit("Agent execution was cancelled.")
 
             raise
 
         except Exception as e:
 
-            err_msg = (
-                f"Agent execution failure: "
-                f"{type(e).__name__}: {e}"
-            )
+            err_msg = f"Agent execution failure: " f"{type(e).__name__}: {e}"
 
-            self.state_manager.mark_failed(
-                err_msg
-            )
+            self.state_manager.mark_failed(err_msg)
 
-            self.error_occurred.emit(
-                err_msg
-            )
+            self.error_occurred.emit(err_msg)
 
         finally:
 
@@ -294,6 +248,5 @@ class AgentExecutionWorker(QThread):
                     await browser.stop()
                 except Exception as cleanup_error:
                     self.step_updated.emit(
-                        "⚠️ Browser cleanup warning: "
-                        f"{cleanup_error}"
+                        "⚠️ Browser cleanup warning: " f"{cleanup_error}"
                     )
