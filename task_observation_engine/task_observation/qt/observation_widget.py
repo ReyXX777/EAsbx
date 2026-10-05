@@ -24,6 +24,7 @@ from .observation_header import ObservationHeader
 from .observation_metrics import ObservationMetrics
 from .observation_sidebar import ObservationSidebar
 from .observation_trace import ObservationTrace
+from ..history import ObservationHistory
 
 
 class ObservationWidget(QWidget):
@@ -45,6 +46,10 @@ class ObservationWidget(QWidget):
         super().__init__(parent)
 
         self.storage_root = storage_root
+
+        self.history = ObservationHistory(
+            self.storage_root,
+        )
 
         self._snapshot: ObservationSnapshot | None = None
 
@@ -153,6 +158,10 @@ class ObservationWidget(QWidget):
 
         self.continuous = ObservationContinuous()
 
+        self.continuous.set_history(
+            self.history,
+        )
+
         self.trace = ObservationTrace()
 
         bottom_splitter.addWidget(
@@ -203,6 +212,7 @@ class ObservationWidget(QWidget):
 
     def refresh(self) -> None:
         try:
+            self.history.refresh()
             replay = ReplayAPI(
                 self.storage_root,
             )
@@ -214,6 +224,7 @@ class ObservationWidget(QWidget):
                 f"History error: {exc}",
             )
             return
+        self.continuous.refresh()
 
         sessions: list[dict] = []
 
@@ -297,9 +308,7 @@ class ObservationWidget(QWidget):
             snapshot,
         )
 
-        self.continuous.set_snapshot(
-            snapshot,
-        )
+        self.continuous.refresh()
 
         self.trace.clear()
 

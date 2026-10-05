@@ -9,25 +9,29 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..models import ObservationSnapshot
+from ..history import ObservationHistory
 from .observation_plot import ObservationPlot
 
 
 class ObservationContinuous(QWidget):
-    """Continuous observation display."""
+    """Continuous observation display backed by aggregated history."""
 
     def __init__(
         self,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(
+            parent,
+        )
 
-        self._snapshot: ObservationSnapshot | None = None
+        self._history: ObservationHistory | None = None
 
         self._build_ui()
 
     def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout(
+            self,
+        )
 
         group = QGroupBox(
             "③ CONTINUOUS OBSERVATIONS",
@@ -69,11 +73,18 @@ class ObservationContinuous(QWidget):
             self._render_selected,
         )
 
-    def set_snapshot(
+    def set_history(
         self,
-        snapshot: ObservationSnapshot | None,
+        history: ObservationHistory | None,
     ) -> None:
-        self._snapshot = snapshot
+        """Attach the aggregated observation history to the widget."""
+
+        self._history = history
+
+        self._refresh_features()
+
+    def _refresh_features(self) -> None:
+        history = self._history
 
         self.feature_selector.blockSignals(
             True,
@@ -82,20 +93,19 @@ class ObservationContinuous(QWidget):
         try:
             self.feature_selector.clear()
 
-            if snapshot is not None:
+            if history is None:
+                self.plot.clear()
+                return
+
+            try:
+                names = [str(name) for name in history.feature_names() if str(name)]
+
+            except Exception:
                 names = []
 
-                for observation in snapshot.continuous:
-                    name = str(
-                        observation.name,
-                    )
-
-                    if name and name not in names:
-                        names.append(name)
-
-                self.feature_selector.addItems(
-                    names,
-                )
+            self.feature_selector.addItems(
+                names,
+            )
 
         finally:
             self.feature_selector.blockSignals(
@@ -106,28 +116,50 @@ class ObservationContinuous(QWidget):
             self.feature_selector.currentText(),
         )
 
+    def refresh(self) -> None:
+        """Refresh the feature list and plot from aggregated history."""
+
+        history = self._history
+
+        if history is None:
+            self.feature_selector.clear()
+            self.plot.clear()
+            return
+
+        try:
+            history.refresh()
+        except Exception:
+            # History refresh must never break the observation monitor.
+            pass
+
+        self._refresh_features()
+
     def _render_selected(
         self,
         name: str,
     ) -> None:
-        snapshot = self._snapshot
+        history = self._history
 
-        if snapshot is None or not name:
+        if history is None or not name:
             self.plot.clear()
             return
 
+        try:
+            raw_values = history.get_values(
+                name,
+            )
+        except Exception:
+            raw_values = []
+
         values = []
 
-        for observation in snapshot.continuous:
-            if observation.name != name:
-                continue
-
-            if observation.value is None:
+        for value in raw_values:
+            if value is None:
                 continue
 
             try:
                 values.append(
-                    float(observation.value),
+                    float(value),
                 )
             except (
                 TypeError,
@@ -135,12 +167,18 @@ class ObservationContinuous(QWidget):
             ):
                 continue
 
+        if not values:
+            self.plot.clear()
+            return
+
         self.plot.set_data(
             values,
             name,
         )
 
     def clear(self) -> None:
-        self._snapshot = None
+        self._history = None
+
         self.feature_selector.clear()
+
         self.plot.clear()
