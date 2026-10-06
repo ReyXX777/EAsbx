@@ -13,7 +13,10 @@ from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QMainWindow,
+    QPushButton,
     QSplitter,
+    QStackedWidget,
+    QVBoxLayout,
     QWidget,
 )
 from qt_theme import ThemeManager, ThemeMode
@@ -23,6 +26,7 @@ from agent_response_parser import AgentResponseParser
 from filesystem.filesystem_worker import FilesystemExecutionWorker
 from app_menu_bar import AppMenuBar
 from browser_window import BrowserWindowWidget
+from diagnostics_widget import DiagnosticsWidget
 from chat_formatter import ChatMessageFormatter
 from chat_window import ChatWindowWidget
 from task_bar import TaskBarWidget
@@ -60,8 +64,37 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout = QVBoxLayout(central_widget)
+
+        main_layout.setContentsMargins(
+            10,
+            10,
+            10,
+            10,
+        )
+
+        main_layout.setSpacing(0)
+
+        self.content_stack = QStackedWidget()
+        self.content_stack.setObjectName("MainContentStack")
+
+        # ---------------------------------------------------------
+        # Chat page
+        # ---------------------------------------------------------
+
+        self.chat_page = QWidget()
+        self.chat_page.setObjectName("ChatPage")
+
+        chat_layout = QHBoxLayout(self.chat_page)
+
+        chat_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        chat_layout.setSpacing(0)
 
         splitter = QSplitter(Qt.Horizontal)
 
@@ -73,9 +106,136 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.chat_window)
         splitter.addWidget(self.browser_window)
 
-        splitter.setSizes([220, 500, 480])
+        splitter.setSizes(
+            [
+                220,
+                500,
+                480,
+            ]
+        )
 
-        main_layout.addWidget(splitter)
+        chat_layout.addWidget(splitter)
+
+        self.content_stack.addWidget(
+            self.chat_page,
+        )
+
+        # ---------------------------------------------------------
+        # Diagnostics page
+        # ---------------------------------------------------------
+
+        self.diagnostics_page = QWidget()
+        self.diagnostics_page.setObjectName("DiagnosticsPage")
+
+        diagnostics_layout = QVBoxLayout(
+            self.diagnostics_page,
+        )
+
+        diagnostics_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        diagnostics_layout.setSpacing(8)
+
+        self.diagnostics_back_button = QPushButton(
+            "← Back to Chat",
+        )
+
+        self.diagnostics_back_button.setObjectName(
+            "DiagnosticsBackButton",
+        )
+
+        self.diagnostics_back_button.clicked.connect(
+            self.show_chat_page,
+        )
+
+        self.diagnostics_widget = DiagnosticsWidget()
+
+        diagnostics_layout.addWidget(
+            self.diagnostics_back_button,
+        )
+
+        diagnostics_layout.addWidget(
+            self.diagnostics_widget,
+            1,
+        )
+
+        self.content_stack.addWidget(
+            self.diagnostics_page,
+        )
+
+        # ---------------------------------------------------------
+        # Observation page
+        # ---------------------------------------------------------
+        self.observation_storage_root = os.path.join(
+            os.path.dirname(__file__),
+            "task_observation_data",
+        )
+        self.observation_page = QWidget()
+        self.observation_page.setObjectName("ObservationPage")
+
+        observation_layout = QVBoxLayout(
+            self.observation_page,
+        )
+
+        observation_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        observation_layout.setSpacing(8)
+
+        self.observation_back_button = QPushButton(
+            "← Back to Chat",
+        )
+
+        self.observation_back_button.setObjectName(
+            "ObservationBackButton",
+        )
+
+        self.observation_back_button.clicked.connect(
+            self.show_chat_page,
+        )
+
+        self.observation_monitor = ObservationWidget(
+            storage_root=self.observation_storage_root,
+        )
+        print(
+            "DEBUG observation_monitor:",
+            self.observation_monitor,
+            type(self.observation_monitor),
+        )
+
+        observation_layout.addWidget(
+            self.observation_back_button,
+        )
+
+        observation_layout.addWidget(
+            self.observation_monitor,
+            1,
+        )
+
+        self.content_stack.addWidget(
+            self.observation_page,
+        )
+
+        # ---------------------------------------------------------
+        # Default page
+        # ---------------------------------------------------------
+
+        self.content_stack.setCurrentWidget(
+            self.chat_page,
+        )
+
+        main_layout.addWidget(
+            self.content_stack,
+            1,
+        )
 
         # ---------------------------------------------------------
         # 3. Agent state
@@ -87,13 +247,6 @@ class MainWindow(QMainWindow):
         self.current_task_item = None
         self.pending_approval_task = None
         self.pending_approval_intent = None
-
-        self.observation_monitor = None
-
-        self.observation_storage_root = os.path.join(
-            os.path.dirname(__file__),
-            "task_observation_data",
-        )
 
         # ---------------------------------------------------------
         # 4. Approval layer
@@ -152,29 +305,55 @@ class MainWindow(QMainWindow):
             "error": None,
         }
 
+    def show_chat_page(self):
+        """Return the main content area to the Chat page."""
+
+        self.content_stack.setCurrentWidget(
+            self.chat_page,
+        )
+
+    def show_agent_diagnostics(self):
+        """Show the embedded Agent Diagnostics page."""
+
+        self.diagnostics_widget.refresh(
+            self.get_agent_status(),
+        )
+
+        self.content_stack.setCurrentWidget(
+            self.diagnostics_page,
+        )
+
+    def _ensure_observation_monitor(self):
+        """Ensure the Observation Monitor widget exists."""
+
+        if self.observation_monitor is not None:
+            return
+
+        self.observation_monitor = ObservationWidget(
+            storage_root=self.observation_storage_root,
+            parent=self.observation_page,
+        )
+
+        self.observation_page.layout().addWidget(
+            self.observation_monitor,
+            1,
+        )
+
     def show_observation_monitor(self):
-        """Open or focus the task observation monitor."""
+        """Show the embedded Observation Monitor page."""
 
-        if self.observation_monitor is None:
-            observation_storage_root = os.path.join(
-                os.path.dirname(__file__),
-                "task_observation_data",
-            )
+        self._ensure_observation_monitor()
 
-            self.observation_monitor = ObservationWidget(
-                storage_root=observation_storage_root,
-            )
+        self.observation_monitor.refresh()
 
-            self.observation_monitor.setWindowTitle("Observation Monitor")
-
-            self.observation_monitor.resize(
-                1200,
-                750,
-            )
-
-        self.observation_monitor.show()
-        self.observation_monitor.raise_()
-        self.observation_monitor.activateWindow()
+        self.content_stack.setCurrentWidget(
+            self.observation_page,
+        )
+        print(
+            "DEBUG show_observation_monitor:",
+            self.observation_monitor,
+            type(self.observation_monitor),
+        )
 
     # =============================================================
     # Task creation + approval

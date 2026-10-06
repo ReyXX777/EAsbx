@@ -1,5 +1,5 @@
 # app_menu_bar.py
-from PySide6.QtWidgets import QMenuBar, QMessageBox, QWidget
+from PySide6.QtWidgets import QMenuBar, QWidget
 
 
 class AppMenuBar(QMenuBar):
@@ -34,54 +34,23 @@ class AppMenuBar(QMenuBar):
         observation_action.triggered.connect(self.show_observation_monitor)
 
     def show_agent_status_dialog(self):
-        """Fetches status from main window and displays a diagnostic popup."""
-        status_info = {
-            "status": "idle",
-            "current_step": 0,
-            "last_action": "No agent running",
-            "error": None,
-        }
+        """Open the embedded agent diagnostics page."""
 
-        # Query main window if available
-        if (
-            self.main_window
-            and hasattr(self.main_window, "get_agent_status")
-            and callable(self.main_window.get_agent_status)
+        if self.main_window is None or not hasattr(
+            self.main_window,
+            "show_agent_diagnostics",
         ):
-            status_info = self.main_window.get_agent_status()
+            return
 
-        # Format diagnostic message
-        status_str = status_info.get("status", "unknown").upper()
-        step_count = status_info.get("current_step", 0)
-        last_act = status_info.get("last_action", "N/A")
-        err = status_info.get("error", None)
-
-        msg = (
-            f"<b>Agent Status:</b> {status_str}<br>"
-            f"<b>Steps Executed:</b> {step_count}<br>"
-            f"<b>Last Action:</b> {last_act}"
-        )
-
-        if err:
-            msg += f"<br><br><span style='color: red;'><b>Error:</b> {err}</span>"
-
-        # Display popup dialog
-        QMessageBox.information(self.main_window, "Agent Diagnostics", msg)
-        # Display popup dialog
-        QMessageBox.information(self.main_window, "Agent Diagnostics", msg)
+        self.main_window.show_agent_diagnostics()
 
     def show_observation_monitor(self):
-        """Open the task observation monitor."""
+        """Open the embedded task observation monitor."""
 
         if self.main_window is None or not hasattr(
             self.main_window,
             "show_observation_monitor",
         ):
-            QMessageBox.warning(
-                self.main_window,
-                "Observation Monitor",
-                "Observation monitor is unavailable.",
-            )
             return
 
         self.main_window.show_observation_monitor()
