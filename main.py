@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QMainWindow,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QVBoxLayout,
@@ -182,13 +183,41 @@ class MainWindow(QMainWindow):
         )
 
         observation_layout.setContentsMargins(
+            10,
+            10,
+            10,
+            10,
+        )
+
+        observation_layout.setSpacing(8)
+
+        # ---------------------------------------------------------
+        # Observation navigation
+        # ---------------------------------------------------------
+
+        observation_navigation = QWidget()
+
+        observation_navigation.setObjectName(
+            "ObservationNavigation",
+        )
+
+        observation_navigation.setSizePolicy(
+            QSizePolicy.Maximum,
+            QSizePolicy.Fixed,
+        )
+
+        observation_navigation_layout = QHBoxLayout(
+            observation_navigation,
+        )
+
+        observation_navigation_layout.setContentsMargins(
             0,
             0,
             0,
             0,
         )
 
-        observation_layout.setSpacing(8)
+        observation_navigation_layout.setSpacing(0)
 
         self.observation_back_button = QPushButton(
             "← Back to Chat",
@@ -198,21 +227,31 @@ class MainWindow(QMainWindow):
             "ObservationBackButton",
         )
 
+        self.observation_back_button.setSizePolicy(
+            QSizePolicy.Fixed,
+            QSizePolicy.Fixed,
+        )
+
         self.observation_back_button.clicked.connect(
             self.show_chat_page,
         )
 
-        self.observation_monitor = ObservationWidget(
-            storage_root=self.observation_storage_root,
-        )
-        print(
-            "DEBUG observation_monitor:",
-            self.observation_monitor,
-            type(self.observation_monitor),
+        observation_navigation_layout.addWidget(
+            self.observation_back_button,
         )
 
         observation_layout.addWidget(
-            self.observation_back_button,
+            observation_navigation,
+            0,
+            Qt.AlignmentFlag.AlignLeft,
+        )
+
+        # ---------------------------------------------------------
+        # Observation monitor
+        # ---------------------------------------------------------
+
+        self.observation_monitor = ObservationWidget(
+            storage_root=self.observation_storage_root,
         )
 
         observation_layout.addWidget(
@@ -545,7 +584,7 @@ class MainWindow(QMainWindow):
             self.chat_window.chat_display.append(
                 ChatMessageFormatter.format_message(
                     "system",
-                    "⏸️ Human approval required before "
+                    "Human approval required before "
                     "browser execution.\n"
                     f"{reasons}",
                 )

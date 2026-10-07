@@ -190,7 +190,7 @@ class FilesystemExecutionWorker(QThread):
             # or compute services directly.
             # ------------------------------------------------------
 
-            self.step_updated.emit("Initializing Gemini filesystem planner...")
+            self.step_updated.emit("Initializing filesystem planner...")
 
             planner = GeminiFilesystemToolPlanner(
                 api_key=self.api_key,

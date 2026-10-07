@@ -1,0 +1,26 @@
+﻿MOCKAPP Filesystem Agent Test File
+==================================
+
+Level: 4
+File: 3
+
+Dictionary Entries
+------------------
+Serene - calm, peaceful, and untroubled
+Tenacious - persistent and determined
+Ubiquitous - present or found everywhere
+Abundant - existing in large quantities
+Benevolent - well meaning and kindly
+Candid - truthful and straightforward
+Diligent - showing careful and persistent effort
+Eloquent - fluent or persuasive in speaking or writing
+Deteriorate - become progressively worse
+Endeavor - an attempt or effort to do something
+Zealous - showing great energy or enthusiasm
+Ambiguous - open to more than one interpretation
+Coherent - logical and consistent
+Formidable - inspiring fear or respect through being powerful
+Inevitable - certain to happen
+Versatile - able to adapt or be used for many purposes
+
+End of dictionary entries.

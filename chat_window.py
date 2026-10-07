@@ -7,13 +7,12 @@ from google import genai
 from google.genai import types
 
 from PySide6.QtCore import QThread, Signal, Qt
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QKeyEvent, QTextCursor
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QSizePolicy,
     QTextEdit,
@@ -25,6 +24,148 @@ from approval.approval_widget import ApprovalWidget
 from approval.models import ApprovalDecision
 from chat_formatter import ChatMessageFormatter
 from qt_theme import ThemeManager
+
+# ============================================================================
+# Auto-growing message editor
+# ============================================================================
+
+
+class AutoGrowTextEdit(QTextEdit):
+    """
+    Multiline message editor that grows vertically as the user's
+    prompt becomes longer.
+
+    Behaviour:
+        - Normal Enter submits the message.
+        - Shift+Enter inserts a newline.
+        - The editor grows until MAX_HEIGHT.
+        - Beyond MAX_HEIGHT, the editor becomes vertically scrollable.
+    """
+
+    submit_requested = Signal()
+
+    MIN_HEIGHT = 38
+    MAX_HEIGHT = 150
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setAcceptRichText(False)
+
+        self.setLineWrapMode(
+            QTextEdit.LineWrapMode.WidgetWidth,
+        )
+
+        self.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+
+        self.setMinimumHeight(
+            self.MIN_HEIGHT,
+        )
+
+        self.setMaximumHeight(
+            self.MAX_HEIGHT,
+        )
+
+        self.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed,
+        )
+
+        self.document().contentsChanged.connect(
+            self._update_height,
+        )
+
+        self._update_height()
+
+    def keyPressEvent(
+        self,
+        event: QKeyEvent,
+    ):
+        """
+        Handle composer keyboard submission.
+
+        Behaviour:
+            - Enter -> submit the message.
+            - Shift+Enter -> insert a newline.
+            - Other modified Enter combinations -> preserve normal QTextEdit
+            behaviour.
+        """
+
+        is_enter = event.key() in {
+            Qt.Key.Key_Return,
+            Qt.Key.Key_Enter,
+        }
+
+        if not is_enter:
+            super().keyPressEvent(event)
+            return
+
+        modifiers = event.modifiers()
+
+        # --------------------------------------------------------------
+        # Shift+Enter -> multiline input
+        # --------------------------------------------------------------
+
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            super().keyPressEvent(event)
+            return
+
+        # --------------------------------------------------------------
+        # Plain Enter -> submit
+        # --------------------------------------------------------------
+
+        if modifiers == Qt.KeyboardModifier.NoModifier:
+            if not event.isAutoRepeat():
+                self.submit_requested.emit()
+
+            event.accept()
+            return
+
+        # --------------------------------------------------------------
+        # Other modifier combinations -> preserve QTextEdit behaviour
+        # --------------------------------------------------------------
+
+        super().keyPressEvent(event)
+
+    def _update_height(self):
+        """
+        Resize the editor according to the amount of text currently
+        visible in the document.
+        """
+
+        document_height = self.document().documentLayout().documentSize().height()
+
+        frame_height = self.frameWidth() * 2
+
+        contents_height = document_height + frame_height + 8
+
+        target_height = max(
+            self.MIN_HEIGHT,
+            min(
+                int(contents_height),
+                self.MAX_HEIGHT,
+            ),
+        )
+
+        self.setFixedHeight(
+            target_height,
+        )
+
+        if contents_height > self.MAX_HEIGHT:
+            self.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+            )
+        else:
+            self.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+            )
+
 
 # ============================================================================
 # Gemini Worker
@@ -620,6 +761,9 @@ class ChatWindowWidget(QFrame):
             8,
             7,
         )
+        input_layout.setAlignment(
+            Qt.AlignmentFlag.AlignBottom,
+        )
 
         input_layout.setSpacing(6)
 
@@ -641,18 +785,19 @@ class ChatWindowWidget(QFrame):
         )
 
         # Text input
-        self.input_field = QLineEdit()
+        self.input_field = AutoGrowTextEdit()
 
         self.input_field.setObjectName("messageInput")
         self.input_field.setProperty(
             "role",
             "text_input",
         )
+
         self.input_field.setPlaceholderText("Ask the agent to do something...")
 
-        self.input_field.setClearButtonEnabled(False)
-
-        self.input_field.returnPressed.connect(self.send_message)
+        self.input_field.submit_requested.connect(
+            self.send_message,
+        )
 
         input_layout.addWidget(self.add_btn)
 
@@ -785,8 +930,7 @@ class ChatWindowWidget(QFrame):
         Send the current user message to Gemini.
         """
 
-        user_text = self.input_field.text().strip()
-
+        user_text = self.input_field.toPlainText().strip()
         if not user_text:
             return
 

@@ -10,4 +10,12 @@ Navigate to Level_3 inside the test filesystem. Open Dictionary_4.txt, extract a
 
 Navigate to Level_4 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read
 
+Navigate to Level_2 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read. 
+
 Navigate to Level_3 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read. 
+
+Navigate to Level_1 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read. 
+
+Navigate to Level_5 inside the test filesystem. Open the employee CSV file, sum the monthly salary of all employees, and return the total salary. Also report the exact file path you read. 
+
+navigate to level4 inside the test filesystem and open dictionary3.txt and extract all of its dictionary entries and return each word together with its meaning.

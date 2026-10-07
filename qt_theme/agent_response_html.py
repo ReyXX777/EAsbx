@@ -59,7 +59,7 @@ class AgentResponseParser:
         return f"""
         <div style="{theme_html.success_card_style()}">
             <div style="{title_style}">
-                📌 Execution Result — {html.escape(status_label)}
+                Execution Result — {html.escape(status_label)}
             </div>
 
             <div style="{body_style}">
@@ -74,54 +74,33 @@ class AgentResponseParser:
         result: AgentResult,
         theme_html: ThemeHtml,
     ) -> str:
-        """Render the agent execution history."""
+        """
+        Render a collapsed execution-history scaffold.
+
+        The detailed execution steps remain available in AgentResult,
+        but are intentionally not rendered into the chat display yet.
+        Interactive expansion will be implemented later at the Qt
+        presentation layer.
+        """
 
         if not result.action_history:
             return ""
 
-        items = []
-
-        for index, step in enumerate(
-            result.action_history,
-            start=1,
-        ):
-            details = html.escape(cls._summarize_action(step))
-
-            items.append(f"""
-                <li style="margin-bottom: 4px;">
-                    <strong style="{theme_html.step_label_style()}">
-                        Step {index}:
-                    </strong>
-                    <code style="{theme_html.code_style()}">
-                        {details}
-                    </code>
-                </li>
-                """)
-
-        steps_html = "".join(items)
-
         summary_style = (
-            f"{theme_html.muted_style()} "
-            "font-weight: 700; "
-            "cursor: pointer; "
-            "user-select: none;"
+            f"{theme_html.muted_style()} " "font-weight: 700; " "padding: 2px 0;"
         )
 
         return f"""
-        <details style="
+        <div style="
             {theme_html.elevated_card_style()}
             margin-top: 6px;
             font-size: {theme_html.small_size}pt;
         ">
-            <summary style="{summary_style}">
-                🔍 View Agent Execution Steps
+            <div style="{summary_style}">
+                ▸ View Agent Execution Steps
                 ({result.step_count} actions)
-            </summary>
-
-            <ul style="{theme_html.list_style()}">
-                {steps_html}
-            </ul>
-        </details>
+            </div>
+        </div>
         """
 
     @staticmethod
