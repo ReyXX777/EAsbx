@@ -1,0 +1,456 @@
+{
+  "identity": {
+    "session_id": "008f13a82e6e49fbac52429d06d475c7",
+    "family_key": "filesystem",
+    "task_key": "",
+    "started_at": "2026-10-07T21:41:03.310250+00:00"
+  },
+  "started_at": "2026-10-07T21:41:03.310250+00:00",
+  "finished_at": "2026-10-07T21:41:20.457252+00:00",
+  "status": "completed",
+  "metadata": {
+    "prompt": "go the the level2 of the filesystem",
+    "filesystem_root": "X:\\MOCKAPP\\test_filesystem",
+    "agent_type": "filesystem"
+  },
+  "discrete": [
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-07T21:41:12.778259+00:00",
+      "source": "filesystem_worker",
+      "step": 0
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-07T21:41:12.778259+00:00",
+      "source": "filesystem_worker",
+      "step": 0
+    },
+    {
+      "name": "path",
+      "value": ".",
+      "timestamp": "2026-10-07T21:41:12.778259+00:00",
+      "source": "filesystem_worker",
+      "step": 0
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-07T21:41:14.006249+00:00",
+      "source": "filesystem_worker",
+      "step": 1
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-07T21:41:14.006249+00:00",
+      "source": "filesystem_worker",
+      "step": 1
+    },
+    {
+      "name": "path",
+      "value": "Level_1",
+      "timestamp": "2026-10-07T21:41:14.006249+00:00",
+      "source": "filesystem_worker",
+      "step": 1
+    },
+    {
+      "name": "tool_success",
+      "value": true,
+      "timestamp": "2026-10-07T21:41:15.620252+00:00",
+      "source": "filesystem_worker",
+      "step": 2
+    },
+    {
+      "name": "tool_name",
+      "value": "list_directory",
+      "timestamp": "2026-10-07T21:41:15.620252+00:00",
+      "source": "filesystem_worker",
+      "step": 2
+    },
+    {
+      "name": "path",
+      "value": "Level_1/Level_2",
+      "timestamp": "2026-10-07T21:41:15.620252+00:00",
+      "source": "filesystem_worker",
+      "step": 2
+    },
+    {
+      "name": "task_status",
+      "value": "completed",
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_completed",
+      "value": true,
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_failed",
+      "value": false,
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_cancelled",
+      "value": false,
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "had_tool_failure",
+      "value": false,
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "recovered_from_failure",
+      "value": false,
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "used_search",
+      "value": false,
+      "timestamp": "2026-10-07T21:41:20.460252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "used_computation",
+      "value": false,
+      "timestamp": "2026-10-07T21:41:20.460252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "used_file_read",
+      "value": false,
+      "timestamp": "2026-10-07T21:41:20.460252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    }
+  ],
+  "continuous": [
+    {
+      "name": "total_tool_calls",
+      "value": 3.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "successful_tool_calls",
+      "value": 3.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "failed_tool_calls",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "unique_tools",
+      "value": 1.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "list_directory_count",
+      "value": 3.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "search_files_count",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "read_file_count",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "read_table_count",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "compute_count",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "unique_paths",
+      "value": 3.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "paths_visited",
+      "value": 6.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "directory_navigation_count",
+      "value": 3.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "file_access_count",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "maximum_path_depth",
+      "value": 2.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "search_count",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "navigation_reversal_count",
+      "value": 0.0,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "task_duration_seconds",
+      "value": 17.147002,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "average_tool_duration_seconds",
+      "value": 0.041668333333333335,
+      "timestamp": "2026-10-07T21:41:20.458245+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "minimum_tool_duration_seconds",
+      "value": 0.021005,
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    },
+    {
+      "name": "maximum_tool_duration_seconds",
+      "value": 0.052,
+      "timestamp": "2026-10-07T21:41:20.459252+00:00",
+      "source": "feature_deriver",
+      "step": null
+    }
+  ],
+  "events": [
+    {
+      "name": "task_started",
+      "timestamp": "2026-10-07T21:41:03.310250+00:00",
+      "source": "filesystem_worker",
+      "payload": {},
+      "step": null
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-07T21:41:12.757254+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": ".",
+        "step": 0
+      },
+      "step": 0
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-07T21:41:12.778259+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": ".",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 0
+      },
+      "step": 0
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-07T21:41:13.954249+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1",
+        "step": 1
+      },
+      "step": 1
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-07T21:41:14.006249+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 1
+      },
+      "step": 1
+    },
+    {
+      "name": "tool_started",
+      "timestamp": "2026-10-07T21:41:15.568252+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1/Level_2",
+        "step": 2
+      },
+      "step": 2
+    },
+    {
+      "name": "tool_completed",
+      "timestamp": "2026-10-07T21:41:15.620252+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "tool_name": "list_directory",
+        "path": "Level_1/Level_2",
+        "success": true,
+        "message": "",
+        "error": null,
+        "step": 2
+      },
+      "step": 2
+    },
+    {
+      "name": "task_completed",
+      "timestamp": "2026-10-07T21:41:20.457252+00:00",
+      "source": "filesystem_worker",
+      "payload": {
+        "status": "completed"
+      },
+      "step": null
+    }
+  ],
+  "traces": [
+    {
+      "sequence": 0,
+      "timestamp": "2026-10-07T21:41:03.310250+00:00",
+      "phase": "task_started",
+      "action": "filesystem_task",
+      "path": null,
+      "discrete": {},
+      "continuous": {}
+    },
+    {
+      "sequence": 1,
+      "timestamp": "2026-10-07T21:41:12.757254+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": ".",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 2,
+      "timestamp": "2026-10-07T21:41:12.778259+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": ".",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 3,
+      "timestamp": "2026-10-07T21:41:13.954249+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": "Level_1",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 4,
+      "timestamp": "2026-10-07T21:41:14.006249+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": "Level_1",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 5,
+      "timestamp": "2026-10-07T21:41:15.568252+00:00",
+      "phase": "tool_started",
+      "action": "list_directory",
+      "path": "Level_1/Level_2",
+      "discrete": {
+        "tool_name": "list_directory"
+      },
+      "continuous": {}
+    },
+    {
+      "sequence": 6,
+      "timestamp": "2026-10-07T21:41:15.620252+00:00",
+      "phase": "tool_completed",
+      "action": "list_directory",
+      "path": "Level_1/Level_2",
+      "discrete": {
+        "success": true
+      },
+      "continuous": {}
+    }
+  ]
+}
