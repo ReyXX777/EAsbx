@@ -25,9 +25,9 @@ from approval.models import ApprovalDecision
 from chat_formatter import ChatMessageFormatter
 from qt_theme import ThemeManager
 
-# ============================================================================
-# Auto-growing message editor
-# ============================================================================
+
+
+
 
 
 class AutoGrowTextEdit(QTextEdit):
@@ -108,17 +108,17 @@ class AutoGrowTextEdit(QTextEdit):
 
         modifiers = event.modifiers()
 
-        # --------------------------------------------------------------
-        # Shift+Enter -> multiline input
-        # --------------------------------------------------------------
+
+
+
 
         if modifiers & Qt.KeyboardModifier.ShiftModifier:
             super().keyPressEvent(event)
             return
 
-        # --------------------------------------------------------------
-        # Plain Enter -> submit
-        # --------------------------------------------------------------
+
+
+
 
         if modifiers == Qt.KeyboardModifier.NoModifier:
             if not event.isAutoRepeat():
@@ -127,9 +127,9 @@ class AutoGrowTextEdit(QTextEdit):
             event.accept()
             return
 
-        # --------------------------------------------------------------
-        # Other modifier combinations -> preserve QTextEdit behaviour
-        # --------------------------------------------------------------
+
+
+
 
         super().keyPressEvent(event)
 
@@ -167,9 +167,9 @@ class AutoGrowTextEdit(QTextEdit):
             )
 
 
-# ============================================================================
-# Gemini Worker
-# ============================================================================
+
+
+
 
 
 class GeminiWorker(QThread):
@@ -185,16 +185,16 @@ class GeminiWorker(QThread):
         4. The worker performs no UI operations directly.
     """
 
-    # Normal conversational response.
+
     chat_chunk = Signal(str)
     chat_finished = Signal()
 
-    # Executable task:
-    #   argument 1 -> intent
-    #   argument 2 -> task description
+
+
+
     task_response = Signal(str, str)
 
-    # Worker-level errors.
+
     error_occurred = Signal(str)
 
     def __init__(
@@ -211,17 +211,17 @@ class GeminiWorker(QThread):
 
     def run(self):
         try:
-            # ==============================================================
-            # 1. Create Gemini client
-            # ==============================================================
+
+
+
 
             client = genai.Client(
                 api_key=self.api_key,
             )
 
-            # ==============================================================
-            # 2. Load intent schema
-            # ==============================================================
+
+
+
 
             schema_path = os.path.join(
                 os.path.dirname(__file__),
@@ -238,9 +238,9 @@ class GeminiWorker(QThread):
                 ) as file:
                     response_schema = json.load(file)
 
-            # ==============================================================
-            # 3. Intent classification instructions
-            # ==============================================================
+
+
+
 
             system_instruction = (
                 "You are an intent classification system for an AI assistant.\n"
@@ -248,9 +248,9 @@ class GeminiWorker(QThread):
                 "Your ONLY job is to classify the user's message as exactly "
                 "one of: 'CHAT', 'BROWSER_TASK', or 'FILESYSTEM_TASK'.\n"
                 "\n"
-                # ----------------------------------------------------------
-                # Browser tasks
-                # ----------------------------------------------------------
+
+
+
                 "Use 'BROWSER_TASK' when the request requires the application "
                 "to perform actions in a web browser, including:\n"
                 "- opening a website\n"
@@ -263,9 +263,9 @@ class GeminiWorker(QThread):
                 "- interacting with a web application\n"
                 "- changing information on a website\n"
                 "\n"
-                # ----------------------------------------------------------
-                # Filesystem tasks
-                # ----------------------------------------------------------
+
+
+
                 "Use 'FILESYSTEM_TASK' when the request requires the application "
                 "to operate on files or directories in the application's "
                 "sandboxed filesystem, including:\n"
@@ -279,9 +279,9 @@ class GeminiWorker(QThread):
                 "- copying or moving files\n"
                 "- deleting files or directories\n"
                 "\n"
-                # ----------------------------------------------------------
-                # Normal chat
-                # ----------------------------------------------------------
+
+
+
                 "Use 'CHAT' when the user is asking for:\n"
                 "- general conversation\n"
                 "- explanations\n"
@@ -292,9 +292,9 @@ class GeminiWorker(QThread):
                 "- questions that do not require live browser interaction "
                 "or filesystem operations\n"
                 "\n"
-                # ----------------------------------------------------------
-                # Mixed requests
-                # ----------------------------------------------------------
+
+
+
                 "If the request requires browser interaction, classify it "
                 "as 'BROWSER_TASK'.\n"
                 "\n"
@@ -305,15 +305,15 @@ class GeminiWorker(QThread):
                 "filesystem operations, classify it according to the "
                 "primary action explicitly requested by the user.\n"
                 "\n"
-                # ----------------------------------------------------------
-                # Output contract
-                # ----------------------------------------------------------
+
+
+
                 "Return ONLY JSON matching the supplied response schema."
             )
 
-            # ==============================================================
-            # 4. Build classification configuration
-            # ==============================================================
+
+
+
 
             config_kwargs = {
                 "system_instruction": system_instruction,
@@ -327,9 +327,9 @@ class GeminiWorker(QThread):
                 **config_kwargs,
             )
 
-            # ==============================================================
-            # 5. Ask Gemini to classify the message
-            # ==============================================================
+
+
+
 
             classification_prompt = (
                 "Classify the following user message:\n\n" f"{self.prompt}"
@@ -341,9 +341,9 @@ class GeminiWorker(QThread):
                 config=config,
             )
 
-            # ==============================================================
-            # 6. Validate Gemini response
-            # ==============================================================
+
+
+
 
             if not response.text:
                 raise ValueError("Gemini returned an empty intent classification.")
@@ -361,9 +361,9 @@ class GeminiWorker(QThread):
             if not isinstance(data, dict):
                 raise ValueError("Gemini intent classification must be a JSON object.")
 
-            # ==============================================================
-            # 7. Extract classification
-            # ==============================================================
+
+
+
 
             intent = (
                 str(
@@ -386,9 +386,9 @@ class GeminiWorker(QThread):
 
             task_desc = task_desc.strip()
 
-            # ==============================================================
-            # 8. Validate intent
-            # ==============================================================
+
+
+
 
             valid_intents = {
                 "CHAT",
@@ -399,9 +399,9 @@ class GeminiWorker(QThread):
             if intent not in valid_intents:
                 raise ValueError(f"Unknown intent returned by Gemini: {intent}")
 
-            # ==============================================================
-            # 9. Executable task
-            # ==============================================================
+
+
+
 
             if intent in {
                 "BROWSER_TASK",
@@ -415,9 +415,9 @@ class GeminiWorker(QThread):
 
                 return
 
-            # ==============================================================
-            # 10. Normal chat
-            # ==============================================================
+
+
+
 
             if self.chat_session is None:
 
@@ -429,9 +429,9 @@ class GeminiWorker(QThread):
 
                 chat = self.chat_session
 
-            # ==============================================================
-            # 11. Stream Gemini conversation response
-            # ==============================================================
+
+
+
 
             response_stream = chat.send_message_stream(
                 self.prompt,
@@ -444,9 +444,9 @@ class GeminiWorker(QThread):
                         chunk.text,
                     )
 
-            # ==============================================================
-            # 12. Chat completed
-            # ==============================================================
+
+
+
 
             self.chat_finished.emit()
 
@@ -455,9 +455,9 @@ class GeminiWorker(QThread):
             self.error_occurred.emit(f"{type(exc).__name__}: {exc}")
 
 
-# ============================================================================
-# Chat Window
-# ============================================================================
+
+
+
 
 
 class ChatWindowWidget(QFrame):
@@ -495,9 +495,9 @@ class ChatWindowWidget(QFrame):
         self._build_ui()
         self._apply_styles()
 
-    # ========================================================================
-    # UI Construction
-    # ========================================================================
+
+
+
 
     def _build_ui(self):
         """
@@ -518,16 +518,16 @@ class ChatWindowWidget(QFrame):
 
         main_layout.setSpacing(0)
 
-        # --------------------------------------------------------------------
-        # Header
-        # --------------------------------------------------------------------
+
+
+
 
         self.header = self._build_header()
         main_layout.addWidget(self.header)
 
-        # --------------------------------------------------------------------
-        # Conversation area
-        # --------------------------------------------------------------------
+
+
+
 
         self.chat_display = QTextEdit()
 
@@ -562,9 +562,9 @@ class ChatWindowWidget(QFrame):
             stretch=1,
         )
 
-        # --------------------------------------------------------------------
-        # Approval region
-        # --------------------------------------------------------------------
+
+
+
 
         self.approval_container = QWidget()
 
@@ -588,17 +588,17 @@ class ChatWindowWidget(QFrame):
 
         main_layout.addWidget(self.approval_container)
 
-        # --------------------------------------------------------------------
-        # Composer
-        # --------------------------------------------------------------------
+
+
+
 
         self.composer = self._build_composer()
 
         main_layout.addWidget(self.composer)
 
-    # ========================================================================
-    # Header
-    # ========================================================================
+
+
+
 
     def _build_header(self) -> QWidget:
         """
@@ -627,7 +627,7 @@ class ChatWindowWidget(QFrame):
 
         layout.setSpacing(12)
 
-        # Agent icon
+
         icon = QLabel("✦")
 
         icon.setObjectName("agentIcon")
@@ -646,7 +646,7 @@ class ChatWindowWidget(QFrame):
 
         layout.addWidget(icon)
 
-        # Title / subtitle
+
         title_layout = QVBoxLayout()
 
         title_layout.setContentsMargins(
@@ -684,7 +684,7 @@ class ChatWindowWidget(QFrame):
 
         layout.addStretch()
 
-        # Small status indicator
+
         self.status_indicator = QLabel("●")
 
         self.status_indicator.setObjectName("statusIndicator")
@@ -713,9 +713,9 @@ class ChatWindowWidget(QFrame):
 
         return header
 
-    # ========================================================================
-    # Composer
-    # ========================================================================
+
+
+
 
     def _build_composer(self) -> QWidget:
         """
@@ -740,9 +740,9 @@ class ChatWindowWidget(QFrame):
 
         outer_layout.setSpacing(8)
 
-        # --------------------------------------------------------------
-        # Main input card
-        # --------------------------------------------------------------
+
+
+
 
         input_card = QFrame()
 
@@ -767,7 +767,7 @@ class ChatWindowWidget(QFrame):
 
         input_layout.setSpacing(6)
 
-        # Add / attachment button
+
         self.add_btn = QPushButton("+")
 
         self.add_btn.setObjectName("composerIconButton")
@@ -784,7 +784,7 @@ class ChatWindowWidget(QFrame):
             34,
         )
 
-        # Text input
+
         self.input_field = AutoGrowTextEdit()
 
         self.input_field.setObjectName("messageInput")
@@ -806,7 +806,7 @@ class ChatWindowWidget(QFrame):
             stretch=1,
         )
 
-        # Mode selector
+
         self.mode_dropdown = QComboBox()
 
         self.mode_dropdown.setObjectName("modeDropdown")
@@ -828,7 +828,7 @@ class ChatWindowWidget(QFrame):
 
         input_layout.addWidget(self.mode_dropdown)
 
-        # Voice/action button
+
         self.mic_btn = QPushButton("◉")
 
         self.mic_btn.setObjectName("composerIconButton")
@@ -845,7 +845,7 @@ class ChatWindowWidget(QFrame):
 
         input_layout.addWidget(self.mic_btn)
 
-        # Send
+
         self.send_btn = QPushButton("↑")
 
         self.send_btn.setObjectName("sendButton")
@@ -868,7 +868,7 @@ class ChatWindowWidget(QFrame):
 
         outer_layout.addWidget(input_card)
 
-        # Composer hint
+
         hint_layout = QHBoxLayout()
 
         hint_layout.setContentsMargins(
@@ -906,9 +906,9 @@ class ChatWindowWidget(QFrame):
 
         return outer
 
-    # ========================================================================
-    # Styling
-    # ========================================================================
+
+
+
 
     def _apply_styles(self):
         """
@@ -921,9 +921,9 @@ class ChatWindowWidget(QFrame):
 
         ThemeManager.instance().refresh_widget(self)
 
-    # ========================================================================
-    # Messaging
-    # ========================================================================
+
+
+
 
     def send_message(self):
         """
@@ -946,9 +946,9 @@ class ChatWindowWidget(QFrame):
 
             return
 
-        # --------------------------------------------------------------
-        # Display user message
-        # --------------------------------------------------------------
+
+
+
 
         user_html = ChatMessageFormatter.format_message(
             "user",
@@ -966,9 +966,9 @@ class ChatWindowWidget(QFrame):
 
         self._set_agent_status("Thinking...")
 
-        # --------------------------------------------------------------
-        # Worker
-        # --------------------------------------------------------------
+
+
+
 
         self.worker = GeminiWorker(
             user_text,
@@ -985,9 +985,9 @@ class ChatWindowWidget(QFrame):
 
         self.worker.start()
 
-    # ========================================================================
-    # Streaming response
-    # ========================================================================
+
+
+
 
     def on_chat_chunk(
         self,
@@ -1022,9 +1022,9 @@ class ChatWindowWidget(QFrame):
 
         self._scroll_to_bottom()
 
-    # ========================================================================
-    # Chat finished
-    # ========================================================================
+
+
+
 
     def on_chat_finished(self):
         """
@@ -1035,9 +1035,9 @@ class ChatWindowWidget(QFrame):
 
         self._set_busy_state(False)
 
-    # ========================================================================
-    # Browser task detected
-    # ========================================================================
+
+
+
 
     def on_task_response(
         self,
@@ -1073,9 +1073,9 @@ class ChatWindowWidget(QFrame):
 
         self._reset_input_state()
 
-    # ========================================================================
-    # Error
-    # ========================================================================
+
+
+
 
     def on_error(
         self,
@@ -1096,9 +1096,9 @@ class ChatWindowWidget(QFrame):
 
         self._reset_input_state()
 
-    # ========================================================================
-    # Busy state
-    # ========================================================================
+
+
+
 
     def _set_busy_state(
         self,
@@ -1130,9 +1130,9 @@ class ChatWindowWidget(QFrame):
 
         self._set_agent_status("Ready")
 
-    # ========================================================================
-    # Agent status
-    # ========================================================================
+
+
+
 
     def _set_agent_status(
         self,
@@ -1149,9 +1149,9 @@ class ChatWindowWidget(QFrame):
         else:
             self.status_indicator.setText("●")
 
-    # ========================================================================
-    # Approval UI
-    # ========================================================================
+
+
+
 
     def show_approval_request(
         self,
@@ -1182,14 +1182,14 @@ class ChatWindowWidget(QFrame):
 
         self._set_agent_status("Waiting for approval")
 
-        # Prevent another task while authorization is pending.
+
         self._set_busy_state(True)
 
         self._scroll_to_bottom()
 
-    # ========================================================================
-    # Clear approval
-    # ========================================================================
+
+
+
 
     def clear_approval_request(self):
         """
@@ -1209,9 +1209,9 @@ class ChatWindowWidget(QFrame):
 
         self.approval_container.setVisible(False)
 
-    # ========================================================================
-    # Approval granted
-    # ========================================================================
+
+
+
 
     def _on_approval_approved(self):
         """
@@ -1231,9 +1231,9 @@ class ChatWindowWidget(QFrame):
 
         self.approval_granted.emit()
 
-    # ========================================================================
-    # Approval denied
-    # ========================================================================
+
+
+
 
     def _on_approval_denied(self):
         """
@@ -1255,9 +1255,9 @@ class ChatWindowWidget(QFrame):
 
         self.approval_denied.emit()
 
-    # ========================================================================
-    # Conversation helpers
-    # ========================================================================
+
+
+
 
     def clear_conversation(self):
         """

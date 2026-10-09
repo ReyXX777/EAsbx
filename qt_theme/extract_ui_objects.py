@@ -55,12 +55,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
 
-# ============================================================================
-# Qt widget classification
-# ============================================================================
+
+
+
 
 QT_WIDGET_CLASSES = {
-    # Core widgets
+
     "QWidget",
     "QFrame",
     "QLabel",
@@ -81,20 +81,20 @@ QT_WIDGET_CLASSES = {
     "QDateEdit",
     "QTimeEdit",
     "QDateTimeEdit",
-    # Containers
+
     "QGroupBox",
     "QTabWidget",
     "QStackedWidget",
     "QScrollArea",
     "QSplitter",
-    # Main-window related
+
     "QMainWindow",
     "QDialog",
     "QStatusBar",
     "QMenuBar",
-    # Browser
+
     "QWebEngineView",
-    # Other common Qt widgets
+
     "QProgressBar",
     "QSlider",
     "QDial",
@@ -103,9 +103,9 @@ QT_WIDGET_CLASSES = {
 }
 
 
-# ============================================================================
-# Semantic role rules
-# ============================================================================
+
+
+
 
 """
 The semantic role system is intentionally conservative.
@@ -135,9 +135,9 @@ These roles can later become stable stylesheet APIs.
 
 
 ROLE_RULES = (
-    # ------------------------------------------------------------------------
-    # Exact / high-confidence object names
-    # ------------------------------------------------------------------------
+
+
+
     ("chatWindow", "chat_root"),
     ("chatHeader", "header"),
     ("chatDisplay", "conversation_display"),
@@ -155,9 +155,9 @@ ROLE_RULES = (
     ("sendButton", "primary_action"),
     ("composerHint", "hint"),
     ("composerShortcut", "shortcut"),
-    # ------------------------------------------------------------------------
-    # Name fragments
-    # ------------------------------------------------------------------------
+
+
+
     ("title", "title"),
     ("subtitle", "subtitle"),
     ("status", "status"),
@@ -188,9 +188,9 @@ ROLE_RULES = (
 )
 
 
-# ============================================================================
-# Data model
-# ============================================================================
+
+
+
 
 
 @dataclass
@@ -214,9 +214,9 @@ class ObjectRecord:
     notes: list[str] = field(default_factory=list)
 
 
-# ============================================================================
-# AST helpers
-# ============================================================================
+
+
+
 
 
 def dotted_name(node: ast.AST) -> Optional[str]:
@@ -326,9 +326,9 @@ def is_self_attribute(node: ast.AST) -> bool:
     )
 
 
-# ============================================================================
-# Main extractor
-# ============================================================================
+
+
+
 
 
 class UIObjectExtractor(ast.NodeVisitor):
@@ -343,21 +343,21 @@ class UIObjectExtractor(ast.NodeVisitor):
 
         self.current_function: Optional[str] = None
 
-        # Variable -> class name
+
         self.widget_variables: dict[str, str] = {}
 
-        # Variable -> objectName
+
         self.object_names: dict[str, str] = {}
 
-        # Variable -> parent variable
+
         self.parent_variables: dict[str, str] = {}
 
-        # Variable -> collected properties
+
         self.properties: dict[str, dict] = {}
 
-    # ------------------------------------------------------------------------
-    # Functions
-    # ------------------------------------------------------------------------
+
+
+
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         previous = self.current_function
@@ -377,9 +377,9 @@ class UIObjectExtractor(ast.NodeVisitor):
 
         self.current_function = previous
 
-    # ------------------------------------------------------------------------
-    # Assignments
-    # ------------------------------------------------------------------------
+
+
+
 
     def visit_Assign(self, node: ast.Assign):
         """
@@ -431,9 +431,9 @@ class UIObjectExtractor(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    # ------------------------------------------------------------------------
-    # Calls
-    # ------------------------------------------------------------------------
+
+
+
 
     def visit_Call(self, node: ast.Call):
         """
@@ -467,9 +467,9 @@ class UIObjectExtractor(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    # =========================================================================
-    # Constructor analysis
-    # =========================================================================
+
+
+
 
     def _widget_class_from_constructor(
         self,
@@ -499,16 +499,16 @@ class UIObjectExtractor(ast.NodeVisitor):
         if not isinstance(node, ast.Call):
             return None
 
-        # Example:
-        #
-        # ApprovalWidget(
-        #     decision,
-        #     parent=self.approval_container,
-        # )
-        #
-        # or:
-        #
-        # QLabel(parent=self.foo)
+
+
+
+
+
+
+
+
+
+
 
         for keyword in node.keywords:
             if keyword.arg != "parent":
@@ -522,7 +522,7 @@ class UIObjectExtractor(ast.NodeVisitor):
             if isinstance(value, ast.Name):
                 return value.id
 
-        # Qt commonly permits parent as the first positional argument.
+
         if node.args:
             candidate = node.args[-1]
 
@@ -534,9 +534,9 @@ class UIObjectExtractor(ast.NodeVisitor):
 
         return None
 
-    # =========================================================================
-    # Property extraction
-    # =========================================================================
+
+
+
 
     def _record_method(
         self,
@@ -611,9 +611,9 @@ class UIObjectExtractor(ast.NodeVisitor):
             if isinstance(value, bool):
                 properties["accept_rich_text"] = value
 
-    # =========================================================================
-    # Finalization
-    # =========================================================================
+
+
+
 
     def finalize(self) -> list[ObjectRecord]:
         """
@@ -655,9 +655,9 @@ class UIObjectExtractor(ast.NodeVisitor):
         return self.objects
 
 
-# ============================================================================
-# Semantic role inference
-# ============================================================================
+
+
+
 
 
 def infer_semantic_role(
@@ -679,9 +679,9 @@ def infer_semantic_role(
 
     combined = " ".join(names).replace("-", "_")
 
-    # ------------------------------------------------------------------------
-    # High-confidence explicit mappings
-    # ------------------------------------------------------------------------
+
+
+
 
     for fragment, role in ROLE_RULES:
 
@@ -690,7 +690,7 @@ def infer_semantic_role(
         if normalized_fragment in combined:
             confidence = "high"
 
-            # Exact object-name match is stronger than a substring match.
+
             if object_name and object_name.lower() == fragment.lower():
                 confidence = "very_high"
 
@@ -704,9 +704,9 @@ def infer_semantic_role(
     if candidates:
         return choose_best_role(candidates)
 
-    # ------------------------------------------------------------------------
-    # Widget-class fallbacks
-    # ------------------------------------------------------------------------
+
+
+
 
     class_fallbacks = {
         "QLineEdit": ("text_input", "medium"),
@@ -757,9 +757,9 @@ def choose_best_role(
     return role, confidence
 
 
-# ============================================================================
-# Stylesheet selector generation
-# ============================================================================
+
+
+
 
 
 def build_selectors(
@@ -771,37 +771,37 @@ def build_selectors(
 
     selectors: list[str] = []
 
-    # ------------------------------------------------------------------------
-    # Semantic property selector
-    # ------------------------------------------------------------------------
+
+
+
 
     if semantic_role != "unclassified":
         selectors.append(f'{class_name}[role="{semantic_role}"]')
 
-    # ------------------------------------------------------------------------
-    # Object-name selector
-    #
-    # Useful for transitional migration.
-    # We deliberately put this second.
-    # ------------------------------------------------------------------------
+
+
+
+
+
+
 
     if object_name:
         selectors.append(f"#{object_name}")
 
-    # ------------------------------------------------------------------------
-    # Class selector
-    #
-    # Only useful as a broad fallback.
-    # ------------------------------------------------------------------------
+
+
+
+
+
 
     selectors.append(class_name)
 
     return selectors
 
 
-# ============================================================================
-# Notes
-# ============================================================================
+
+
+
 
 
 def build_notes(
@@ -853,9 +853,9 @@ def build_notes(
     return notes
 
 
-# ============================================================================
-# Output helpers
-# ============================================================================
+
+
+
 
 
 def build_summary(
@@ -904,9 +904,9 @@ def extract_file(
     return records, summary
 
 
-# ============================================================================
-# CLI
-# ============================================================================
+
+
+
 
 
 def parse_args():
@@ -968,9 +968,9 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    # ------------------------------------------------------------------------
-    # Human-readable console report
-    # ------------------------------------------------------------------------
+
+
+
 
     print()
     print("=" * 78)

@@ -1,36 +1,36 @@
 from pathlib import Path
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
 
-# Every path here is relative to the MOCKAPP project root.
-#
-# You can specify files at ANY directory depth.
-#
-# Examples:
-#
-#   "main.py"
-#   "approval/models.py"
-#   "approval/approval_widget.py"
-#   "schemas/approval_schema.json"
-#   "agents/filesystem/filesystem_agent.py"
-#
-# Both "/" and "\" are accepted on Windows.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 FILES_TO_EXPORT = [
-    # ---------------------------------------------------------
-    # Qt observation package
-    # ---------------------------------------------------------
+
+
+
     "task_observation_engine/task_observation/qt/__init__.py",
     "task_observation_engine/task_observation/qt/observation_bridge.py",
     "task_observation_engine/task_observation/qt/observation_thread.py",
     "task_observation_engine/task_observation/qt/observation_worker.py",
     "task_observation_engine/task_observation/qt/observation_plot.py",
     "task_observation_engine/task_observation/qt/observation_widget.py",
-    # ---------------------------------------------------------
-    # Observation data model / engine
-    # ---------------------------------------------------------
+
+
+
     "task_observation_engine/task_observation/__init__.py",
     "task_observation_engine/task_observation/models.py",
     "task_observation_engine/task_observation/session.py",
@@ -39,9 +39,9 @@ FILES_TO_EXPORT = [
     "task_observation_engine/task_observation/collectors.py",
     "task_observation_engine/task_observation/buckets.py",
     "task_observation_engine/task_observation/derivers.py",
-    # ---------------------------------------------------------
-    # Existing observation tests
-    # ---------------------------------------------------------
+
+
+
     "task_observation_engine/tests/test_qt_observation.py",
     "task_observation_engine/tests/test_qt_observation_widget.py",
     "task_observation_engine/tests/test_qt_observation_worker.py",
@@ -50,9 +50,9 @@ FILES_TO_EXPORT = [
     "task_observation_engine/tests/test_observation_engine.py",
     "task_observation_engine/tests/test_observation_derivers.py",
     "task_observation_engine/tests/test_observation_derivation_integration.py",
-    # ---------------------------------------------------------
-    # Application integration
-    # ---------------------------------------------------------
+
+
+
     "main.py",
     "app_menu_bar.py",
 ]
@@ -61,9 +61,9 @@ FILES_TO_EXPORT = [
 OUTPUT_FILE = "selected_code_export.txt"
 
 
-# ============================================================
-# PATH HELPERS
-# ============================================================
+
+
+
 
 
 def normalize_relative_path(file_path: str) -> Path:
@@ -108,9 +108,9 @@ def resolve_project_file(
     return file_path
 
 
-# ============================================================
-# FILE READING
-# ============================================================
+
+
+
 
 
 def read_file(file_path: Path) -> str:
@@ -123,9 +123,9 @@ def read_file(file_path: Path) -> str:
     )
 
 
-# ============================================================
-# EXPORT BUILDER
-# ============================================================
+
+
+
 
 
 def build_export(
@@ -160,9 +160,9 @@ def build_export(
         output_parts.append("=" * 80)
         output_parts.append("")
 
-        # ----------------------------------------------------
-        # Resolve relative path safely
-        # ----------------------------------------------------
+
+
+
 
         try:
             file_path = resolve_project_file(
@@ -175,9 +175,9 @@ def build_export(
             output_parts.append("")
             continue
 
-        # ----------------------------------------------------
-        # Verify file exists
-        # ----------------------------------------------------
+
+
+
 
         if not file_path.exists():
             output_parts.append(f"[ERROR] File not found:")
@@ -185,9 +185,9 @@ def build_export(
             output_parts.append("")
             continue
 
-        # ----------------------------------------------------
-        # Verify it is actually a file
-        # ----------------------------------------------------
+
+
+
 
         if not file_path.is_file():
             output_parts.append(f"[ERROR] Path is not a file:")
@@ -195,9 +195,9 @@ def build_export(
             output_parts.append("")
             continue
 
-        # ----------------------------------------------------
-        # Read file
-        # ----------------------------------------------------
+
+
+
 
         try:
             content = read_file(file_path)
@@ -215,9 +215,9 @@ def build_export(
     return "\n".join(output_parts)
 
 
-# ============================================================
-# MAIN
-# ============================================================
+
+
+
 
 
 def main():
@@ -225,35 +225,35 @@ def main():
     Generate the selected source-code export.
     """
 
-    # --------------------------------------------------------
-    # The directory containing this script is the project root.
-    # --------------------------------------------------------
+
+
+
 
     project_root = Path(__file__).resolve().parent
 
     output_path = project_root / OUTPUT_FILE
 
-    # --------------------------------------------------------
-    # Build export
-    # --------------------------------------------------------
+
+
+
 
     export_content = build_export(
         project_root,
         FILES_TO_EXPORT,
     )
 
-    # --------------------------------------------------------
-    # Overwrite previous export
-    # --------------------------------------------------------
+
+
+
 
     output_path.write_text(
         export_content,
         encoding="utf-8",
     )
 
-    # --------------------------------------------------------
-    # Console summary
-    # --------------------------------------------------------
+
+
+
 
     print()
     print("=" * 60)

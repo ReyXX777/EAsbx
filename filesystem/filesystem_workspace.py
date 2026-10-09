@@ -56,9 +56,9 @@ class FilesWorkspace(QWidget):
 
         self.refresh()
 
-    # =========================================================
-    # UI
-    # =========================================================
+
+
+
 
     def _build_ui(self):
         root_layout = QVBoxLayout(self)
@@ -72,9 +72,9 @@ class FilesWorkspace(QWidget):
 
         root_layout.setSpacing(6)
 
-        # -----------------------------------------------------
-        # Toolbar
-        # -----------------------------------------------------
+
+
+
 
         toolbar = QHBoxLayout()
 
@@ -139,15 +139,15 @@ class FilesWorkspace(QWidget):
             activity_layout,
         )
 
-        # -----------------------------------------------------
-        # Main horizontal splitter
-        # -----------------------------------------------------
+
+
+
 
         splitter = QSplitter(Qt.Horizontal)
 
-        # -----------------------------------------------------
-        # Directory tree
-        # -----------------------------------------------------
+
+
+
 
         self.tree = QTreeWidget()
 
@@ -161,18 +161,18 @@ class FilesWorkspace(QWidget):
 
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
 
-        # Single click = preview file.
+
         self.tree.itemClicked.connect(self._on_tree_item_clicked)
 
-        # Double click = navigate into directory.
-        # For files this also opens the file explicitly.
+
+
         self.tree.itemDoubleClicked.connect(self._on_tree_double_clicked)
 
         splitter.addWidget(self.tree)
 
-        # -----------------------------------------------------
-        # Right-side content area
-        # -----------------------------------------------------
+
+
+
 
         right = QWidget()
 
@@ -187,9 +187,9 @@ class FilesWorkspace(QWidget):
 
         right_layout.setSpacing(4)
 
-        # -----------------------------------------------------
-        # Preview header
-        # -----------------------------------------------------
+
+
+
 
         self.preview_header = QLabel("File Preview")
 
@@ -200,20 +200,20 @@ class FilesWorkspace(QWidget):
         )
         right_layout.addWidget(self.preview_header)
 
-        # -----------------------------------------------------
-        # Preview stack
-        #
-        # We use one QStackedWidget instead of keeping both
-        # preview widgets permanently visible.
-        # -----------------------------------------------------
+
+
+
+
+
+
 
         from PySide6.QtWidgets import QStackedWidget
 
         self.preview_stack = QStackedWidget()
 
-        # -----------------------------------------------------
-        # Empty preview
-        # -----------------------------------------------------
+
+
+
 
         self.empty_preview = QLabel("Select a file to preview it.")
 
@@ -223,9 +223,9 @@ class FilesWorkspace(QWidget):
 
         self.preview_stack.addWidget(self.empty_preview)
 
-        # -----------------------------------------------------
-        # Text preview
-        # -----------------------------------------------------
+
+
+
 
         self.preview = QPlainTextEdit()
 
@@ -235,9 +235,9 @@ class FilesWorkspace(QWidget):
 
         self.preview_stack.addWidget(self.preview)
 
-        # -----------------------------------------------------
-        # Table preview
-        # -----------------------------------------------------
+
+
+
 
         self.table = QTableWidget()
 
@@ -256,9 +256,9 @@ class FilesWorkspace(QWidget):
 
         splitter.addWidget(right)
 
-        # -----------------------------------------------------
-        # Initial splitter sizing
-        # -----------------------------------------------------
+
+
+
 
         splitter.setSizes(
             [
@@ -272,12 +272,12 @@ class FilesWorkspace(QWidget):
             1,
         )
 
-        # Start with an empty preview.
+
         self._show_empty_preview()
 
-    # =========================================================
-    # Preview state
-    # =========================================================
+
+
+
 
     def _show_empty_preview(self):
         """
@@ -336,9 +336,9 @@ class FilesWorkspace(QWidget):
 
         self.preview_stack.setCurrentWidget(self.table)
 
-    # =========================================================
-    # Directory refresh
-    # =========================================================
+
+
+
 
     def refresh(self):
         """
@@ -388,9 +388,9 @@ class FilesWorkspace(QWidget):
 
             self.tree.addTopLevelItem(item)
 
-    # =========================================================
-    # Tree interaction
-    # =========================================================
+
+
+
 
     def _on_tree_item_clicked(
         self,
@@ -470,9 +470,9 @@ class FilesWorkspace(QWidget):
 
         self._preview_file(relative_path)
 
-    # =========================================================
-    # File preview
-    # =========================================================
+
+
+
 
     def _preview_file(
         self,
@@ -499,9 +499,9 @@ class FilesWorkspace(QWidget):
 
         suffix = Path(relative_path).suffix.lower()
 
-        # -----------------------------------------------------
-        # Structured/table files
-        # -----------------------------------------------------
+
+
+
 
         if suffix in {
             ".csv",
@@ -546,9 +546,9 @@ class FilesWorkspace(QWidget):
 
             return
 
-        # -----------------------------------------------------
-        # Normal text files
-        # -----------------------------------------------------
+
+
+
 
         result = self.service.read_file(relative_path)
 
@@ -568,9 +568,9 @@ class FilesWorkspace(QWidget):
                 result.message,
             )
 
-    # =========================================================
-    # Table rendering
-    # =========================================================
+
+
+
 
     def _show_table(
         self,
@@ -603,10 +603,10 @@ class FilesWorkspace(QWidget):
 
         self.table.resizeColumnsToContents()
 
-    # =========================================================
 
-    # Agent activity indicator
-    # =========================================================
+
+
+
 
     def _start_agent_activity(self) -> None:
         """Show the indeterminate filesystem-agent activity indicator."""
@@ -626,9 +626,9 @@ class FilesWorkspace(QWidget):
 
         self.agent_activity_label.setVisible(False)
 
-    # =========================================================
-    # Filesystem-agent activity
-    # =========================================================
+
+
+
 
     def show_agent_activity(
         self,
@@ -665,9 +665,9 @@ class FilesWorkspace(QWidget):
 
         self._stop_agent_activity()
 
-    # =========================================================
-    # Agent directory navigation
-    # =========================================================
+
+
+
 
     def show_agent_directory(
         self,
@@ -684,9 +684,9 @@ class FilesWorkspace(QWidget):
 
         self.refresh()
 
-    # =========================================================
-    # Agent file access
-    # =========================================================
+
+
+
 
     def show_agent_file(
         self,
@@ -716,29 +716,29 @@ class FilesWorkspace(QWidget):
         }:
             parent_path = "."
 
-        # -----------------------------------------------------
-        # Navigate tree to parent directory.
-        # -----------------------------------------------------
+
+
+
 
         self.path_field.setText(parent_path)
 
         self.refresh()
 
-        # -----------------------------------------------------
-        # Select the file the agent is accessing.
-        # -----------------------------------------------------
+
+
+
 
         self._select_agent_entry(relative_path)
 
-        # -----------------------------------------------------
-        # Preview the same file.
-        # -----------------------------------------------------
+
+
+
 
         self._preview_file(relative_path)
 
-    # =========================================================
-    # Agent tree selection
-    # =========================================================
+
+
+
 
     def _select_agent_entry(
         self,

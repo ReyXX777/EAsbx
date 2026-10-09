@@ -1,10 +1,10 @@
-# main.py
+
 
 import os
 import sys
 
-# MUST set CDP remote debugging port before initializing QApplication
-# or importing QWebEngineView.
+
+
 CDP_PORT = 9222
 os.environ["QTWEBENGINE_REMOTE_DEBUGGING"] = str(CDP_PORT)
 
@@ -51,16 +51,16 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Cowork AI Agent Suite")
         self.resize(1200, 750)
 
-        # ---------------------------------------------------------
-        # 1. Menu bar
-        # ---------------------------------------------------------
+
+
+
 
         self.menu_bar = AppMenuBar(self)
         self.setMenuBar(self.menu_bar)
 
-        # ---------------------------------------------------------
-        # 2. Main layout
-        # ---------------------------------------------------------
+
+
+
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -79,9 +79,9 @@ class MainWindow(QMainWindow):
         self.content_stack = QStackedWidget()
         self.content_stack.setObjectName("MainContentStack")
 
-        # ---------------------------------------------------------
-        # Chat page
-        # ---------------------------------------------------------
+
+
+
 
         self.chat_page = QWidget()
         self.chat_page.setObjectName("ChatPage")
@@ -121,9 +121,9 @@ class MainWindow(QMainWindow):
             self.chat_page,
         )
 
-        # ---------------------------------------------------------
-        # Diagnostics page
-        # ---------------------------------------------------------
+
+
+
 
         self.diagnostics_page = QWidget()
         self.diagnostics_page.setObjectName("DiagnosticsPage")
@@ -168,9 +168,9 @@ class MainWindow(QMainWindow):
             self.diagnostics_page,
         )
 
-        # ---------------------------------------------------------
-        # Observation page
-        # ---------------------------------------------------------
+
+
+
         self.observation_storage_root = os.path.join(
             os.path.dirname(__file__),
             "task_observation_data",
@@ -191,9 +191,9 @@ class MainWindow(QMainWindow):
 
         observation_layout.setSpacing(8)
 
-        # ---------------------------------------------------------
-        # Observation navigation
-        # ---------------------------------------------------------
+
+
+
 
         observation_navigation = QWidget()
 
@@ -246,9 +246,9 @@ class MainWindow(QMainWindow):
             Qt.AlignmentFlag.AlignLeft,
         )
 
-        # ---------------------------------------------------------
-        # Observation monitor
-        # ---------------------------------------------------------
+
+
+
 
         self.observation_monitor = ObservationWidget(
             storage_root=self.observation_storage_root,
@@ -263,9 +263,9 @@ class MainWindow(QMainWindow):
             self.observation_page,
         )
 
-        # ---------------------------------------------------------
-        # Default page
-        # ---------------------------------------------------------
+
+
+
 
         self.content_stack.setCurrentWidget(
             self.chat_page,
@@ -276,9 +276,9 @@ class MainWindow(QMainWindow):
             1,
         )
 
-        # ---------------------------------------------------------
-        # 3. Agent state
-        # ---------------------------------------------------------
+
+
+
 
         self.agent_worker = None
         self.active_agent_type = None
@@ -287,9 +287,9 @@ class MainWindow(QMainWindow):
         self.pending_approval_task = None
         self.pending_approval_intent = None
 
-        # ---------------------------------------------------------
-        # 4. Approval layer
-        # ---------------------------------------------------------
+
+
+
 
         approval_schema_path = os.path.join(
             os.path.dirname(__file__),
@@ -315,18 +315,18 @@ class MainWindow(QMainWindow):
                 policy_engine=ApprovalPolicyEngine(),
             )
 
-        # ---------------------------------------------------------
-        # 5. Signal routing
-        # ---------------------------------------------------------
+
+
+
 
         self.chat_window.task_created_signal.connect(self.handle_new_task)
         self.chat_window.approval_granted.connect(self.on_approval_granted)
 
         self.chat_window.approval_denied.connect(self.on_approval_denied)
 
-    # =============================================================
-    # Agent status
-    # =============================================================
+
+
+
 
     def get_agent_status(self) -> dict:
         """
@@ -394,9 +394,9 @@ class MainWindow(QMainWindow):
             type(self.observation_monitor),
         )
 
-    # =============================================================
-    # Task creation + approval
-    # =============================================================
+
+
+
 
     def handle_new_task(
         self,
@@ -410,9 +410,9 @@ class MainWindow(QMainWindow):
         Authorization itself belongs to ApprovalEngine.
         """
 
-        # ---------------------------------------------------------
-        # 1. Prevent concurrent tasks
-        # ---------------------------------------------------------
+
+
+
 
         if self.agent_worker is not None and self.agent_worker.isRunning():
             error_html = ChatMessageFormatter.format_message(
@@ -435,9 +435,9 @@ class MainWindow(QMainWindow):
 
             return
 
-        # ---------------------------------------------------------
-        # 2. Create canonical Task
-        # ---------------------------------------------------------
+
+
+
 
         task = Task(prompt=task_prompt)
 
@@ -452,9 +452,9 @@ class MainWindow(QMainWindow):
             status="Queued",
         )
 
-        # ---------------------------------------------------------
-        # 3. Approval layer availability check
-        # ---------------------------------------------------------
+
+
+
 
         if self.approval_engine is None:
             error_html = ChatMessageFormatter.format_message(
@@ -474,9 +474,9 @@ class MainWindow(QMainWindow):
             self.task_bar.clear_active_task()
             return
 
-        # ---------------------------------------------------------
-        # 4. Inform UI that approval evaluation has started
-        # ---------------------------------------------------------
+
+
+
 
         approval_started_html = ChatMessageFormatter.format_message(
             "system",
@@ -489,9 +489,9 @@ class MainWindow(QMainWindow):
 
         self.chat_window.chat_display.append(approval_started_html)
 
-        # ---------------------------------------------------------
-        # 5. Run approval classification + policy evaluation
-        # ---------------------------------------------------------
+
+
+
 
         try:
             decision = self.approval_engine.evaluate(task_prompt)
@@ -512,9 +512,9 @@ class MainWindow(QMainWindow):
             self.current_task_item = None
             return
 
-        # ---------------------------------------------------------
-        # 6. Display classification
-        # ---------------------------------------------------------
+
+
+
 
         classification = decision.classification
 
@@ -538,15 +538,15 @@ class MainWindow(QMainWindow):
             )
         )
 
-        # ---------------------------------------------------------
-        # 7. Prepare policy reasons
-        # ---------------------------------------------------------
+
+
+
 
         reasons = "\n".join(f"- {reason}" for reason in decision.reasons)
 
-        # ---------------------------------------------------------
-        # 8. DENY
-        # ---------------------------------------------------------
+
+
+
 
         if decision.status == ApprovalStatus.DENY:
             self.chat_window.chat_display.append(
@@ -564,14 +564,14 @@ class MainWindow(QMainWindow):
             self.current_task_item = None
 
             return
-        # ---------------------------------------------------------
-        # 9. REVIEW
-        # ---------------------------------------------------------
+
+
+
 
         if decision.status == ApprovalStatus.REVIEW:
 
-            # Keep the canonical Task object alive while the
-            # human approval UI is displayed.
+
+
             self.pending_approval_task = (
                 task,
                 intent,
@@ -590,18 +590,18 @@ class MainWindow(QMainWindow):
                 )
             )
 
-            # Display the actual approval controls.
-            #
-            # The ChatWindow owns the presentation.
-            # MainWindow remains responsible for deciding what
-            # happens after Approve / Deny.
+
+
+
+
+
             self.chat_window.show_approval_request(decision)
 
             return
 
-        # ---------------------------------------------------------
-        # 10. APPROVED WITHOUT HUMAN REVIEW
-        # ---------------------------------------------------------
+
+
+
 
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
@@ -618,10 +618,10 @@ class MainWindow(QMainWindow):
         )
 
         self.dispatch_task(task, intent)
-        # =============================================================
 
-    # Agent dispatch
-    # =============================================================
+
+
+
 
     def dispatch_task(
         self,
@@ -672,9 +672,9 @@ class MainWindow(QMainWindow):
         self.current_task = None
         self.current_task_item = None
 
-    # =============================================================
-    # Browser task execution
-    # =============================================================
+
+
+
 
     def start_browser_task(self, task: Task):
         """
@@ -701,9 +701,9 @@ class MainWindow(QMainWindow):
 
             return
 
-        # ---------------------------------------------------------
-        # Prevent concurrent browser execution
-        # ---------------------------------------------------------
+
+
+
 
         if self.agent_worker is not None and self.agent_worker.isRunning():
             self.chat_window.chat_display.append(
@@ -715,9 +715,9 @@ class MainWindow(QMainWindow):
 
             return
 
-        # ---------------------------------------------------------
-        # Inform UI
-        # ---------------------------------------------------------
+
+
+
 
         sys_msg = ChatMessageFormatter.format_message(
             "system",
@@ -727,9 +727,9 @@ class MainWindow(QMainWindow):
 
         self.chat_window.chat_display.append(sys_msg)
 
-        # ---------------------------------------------------------
-        # Gemini API key
-        # ---------------------------------------------------------
+
+
+
 
         api_key = os.getenv("GEMINI_API_KEY")
 
@@ -743,15 +743,15 @@ class MainWindow(QMainWindow):
 
             return
 
-        # ---------------------------------------------------------
-        # Connect browser-use to embedded Qt WebEngine
-        # ---------------------------------------------------------
+
+
+
 
         cdp_url = f"http://127.0.0.1:{CDP_PORT}"
 
-        # ---------------------------------------------------------
-        # Start browser agent worker
-        # ---------------------------------------------------------
+
+
+
 
         self.agent_worker = AgentExecutionWorker(
             task,
@@ -766,9 +766,9 @@ class MainWindow(QMainWindow):
 
         self.agent_worker.start()
 
-    # =============================================================
-    # Filesystem task execution
-    # =============================================================
+
+
+
 
     def start_filesystem_task(self, task):
         """
@@ -788,9 +788,9 @@ class MainWindow(QMainWindow):
 
             return
 
-        # ---------------------------------------------------------
-        # Prevent concurrent execution
-        # ---------------------------------------------------------
+
+
+
 
         if self.agent_worker is not None and self.agent_worker.isRunning():
             self.chat_window.chat_display.append(
@@ -813,9 +813,9 @@ class MainWindow(QMainWindow):
 
             return
 
-        # ---------------------------------------------------------
-        # Gemini API key
-        # ---------------------------------------------------------
+
+
+
 
         api_key = os.getenv("GEMINI_API_KEY")
 
@@ -840,9 +840,9 @@ class MainWindow(QMainWindow):
 
             return
 
-        # ---------------------------------------------------------
-        # Inform UI
-        # ---------------------------------------------------------
+
+
+
 
         self.chat_window.chat_display.append(
             ChatMessageFormatter.format_message(
@@ -851,9 +851,9 @@ class MainWindow(QMainWindow):
             )
         )
         self.active_agent_type = "FILESYSTEM_AGENT"
-        # ---------------------------------------------------------
-        # Start filesystem worker
-        # ---------------------------------------------------------
+
+
+
 
         self.agent_worker = FilesystemExecutionWorker(
             task=task,
@@ -870,9 +870,9 @@ class MainWindow(QMainWindow):
 
         self.agent_worker.start()
 
-    # =============================================================
-    # Human approval
-    # =============================================================
+
+
+
 
     def on_approval_granted(self):
         """
@@ -932,9 +932,9 @@ class MainWindow(QMainWindow):
             )
         )
 
-    # =============================================================
-    # Agent step updates
-    # =============================================================
+
+
+
 
     def on_agent_step(self, step_msg: str):
         """
@@ -951,20 +951,20 @@ class MainWindow(QMainWindow):
 
         self.chat_window.chat_display.append(agent_html)
 
-    # =============================================================
-    # Agent completion
-    # =============================================================
+
+
+
 
     def on_agent_finished(self, result):
         """
         Display the final browser-agent execution result.
         """
 
-        # Generate formatted HTML block from response parser.
+
         parsed_content = AgentResponseParser.parse_and_format(result)
 
-        # Wrap system header card around parsed content
-        # without escaping the inner HTML.
+
+
         header_html = ChatMessageFormatter.format_message(
             "system",
             "**Task execution finished.**",
@@ -985,9 +985,9 @@ class MainWindow(QMainWindow):
         self.current_task = None
         self.current_task_item = None
 
-    # =============================================================
-    # Filesystem completion
-    # =============================================================
+
+
+
 
     def on_filesystem_finished(self, result):
         """
@@ -1029,9 +1029,9 @@ class MainWindow(QMainWindow):
         self.current_task = None
         self.current_task_item = None
 
-    # =============================================================
-    # Filesystem errors
-    # =============================================================
+
+
+
 
     def on_filesystem_error(self, error_message: str):
         """
@@ -1056,9 +1056,9 @@ class MainWindow(QMainWindow):
         self.current_task = None
         self.current_task_item = None
 
-    # =============================================================
-    # Task cancellation
-    # =============================================================
+
+
+
 
     def cancel_current_task(self):
         """
@@ -1082,9 +1082,9 @@ class MainWindow(QMainWindow):
         self.current_task_item = None
 
 
-# ================================================================
-# Application entry point
-# ================================================================
+
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

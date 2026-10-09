@@ -48,9 +48,9 @@ class ObservationBridge(QObject):
             self._thread,
         )
 
-        # --------------------------------------------------------------
-        # Requests: UI -> worker
-        # --------------------------------------------------------------
+
+
+
 
         self.request_start.connect(
             self._worker.start_task,
@@ -80,9 +80,9 @@ class ObservationBridge(QObject):
             self._worker.shutdown,
         )
 
-        # --------------------------------------------------------------
-        # Results: worker -> UI
-        # --------------------------------------------------------------
+
+
+
 
         self._worker.task_started.connect(
             self.task_started,
@@ -102,9 +102,9 @@ class ObservationBridge(QObject):
 
         self._thread.start()
 
-    # ------------------------------------------------------------------
-    # Public commands
-    # ------------------------------------------------------------------
+
+
+
 
     @Slot(str, str, object)
     def start_task(
@@ -188,9 +188,9 @@ class ObservationBridge(QObject):
 
         self.request_finish.emit()
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
+
+
+
 
     def close(self) -> None:
         """Stop the worker thread safely and release Qt resources."""

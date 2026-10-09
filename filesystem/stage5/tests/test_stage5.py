@@ -28,8 +28,8 @@ def test_hard_domain_violation_is_review():
 
 
 def test_distance_can_trigger_ood_inside_bounds():
-    # Use a separate domain whose statistical center is narrower than its
-    # hard bounds, so distance-based OOD is independently exercised.
+
+
     from mathematical_approval import FeatureNormalizer
     domain = TaskFamilyDomain.from_specs(
         "distance-test",

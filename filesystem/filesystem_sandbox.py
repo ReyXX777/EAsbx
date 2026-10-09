@@ -44,7 +44,7 @@ class SandboxValidator:
         except FileNotFoundError:
             if not allow_missing:
                 raise
-            # Resolve existing parents. This catches symlink escapes in parents.
+
             resolved = candidate.parent.resolve(strict=True) / candidate.name
 
         self._assert_contained(resolved)
@@ -73,7 +73,7 @@ class SandboxValidator:
     def ensure_destination_parent(self, relative_path: str) -> Path:
         target = self.resolve(relative_path, allow_missing=True)
         target.parent.mkdir(parents=True, exist_ok=True)
-        # Re-check after mkdir in case a hostile/replaced symlink appeared.
+
         parent = target.parent.resolve(strict=True)
         self._assert_contained(parent)
         return target

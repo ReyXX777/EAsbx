@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-# Folders/files to exclude from parsing
+
 EXCLUDED_DIRS = {"__pycache__", ".venv", ".git", ".idea", ".vscode"}
 EXCLUDED_FILES = {"script.py"}  # Skip itself to avoid recursive logging
 
@@ -19,7 +19,7 @@ def parse_project_files(root_dir: Path, output_file: Path):
         out.write("==================================================\n\n")
 
         for root, dirs, files in os.walk(root_dir):
-            # Exclude specified directories in-place during walk
+
             dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
 
             for file_name in files:

@@ -44,7 +44,7 @@ class SimulationHarness:
         self.engine = MathematicalApprovalEngine(
             allow_threshold=self.config.allow_threshold,
             deny_threshold=self.config.deny_threshold,
-            # The harness itself controls the seed-history experiment.
+
             min_samples_for_automatic=1,
         )
         self.pdf = PDFModel(regularization=0.10)
@@ -70,9 +70,9 @@ class SimulationHarness:
         approved_vectors = [t.features.values for t in seed_tasks]
         approved_mean, approved_cov = self.pdf.fit(approved_vectors)
 
-        # A small synthetic unsafe reference cloud is available to the simulator
-        # as hidden evaluation structure. A real adapter must not manufacture
-        # this from a live policy decision; this is purely an experiment.
+
+
+
         unsafe_reference = self._unsafe_reference(tasks)
         unsafe_mean, unsafe_cov = self.pdf.fit(unsafe_reference)
 
@@ -124,8 +124,8 @@ class SimulationHarness:
         point: FeatureVector,
         approved_center: tuple[float, ...],
     ) -> tuple[object, bool]:
-        # PMF is only a prior signal. With 2-3 approved seeds it cannot be
-        # allowed to approve a task merely because the family was previously OK.
+
+
         if near_saddle:
             routed = self._route_to_approved_basin(point, approved_center)
             if routed:
@@ -137,8 +137,8 @@ class SimulationHarness:
 
     def _density_decision(self, pmf_probability: float, density_ratio: float):
         from .models import DecisionLabel
-        # Combine a bounded historical prior with a class-density ratio.
-        # The prior is intentionally weak so feature-space evidence dominates.
+
+
         prior = min(max(pmf_probability, 0.01), 0.99)
         log_odds = math.log(prior / (1.0 - prior)) + math.log(max(density_ratio, 1e-12))
         posterior = 1.0 / (1.0 + math.exp(-max(min(log_odds, 60.0), -60.0)))
@@ -150,8 +150,8 @@ class SimulationHarness:
         return DecisionLabel.REVIEW
 
     def _geometry(self, point: FeatureVector):
-        # Bowl around the approved basin. The saddle detector is exercised by
-        # a separate saddle-aware objective rather than by filesystem code.
+
+
         def objective(x: tuple[float, ...]) -> float:
             return sum(v * v for v in x)
 
@@ -187,5 +187,5 @@ class SimulationHarness:
         values = [t.features.values for t in tasks if t.ground_truth == GroundTruth.UNSAFE]
         if len(values) >= 2:
             return values[: min(len(values), 100)]
-        # Fallback only for pathological scenarios; keeps the simulator valid.
+
         return [(3.0, 3.0), (3.2, 3.1), (2.8, 2.9)]

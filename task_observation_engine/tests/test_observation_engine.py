@@ -15,9 +15,9 @@ def test_missing_values_do_not_stop_collection(tmp_path: Path) -> None:
 
     assert snapshot.status == "completed"
 
-    # ----------------------------------------------------------
-    # Raw observations must survive derivation unchanged.
-    # ----------------------------------------------------------
+
+
+
 
     optional = [
         item
@@ -46,9 +46,9 @@ def test_missing_values_do_not_stop_collection(tmp_path: Path) -> None:
     assert len(bad_number) == 1
     assert bad_number[0].value is None
 
-    # ----------------------------------------------------------
-    # Derived observations must also have been produced.
-    # ----------------------------------------------------------
+
+
+
 
     assert any(
         item.name == "task_status"

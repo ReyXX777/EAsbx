@@ -23,13 +23,13 @@ class FilesystemInputValidator:
         if "\x00" in value:
             raise ValidationError(f"{field_name} contains a NUL character.")
 
-        # Absolute Windows paths, UNC paths, and URI-like paths are forbidden.
+
         if value.startswith(("/", "//", "\\\\")) or re.match(r"^[A-Za-z]:", value):
             raise ValidationError(
                 f"{field_name} must be sandbox-relative, not an absolute path."
             )
 
-        # Reject traversal before the path reaches the OS.
+
         parts = [part for part in value.split("/") if part not in ("", ".")]
         if any(part == ".." for part in parts):
             raise ValidationError(f"{field_name} contains parent traversal ('..').")

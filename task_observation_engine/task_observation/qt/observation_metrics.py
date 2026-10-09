@@ -40,9 +40,9 @@ class ObservationMetrics(QWidget):
 
         self._build_ui()
 
-    # ==================================================================
-    # UI
-    # ==================================================================
+
+
+
 
     def _build_ui(self) -> None:
         layout = QGridLayout(
@@ -117,8 +117,8 @@ class ObservationMetrics(QWidget):
             "Duration",
         )
 
-        # Labels remain compact while the value column absorbs
-        # additional horizontal space when the panel expands.
+
+
         grid.setColumnStretch(
             0,
             0,
@@ -129,8 +129,8 @@ class ObservationMetrics(QWidget):
             1,
         )
 
-        # The rows share available vertical space instead of allowing
-        # one metric to crowd or overlap another.
+
+
         for row in range(4):
             grid.setRowStretch(
                 row,
@@ -153,9 +153,9 @@ class ObservationMetrics(QWidget):
             1,
         )
 
-    # ==================================================================
-    # Metric construction
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _metric(
@@ -209,9 +209,9 @@ class ObservationMetrics(QWidget):
 
         return value
 
-    # ==================================================================
-    # Snapshot
-    # ==================================================================
+
+
+
 
     def set_snapshot(
         self,
@@ -264,9 +264,9 @@ class ObservationMetrics(QWidget):
             )
         )
 
-    # ==================================================================
-    # Formatting
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _first_value(
@@ -327,9 +327,9 @@ class ObservationMetrics(QWidget):
 
         return f"{minutes:02d}:{seconds:02d}"
 
-    # ==================================================================
-    # Lifecycle
-    # ==================================================================
+
+
+
 
     def clear(self) -> None:
         self.events_value.setText(

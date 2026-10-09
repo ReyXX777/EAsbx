@@ -5,47 +5,47 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
 
-# The scanner itself should live at:
-#
-#     X:\MOCKAPP\scan_qt_theme_targets.py
-#
-# Therefore the project root is derived automatically from this file.
+
+
+
+
+
+
+
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-# ---------------------------------------------------------------------------
-# ENTER TARGET FILE NAMES HERE
-# ---------------------------------------------------------------------------
-#
-# Example:
-#
-# TARGET_FILES = [
-#     "browser_window.py",
-#     "chat_window.py",
-#     "task_bar.py",
-# ]
-#
-# The search is recursive from PROJECT_ROOT.
-#
-# An empty list means:
-#     scan nothing
-#
-# This is intentional so that the user must explicitly select files.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 TARGET_FILES: list[str] = [
     "observation_widget.py",
 ]
 
 
-# Output is generated only after scanning finishes.
+
 OUTPUT_FILE = PROJECT_ROOT / "MOCKAPP_QT_THEME_MIGRATION_REPORT.txt"
 
 
-# ============================================================================
-# SCANNER CONFIGURATION
-# ============================================================================
+
+
+
 
 EXCLUDED_DIRECTORIES = {
     ".git",
@@ -75,15 +75,15 @@ QT_ROOTS = {
 }
 
 
-# ============================================================================
-# KNOWN QT COMPONENTS
-# ============================================================================
 
-# This is deliberately broader than the original inventory scanner because
-# this report is intended for theme migration, not merely inventory.
+
+
+
+
+
 
 KNOWN_QT_COMPONENTS = {
-    # Application / core
+
     "QApplication",
     "QGuiApplication",
     "QCoreApplication",
@@ -93,7 +93,7 @@ KNOWN_QT_COMPONENTS = {
     "QThread",
     "QThreadPool",
     "QRunnable",
-    # Windows / containers
+
     "QWidget",
     "QMainWindow",
     "QDialog",
@@ -108,14 +108,14 @@ KNOWN_QT_COMPONENTS = {
     "QFrame",
     "QGroupBox",
     "QSplitter",
-    # Layouts
+
     "QLayout",
     "QBoxLayout",
     "QVBoxLayout",
     "QHBoxLayout",
     "QGridLayout",
     "QFormLayout",
-    # Text / display
+
     "QLabel",
     "QTextBrowser",
     "QTextEdit",
@@ -123,7 +123,7 @@ KNOWN_QT_COMPONENTS = {
     "QLCDNumber",
     "QProgressBar",
     "QCalendarWidget",
-    # Buttons
+
     "QPushButton",
     "QToolButton",
     "QRadioButton",
@@ -132,7 +132,7 @@ KNOWN_QT_COMPONENTS = {
     "QAbstractButton",
     "QAction",
     "QActionGroup",
-    # Input
+
     "QLineEdit",
     "QComboBox",
     "QSpinBox",
@@ -143,7 +143,7 @@ KNOWN_QT_COMPONENTS = {
     "QSlider",
     "QDial",
     "QKeySequenceEdit",
-    # Lists / trees / tables
+
     "QListWidget",
     "QListWidgetItem",
     "QListView",
@@ -155,13 +155,13 @@ KNOWN_QT_COMPONENTS = {
     "QTableView",
     "QAbstractItemView",
     "QHeaderView",
-    # Navigation
+
     "QTabBar",
     "QToolBar",
     "QMenuBar",
     "QMenu",
     "QStatusBar",
-    # Dialogs
+
     "QMessageBox",
     "QFileDialog",
     "QColorDialog",
@@ -169,10 +169,10 @@ KNOWN_QT_COMPONENTS = {
     "QInputDialog",
     "QProgressDialog",
     "QErrorMessage",
-    # Scrolling
+
     "QScrollBar",
     "QAbstractScrollArea",
-    # Graphics
+
     "QPainter",
     "QPaintEvent",
     "QPen",
@@ -185,7 +185,7 @@ KNOWN_QT_COMPONENTS = {
     "QIcon",
     "QPalette",
     "QCursor",
-    # Model/view
+
     "QModelIndex",
     "QAbstractItemModel",
     "QAbstractListModel",
@@ -194,12 +194,12 @@ KNOWN_QT_COMPONENTS = {
     "QStandardItem",
     "QItemSelectionModel",
     "QSortFilterProxyModel",
-    # Window/system
+
     "QScreen",
     "QWindow",
     "QSystemTrayIcon",
     "QClipboard",
-    # WebEngine
+
     "QWebEngineView",
     "QWebEnginePage",
     "QWebEngineProfile",
@@ -210,9 +210,9 @@ KNOWN_QT_COMPONENTS = {
 }
 
 
-# ============================================================================
-# THEME-RELEVANT METHOD CALLS
-# ============================================================================
+
+
+
 
 THEME_METHODS = {
     "setStyleSheet",
@@ -250,9 +250,9 @@ THEME_METHODS = {
 }
 
 
-# ============================================================================
-# HARD-CODED STYLE PATTERNS
-# ============================================================================
+
+
+
 
 STYLE_PATTERNS = {
     "hex color": re.compile(r"#[0-9a-fA-F]{3,8}\b"),
@@ -276,16 +276,16 @@ STYLE_PATTERNS = {
 }
 
 
-# ============================================================================
-# POTENTIAL GLOBAL THEME VOCABULARY
-# ============================================================================
-#
-# These are not automatically applied.
-#
-# The purpose of this section is to give the migration report enough semantic
-# information for us to later create deterministic find/replace blocks.
-#
-# These names correspond to the current qt_theme package.
+
+
+
+
+
+
+
+
+
+
 
 THEME_VOCABULARY = {
     "surface": "palette.surface",
@@ -336,9 +336,9 @@ THEME_VOCABULARY = {
 }
 
 
-# ============================================================================
-# DATA STRUCTURES
-# ============================================================================
+
+
+
 
 
 @dataclass
@@ -392,9 +392,9 @@ class FileReport:
     classes: list[str] = field(default_factory=list)
 
 
-# ============================================================================
-# MAIN SCANNER
-# ============================================================================
+
+
+
 
 
 class QtThemeMigrationScanner:
@@ -414,9 +414,9 @@ class QtThemeMigrationScanner:
 
         self.errors: list[str] = []
 
-    # ----------------------------------------------------------------------
-    # Public
-    # ----------------------------------------------------------------------
+
+
+
 
     def scan(self) -> None:
         print()
@@ -449,9 +449,9 @@ class QtThemeMigrationScanner:
         print("Scanning complete.")
         print()
 
-    # ----------------------------------------------------------------------
-    # Target resolution
-    # ----------------------------------------------------------------------
+
+
+
 
     def _resolve_targets(self) -> None:
         """
@@ -477,9 +477,9 @@ class QtThemeMigrationScanner:
 
             requested = Path(requested_name)
 
-            # --------------------------------------------------------------
-            # Explicit relative path
-            # --------------------------------------------------------------
+
+
+
 
             if len(requested.parts) > 1:
 
@@ -489,9 +489,9 @@ class QtThemeMigrationScanner:
                     self._add_target(candidate)
                     continue
 
-            # --------------------------------------------------------------
-            # Filename-only recursive search
-            # --------------------------------------------------------------
+
+
+
 
             matches = []
 
@@ -517,8 +517,8 @@ class QtThemeMigrationScanner:
                     + ", ".join(self._relative(path) for path in matches)
                 )
 
-                # Do NOT guess.
-                # Ambiguous filenames must be resolved explicitly.
+
+
                 continue
 
             self._add_target(matches[0])
@@ -527,9 +527,9 @@ class QtThemeMigrationScanner:
         if path not in self.target_files:
             self.target_files.append(path)
 
-    # ----------------------------------------------------------------------
-    # File scan
-    # ----------------------------------------------------------------------
+
+
+
 
     def _scan_file(self, path: Path) -> None:
 
@@ -596,9 +596,9 @@ class QtThemeMigrationScanner:
 
         self.reports.append(report)
 
-    # =========================================================================
-    # IMPORTS
-    # =========================================================================
+
+
+
 
     def _scan_imports(
         self,
@@ -627,9 +627,9 @@ class QtThemeMigrationScanner:
 
                         report.imports.append(f"import {alias.name}")
 
-    # =========================================================================
-    # CLASSES
-    # =========================================================================
+
+
+
 
     def _scan_classes(
         self,
@@ -661,7 +661,7 @@ class QtThemeMigrationScanner:
 
                 report.classes.append(f"{node.name} " f"[line {node.lineno}]")
 
-            # Explicitly report Qt inheritance.
+
             for base in bases:
 
                 if base in KNOWN_QT_COMPONENTS:
@@ -679,9 +679,9 @@ class QtThemeMigrationScanner:
                         )
                     )
 
-    # =========================================================================
-    # QT USAGE
-    # =========================================================================
+
+
+
 
     def _scan_qt_usage(
         self,
@@ -692,9 +692,9 @@ class QtThemeMigrationScanner:
 
         source_lines = source.splitlines()
 
-        # ------------------------------------------------------------------
-        # Build import aliases.
-        # ------------------------------------------------------------------
+
+
+
 
         aliases: dict[str, str] = {}
 
@@ -719,19 +719,19 @@ class QtThemeMigrationScanner:
 
                         aliases[alias.asname or alias.name] = alias.name
 
-        # ------------------------------------------------------------------
-        # AST walk.
-        # ------------------------------------------------------------------
+
+
+
 
         for node in ast.walk(tree):
 
-            # --------------------------------------------------------------
-            # Constructor calls:
-            #
-            #     QLineEdit()
-            #     QToolButton()
-            #     QtWidgets.QPushButton()
-            # --------------------------------------------------------------
+
+
+
+
+
+
+
 
             if isinstance(node, ast.Call):
 
@@ -775,12 +775,12 @@ class QtThemeMigrationScanner:
 
                             report.widgets.append(widget)
 
-            # --------------------------------------------------------------
-            # Qt-qualified attributes:
-            #
-            #     QtWidgets.QPushButton
-            #     QtCore.Qt.Horizontal
-            # --------------------------------------------------------------
+
+
+
+
+
+
 
             elif isinstance(node, ast.Attribute):
 
@@ -789,7 +789,7 @@ class QtThemeMigrationScanner:
                 if component not in KNOWN_QT_COMPONENTS:
                     continue
 
-                # Avoid duplicating constructor calls where possible.
+
                 if isinstance(
                     node.parent if hasattr(node, "parent") else None, ast.Call
                 ):
@@ -811,9 +811,9 @@ class QtThemeMigrationScanner:
                     )
                 )
 
-    # =========================================================================
-    # STYLE FINDINGS
-    # =========================================================================
+
+
+
 
     def _scan_style_findings(
         self,
@@ -834,9 +834,9 @@ class QtThemeMigrationScanner:
 
             stripped = line.strip()
 
-            # --------------------------------------------------------------
-            # Detect setStyleSheet blocks.
-            # --------------------------------------------------------------
+
+
+
 
             if "setStyleSheet" in line:
 
@@ -850,9 +850,9 @@ class QtThemeMigrationScanner:
                     )
                 )
 
-            # --------------------------------------------------------------
-            # Track probable QSS selectors.
-            # --------------------------------------------------------------
+
+
+
 
             if in_stylesheet:
 
@@ -869,9 +869,9 @@ class QtThemeMigrationScanner:
 
                     stylesheet_brace_depth += line.count("{") - line.count("}")
 
-                # ----------------------------------------------------------
-                # QSS style properties.
-                # ----------------------------------------------------------
+
+
+
 
                 for category, pattern in STYLE_PATTERNS.items():
 
@@ -900,9 +900,9 @@ class QtThemeMigrationScanner:
 
             else:
 
-                # ----------------------------------------------------------
-                # Non-QSS hard-coded style calls.
-                # ----------------------------------------------------------
+
+
+
 
                 for category, pattern in STYLE_PATTERNS.items():
 
@@ -916,9 +916,9 @@ class QtThemeMigrationScanner:
                             )
                         )
 
-    # =========================================================================
-    # WIDGET STYLE ASSOCIATION
-    # =========================================================================
+
+
+
 
     def _attach_style_lines_to_widgets(
         self,
@@ -929,21 +929,21 @@ class QtThemeMigrationScanner:
 
             for finding in report.style_findings:
 
-                # Approximate source association:
-                #
-                # A style immediately after widget creation is likely related
-                # to that widget.
-                #
-                # We intentionally keep this conservative.
+
+
+
+
+
+
                 distance = finding.line - widget.line
 
                 if 0 <= distance <= 80:
 
                     widget.style_lines.append(finding.line)
 
-    # =========================================================================
-    # SEMANTIC INFERENCE
-    # =========================================================================
+
+
+
 
     def _infer_semantic_hints(
         self,
@@ -955,9 +955,9 @@ class QtThemeMigrationScanner:
             name = widget.variable_name.lower()
             component = widget.component
 
-            # --------------------------------------------------------------
-            # Structural surfaces
-            # --------------------------------------------------------------
+
+
+
 
             if component in {
                 "QMainWindow",
@@ -1014,9 +1014,9 @@ class QtThemeMigrationScanner:
 
                     widget.semantic_hints.append("status surface")
 
-            # --------------------------------------------------------------
-            # Text
-            # --------------------------------------------------------------
+
+
+
 
             if component == "QLabel":
 
@@ -1066,9 +1066,9 @@ class QtThemeMigrationScanner:
 
                     widget.semantic_hints.append("success/completed status")
 
-            # --------------------------------------------------------------
-            # Inputs
-            # --------------------------------------------------------------
+
+
+
 
             if component in {
                 "QLineEdit",
@@ -1081,9 +1081,9 @@ class QtThemeMigrationScanner:
 
                 widget.semantic_hints.append("input")
 
-            # --------------------------------------------------------------
-            # Buttons
-            # --------------------------------------------------------------
+
+
+
 
             if component in {
                 "QPushButton",
@@ -1118,17 +1118,17 @@ class QtThemeMigrationScanner:
 
                     widget.semantic_hints.append("primary action")
 
-            # --------------------------------------------------------------
-            # Browser
-            # --------------------------------------------------------------
+
+
+
 
             if component == "QWebEngineView":
 
                 widget.semantic_hints.append("browser/web surface")
 
-            # --------------------------------------------------------------
-            # Tabs
-            # --------------------------------------------------------------
+
+
+
 
             if component in {
                 "QTabBar",
@@ -1137,9 +1137,9 @@ class QtThemeMigrationScanner:
 
                 widget.semantic_hints.append("navigation / tabs")
 
-            # --------------------------------------------------------------
-            # Lists / trees / tables
-            # --------------------------------------------------------------
+
+
+
 
             if component in {
                 "QListWidget",
@@ -1152,9 +1152,9 @@ class QtThemeMigrationScanner:
 
                 widget.semantic_hints.append("data surface")
 
-            # --------------------------------------------------------------
-            # Scroll areas
-            # --------------------------------------------------------------
+
+
+
 
             if component in {
                 "QScrollArea",
@@ -1164,9 +1164,9 @@ class QtThemeMigrationScanner:
 
                 widget.semantic_hints.append("scrolling surface")
 
-    # =========================================================================
-    # HELPERS
-    # =========================================================================
+
+
+
 
     def _is_excluded(
         self,
@@ -1300,9 +1300,9 @@ class QtThemeMigrationScanner:
         )
 
 
-# ============================================================================
-# REPORT WRITER
-# ============================================================================
+
+
+
 
 
 class MigrationReportWriter:
@@ -1336,9 +1336,9 @@ class MigrationReportWriter:
             encoding="utf-8",
         )
 
-    # ----------------------------------------------------------------------
-    # Header
-    # ----------------------------------------------------------------------
+
+
+
 
     def _header(
         self,
@@ -1377,9 +1377,9 @@ class MigrationReportWriter:
             ]
         )
 
-    # ----------------------------------------------------------------------
-    # Summary
-    # ----------------------------------------------------------------------
+
+
+
 
     def _summary(
         self,
@@ -1409,9 +1409,9 @@ class MigrationReportWriter:
             ]
         )
 
-    # ----------------------------------------------------------------------
-    # Files
-    # ----------------------------------------------------------------------
+
+
+
 
     def _files(
         self,
@@ -1468,9 +1468,9 @@ class MigrationReportWriter:
                 lines,
             )
 
-    # ----------------------------------------------------------------------
-    # Imports
-    # ----------------------------------------------------------------------
+
+
+
 
     def _imports(
         self,
@@ -1497,9 +1497,9 @@ class MigrationReportWriter:
 
         lines.append("")
 
-    # ----------------------------------------------------------------------
-    # Classes
-    # ----------------------------------------------------------------------
+
+
+
 
     def _classes(
         self,
@@ -1526,9 +1526,9 @@ class MigrationReportWriter:
 
         lines.append("")
 
-    # ----------------------------------------------------------------------
-    # Widgets
-    # ----------------------------------------------------------------------
+
+
+
 
     def _widgets(
         self,
@@ -1608,9 +1608,9 @@ class MigrationReportWriter:
 
             lines.append("")
 
-    # ----------------------------------------------------------------------
-    # Qt usages
-    # ----------------------------------------------------------------------
+
+
+
 
     def _qt_usages(
         self,
@@ -1650,9 +1650,9 @@ class MigrationReportWriter:
 
             lines.append("")
 
-    # ----------------------------------------------------------------------
-    # Style findings
-    # ----------------------------------------------------------------------
+
+
+
 
     def _style_findings(
         self,
@@ -1692,9 +1692,9 @@ class MigrationReportWriter:
 
         lines.append("")
 
-    # ----------------------------------------------------------------------
-    # Theme mapping
-    # ----------------------------------------------------------------------
+
+
+
 
     def _theme_mapping(
         self,
@@ -1765,9 +1765,9 @@ class MigrationReportWriter:
             "<manual review required>",
         )
 
-    # ----------------------------------------------------------------------
-    # Errors
-    # ----------------------------------------------------------------------
+
+
+
 
     def _errors(
         self,
@@ -1793,9 +1793,9 @@ class MigrationReportWriter:
 
             lines.append(f"  {error}")
 
-    # ----------------------------------------------------------------------
-    # Footer
-    # ----------------------------------------------------------------------
+
+
+
 
     def _footer(
         self,
@@ -1817,9 +1817,9 @@ class MigrationReportWriter:
         )
 
 
-# ============================================================================
-# MAIN
-# ============================================================================
+
+
+
 
 
 def main() -> int:
@@ -1833,7 +1833,7 @@ def main() -> int:
         print("Add one or more filenames to TARGET_FILES and run again.")
         print()
 
-        # Still create the report on termination, as requested.
+
         scanner = QtThemeMigrationScanner(PROJECT_ROOT)
 
         writer = MigrationReportWriter(

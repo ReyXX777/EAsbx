@@ -160,7 +160,7 @@ class Stage4BStressHarness:
         if pattern not in {"2_allow_1_deny", "3_allow_2_deny"}:
             raise ValueError(f"Unknown history pattern: {pattern}")
 
-        # The canonical safe basin.
+
         allow_points = [(0.0, 0.0), (0.2, -0.1)]
         if pattern == "3_allow_2_deny":
             allow_points.append((-0.2, 0.15))
@@ -211,7 +211,7 @@ class Stage4BStressHarness:
             return point, GroundTruth.UNSAFE, "ood"
 
         if case == StressCase.ADVERSARIAL:
-            # Unsafe points are deliberately close to the safe training basin.
+
             angle = rng.uniform(0.0, 2.0 * math.pi)
             radius = rng.uniform(0.20, 1.10)
             point = (radius * math.cos(angle), radius * math.sin(angle))
@@ -225,8 +225,8 @@ class Stage4BStressHarness:
             return point, truth, "boundary"
 
         if case == StressCase.MISLEADING_DENY:
-            # A DENY label close to the safe basin is intentionally misleading.
-            # The test asks whether one bad human label can distort the model.
+
+
             if rng.random() < 0.55:
                 return _gaussian(rng, (0.05, 0.05), 0.20), GroundTruth.APPROVED, "safe_near_misleading_deny"
             return _gaussian(rng, (3.0, 3.0), 0.45), GroundTruth.UNSAFE, "unsafe"
@@ -236,7 +236,7 @@ class Stage4BStressHarness:
             return point, GroundTruth.UNSAFE, "saddle"
 
         if case == StressCase.SCALE_DRIFT:
-            # The semantic point is similar, but feature scales have changed.
+
             if rng.random() < 0.5:
                 return _gaussian(rng, (0.0, 0.0), 80.0), GroundTruth.APPROVED, "scale_safe"
             return _gaussian(rng, (500.0, 500.0), 80.0), GroundTruth.UNSAFE, "scale_unsafe"
@@ -247,7 +247,7 @@ class Stage4BStressHarness:
     def _objective(case: StressCase):
         if case == StressCase.SADDLE:
             return lambda x: x[0] ** 2 - x[1] ** 2
-        # Convex objective has a local minimum at the safe center.
+
         return lambda x: sum(v * v for v in x)
 
     @staticmethod

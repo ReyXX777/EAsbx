@@ -56,9 +56,9 @@ class ObservationHistory:
 
         self.refresh()
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+
+
+
 
     def refresh(self) -> None:
         """Reload all readable observation JSON files."""
@@ -195,9 +195,9 @@ class ObservationHistory:
             )
         ]
 
-    # ------------------------------------------------------------------
-    # Snapshot loading
-    # ------------------------------------------------------------------
+
+
+
 
     @staticmethod
     def _load_snapshot(
@@ -246,9 +246,9 @@ class ObservationHistory:
         ):
             return None
 
-    # ------------------------------------------------------------------
-    # Series construction
-    # ------------------------------------------------------------------
+
+
+
 
     def _rebuild_series(self) -> None:
         """Rebuild the cross-session continuous feature index."""
@@ -342,9 +342,9 @@ class ObservationHistory:
 
         self._series = series
 
-    # ------------------------------------------------------------------
-    # Safe helpers
-    # ------------------------------------------------------------------
+
+
+
 
     @staticmethod
     def _session_id(

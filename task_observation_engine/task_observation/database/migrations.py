@@ -27,7 +27,7 @@ def migrate(connection: sqlite3.Connection) -> None:
     if current_version > SCHEMA_VERSION:
         raise RuntimeError("Database schema is newer than this application.")
 
-    # Future:
-    #
-    # if current_version < 2:
-    #     _migrate_v1_to_v2(connection)
+
+
+
+

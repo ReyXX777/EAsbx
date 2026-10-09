@@ -35,7 +35,7 @@ class ApprovalWidget(QFrame):
         self.setFrameShape(QFrame.StyledPanel)
         self.setLineWidth(1)
 
-        # Use the global qt_theme stylesheet for all visual styling.
+
         self.setProperty("role", "panel")
 
         self._build_ui()

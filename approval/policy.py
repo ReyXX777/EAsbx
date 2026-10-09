@@ -23,7 +23,7 @@ class ApprovalPolicy:
         jev: JevDecision,
     ) -> ApprovalResult:
 
-        # Critical operations always require a human.
+
         if task.risk_level == RiskLevel.CRITICAL:
 
             return ApprovalResult(
@@ -36,8 +36,8 @@ class ApprovalPolicy:
                 confidence=jev.confidence,
             )
 
-        # High-risk operations always require approval
-        # in this prototype.
+
+
         if task.risk_level == RiskLevel.HIGH:
 
             return ApprovalResult(
@@ -50,7 +50,7 @@ class ApprovalPolicy:
                 confidence=jev.confidence,
             )
 
-        # JEV can explicitly deny a lower-risk task.
+
         if jev.decision == ApprovalDecision.DENY:
 
             return ApprovalResult(
@@ -61,8 +61,8 @@ class ApprovalPolicy:
                 confidence=jev.confidence,
             )
 
-        # Medium-risk tasks require approval if JEV
-        # does not explicitly allow them.
+
+
         if task.risk_level == RiskLevel.MEDIUM:
 
             if (
@@ -81,7 +81,7 @@ class ApprovalPolicy:
                     confidence=jev.confidence,
                 )
 
-        # Low-risk task explicitly allowed.
+
         return ApprovalResult(
             decision=ApprovalDecision.ALLOW,
             reason_code="low_risk_allowed",

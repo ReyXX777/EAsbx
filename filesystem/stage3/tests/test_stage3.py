@@ -23,8 +23,8 @@ def test_stage3_adversarial_case_is_exposed():
         StressScenario("adv", StressKind.ADVERSARIAL, 3, 100, 9)
     )
     assert decisions
-    # The test deliberately does not demand zero false-allows. It verifies
-    # that the harness measures them rather than hiding them behind an oracle.
+
+
     assert metrics.unsafe_allow_count >= 0
 
 

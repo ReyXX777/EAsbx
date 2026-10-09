@@ -55,9 +55,9 @@ class ComputeToolAdapter:
             ),
         ]
 
-    # ==================================================================
-    # Tool handlers
-    # ==================================================================
+
+
+
 
     def sum(self, arguments: dict[str, Any]) -> ToolResult:
         return self._execute(
@@ -94,9 +94,9 @@ class ComputeToolAdapter:
             arguments=arguments,
         )
 
-    # ==================================================================
-    # Compute boundary
-    # ==================================================================
+
+
+
 
     def _execute(
         self,
@@ -131,9 +131,9 @@ class ComputeToolAdapter:
             data=result.value,
         )
 
-    # ==================================================================
-    # Tool declarations
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _values_schema() -> dict[str, Any]:

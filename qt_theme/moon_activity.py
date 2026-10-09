@@ -69,9 +69,9 @@ class MoonActivity(QWidget):
 
         self._timer.start()
 
-    # ==================================================================
-    # Animation
-    # ==================================================================
+
+
+
 
     def _advance(self) -> None:
         self._phase += 0.018
@@ -81,16 +81,16 @@ class MoonActivity(QWidget):
 
         self.update()
 
-    # ==================================================================
-    # Theme
-    # ==================================================================
+
+
+
 
     def _theme_palette(self):
         return ThemeManager.instance().palette
 
-    # ==================================================================
-    # Painting
-    # ==================================================================
+
+
+
 
     def paintEvent(
         self,
@@ -120,9 +120,9 @@ class MoonActivity(QWidget):
                 self.height() / 2.0,
             )
 
-            # ----------------------------------------------------------
-            # Moon bounds
-            # ----------------------------------------------------------
+
+
+
 
             moon_rect = (
                 center.x() - radius,
@@ -131,9 +131,9 @@ class MoonActivity(QWidget):
                 radius * 2.0,
             )
 
-            # ----------------------------------------------------------
-            # Base moon
-            # ----------------------------------------------------------
+
+
+
 
             dark_color = QColor(
                 palette.surface,
@@ -155,9 +155,9 @@ class MoonActivity(QWidget):
                 *moon_rect,
             )
 
-            # ----------------------------------------------------------
-            # Illuminated portion
-            # ----------------------------------------------------------
+
+
+
 
             light_color = QColor(
                 palette.accent,
@@ -167,15 +167,15 @@ class MoonActivity(QWidget):
                 235,
             )
 
-            # Illumination phase:
-            #
-            # 0              = new moon
-            # pi / 2         = first quarter
-            # pi             = full moon
-            # 3*pi / 2       = last quarter
-            #
-            # The cosine controls the apparent width of the illuminated
-            # portion.
+
+
+
+
+
+
+
+
+
 
             cosine = math.cos(
                 self._phase,
@@ -195,7 +195,7 @@ class MoonActivity(QWidget):
                 0.0,
                 abs_tol=0.001,
             ):
-                # Quarter moon.
+
                 if self._phase < math.pi:
                     path.moveTo(
                         center,
@@ -223,7 +223,7 @@ class MoonActivity(QWidget):
                     path.closeSubpath()
 
             elif cosine < 0:
-                # Waxing side / full side.
+
 
                 left = center.x() - ellipse_width
 
@@ -250,7 +250,7 @@ class MoonActivity(QWidget):
                 path.closeSubpath()
 
             else:
-                # Waning side / new side.
+
 
                 right = center.x() - ellipse_width
 
@@ -284,9 +284,9 @@ class MoonActivity(QWidget):
                 path,
             )
 
-            # ----------------------------------------------------------
-            # Subtle surface highlight
-            # ----------------------------------------------------------
+
+
+
 
             highlight = QRadialGradient(
                 center.x() - radius * 0.25,
@@ -325,9 +325,9 @@ class MoonActivity(QWidget):
         finally:
             painter.end()
 
-    # ==================================================================
-    # Lifecycle
-    # ==================================================================
+
+
+
 
     def stop(self) -> None:
         """Stop the animation."""

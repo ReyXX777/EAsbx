@@ -129,7 +129,7 @@ class HistoryAwareApprovalEngine:
         allow_log = self.pdf.log_density(features.values, allow_mean, allow_cov)
         deny_log = self.pdf.log_density(features.values, deny_mean, deny_cov)
 
-        # Posterior over ALLOW/DENY using log density and historical priors.
+
         allow_log_prior = math.log(max(probabilities[DecisionLabel.ALLOW], 1e-12))
         deny_log_prior = math.log(max(probabilities[DecisionLabel.DENY], 1e-12))
         allow_score, deny_score = allow_log + allow_log_prior, deny_log + deny_log_prior
@@ -149,7 +149,7 @@ class HistoryAwareApprovalEngine:
         saddle = bool(geometry and geometry.near_saddle)
         routed = False
         if saddle:
-            # Routing is advisory only: we never turn a saddle into ALLOW.
+
             routed = self._route_to_safe_basin(features.values, allow_mean)
             return DecisionLabel.REVIEW, {
                 "allow_posterior": allow_post,
@@ -160,8 +160,8 @@ class HistoryAwareApprovalEngine:
                 "reason": "Saddle geometry suppresses automatic execution; route is review-only.",
             }
 
-        # REVIEW examples create a local uncertainty shell around previously
-        # reviewed points. They do not contribute to the ALLOW density.
+
+
         if nearest_review is not None and nearest_review <= self.review_radius:
             return DecisionLabel.REVIEW, {
                 "allow_posterior": allow_post,
@@ -190,8 +190,8 @@ class HistoryAwareApprovalEngine:
 
     @staticmethod
     def _route_to_safe_basin(point, allow_center) -> bool:
-        # This deliberately reports geometric proximity only. It does not
-        # mutate the task or authorize it.
+
+
         return _distance(point, allow_center) <= 1.0
 
 
@@ -296,7 +296,7 @@ class Stage4HistoryHarness:
 
     def _seed_history(self, pattern: str) -> LabeledTaskHistory:
         history = LabeledTaskHistory()
-        # Safe basin around (0,0); unsafe basin around (3,3).
+
         history.add(LabeledObservation(self.family, FeatureVector((0.0, 0.0)), DecisionLabel.ALLOW))
         history.add(LabeledObservation(self.family, FeatureVector((0.2, -0.1)), DecisionLabel.ALLOW))
 

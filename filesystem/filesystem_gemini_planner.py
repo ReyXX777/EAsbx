@@ -59,9 +59,9 @@ class GeminiFilesystemToolPlanner:
             api_key=api_key,
         )
 
-    # ==================================================================
-    # Public execution interface
-    # ==================================================================
+
+
+
 
     def execute(
         self,
@@ -130,9 +130,9 @@ class GeminiFilesystemToolPlanner:
                 if function_call is not None:
                     function_calls.append(function_call)
 
-            # ----------------------------------------------------------
-            # No function call means Gemini has produced its final answer.
-            # ----------------------------------------------------------
+
+
+
 
             if not function_calls:
 
@@ -143,12 +143,12 @@ class GeminiFilesystemToolPlanner:
 
                 return results, final_text
 
-            # ----------------------------------------------------------
-            # Preserve the complete Gemini model response.
-            #
-            # This is important for Gemini 3 function-call/thinking
-            # context preservation.
-            # ----------------------------------------------------------
+
+
+
+
+
+
 
             contents.append(model_content)
 
@@ -194,9 +194,9 @@ class GeminiFilesystemToolPlanner:
             f"tool-call rounds ({self.MAX_TOOL_ROUNDS})."
         )
 
-    # ==================================================================
-    # Gemini configuration
-    # ==================================================================
+
+
+
 
     def _build_config(self) -> types.GenerateContentConfig:
         """
@@ -250,9 +250,9 @@ or perform computations.
             thinking_config=types.ThinkingConfig(thinking_level="medium"),
         )
 
-    # ==================================================================
-    # Gemini function call → generic ToolCall
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _tool_call_from_function_call(

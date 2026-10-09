@@ -50,9 +50,9 @@ class FilesystemAgent:
     planner: Any
     tool_dispatcher: ToolDispatcher
 
-    # ==============================================================
-    # Generic tool execution
-    # ==============================================================
+
+
+
 
     def execute_tool(
         self,
@@ -67,9 +67,9 @@ class FilesystemAgent:
 
         return self.tool_dispatcher.dispatch(call)
 
-    # ==============================================================
-    # Interactive Gemini/tool loop
-    # ==============================================================
+
+
+
 
     def run_interactive(
         self,
@@ -123,9 +123,9 @@ class FilesystemAgent:
             should_cancel=should_cancel,
         )
 
-    # ==============================================================
-    # Generic direct tool execution
-    # ==============================================================
+
+
+
 
     def execute_tool_call(
         self,
@@ -141,9 +141,9 @@ class FilesystemAgent:
             arguments=arguments or {},
         )
 
-    # ==============================================================
-    # Tool information
-    # ==============================================================
+
+
+
 
     def available_tools(self) -> list[str]:
         """

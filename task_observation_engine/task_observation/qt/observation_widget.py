@@ -70,9 +70,9 @@ class ObservationWidget(QWidget):
 
         self.refresh()
 
-    # ==================================================================
-    # UI
-    # ==================================================================
+
+
+
 
     def _build_ui(self) -> None:
         metrics = ResponsiveMetrics()
@@ -92,9 +92,9 @@ class ObservationWidget(QWidget):
             metrics.spacing(),
         )
 
-        # --------------------------------------------------------------
-        # Header
-        # --------------------------------------------------------------
+
+
+
 
         self.header = ObservationHeader()
 
@@ -111,9 +111,9 @@ class ObservationWidget(QWidget):
             self.header,
         )
 
-        # --------------------------------------------------------------
-        # Main horizontal splitter
-        # --------------------------------------------------------------
+
+
+
 
         self.main_splitter = QSplitter(
             Qt.Orientation.Horizontal,
@@ -132,9 +132,9 @@ class ObservationWidget(QWidget):
             QSizePolicy.Policy.Expanding,
         )
 
-        # --------------------------------------------------------------
-        # Sidebar
-        # --------------------------------------------------------------
+
+
+
 
         self.sidebar = ObservationSidebar()
 
@@ -158,9 +158,9 @@ class ObservationWidget(QWidget):
             self.sidebar,
         )
 
-        # --------------------------------------------------------------
-        # Main content
-        # --------------------------------------------------------------
+
+
+
 
         content = QWidget()
 
@@ -189,9 +189,9 @@ class ObservationWidget(QWidget):
             metrics.spacing(),
         )
 
-        # ==============================================================
-        # Top row
-        # ==============================================================
+
+
+
 
         self.top_splitter = QSplitter(
             Qt.Orientation.Horizontal,
@@ -242,9 +242,9 @@ class ObservationWidget(QWidget):
             1,
         )
 
-        # ==============================================================
-        # Bottom row
-        # ==============================================================
+
+
+
 
         self.bottom_splitter = QSplitter(
             Qt.Orientation.Horizontal,
@@ -307,9 +307,9 @@ class ObservationWidget(QWidget):
             1,
         )
 
-        # --------------------------------------------------------------
-        # Content rows
-        # --------------------------------------------------------------
+
+
+
 
         content_layout.addWidget(
             self.top_splitter,
@@ -321,9 +321,9 @@ class ObservationWidget(QWidget):
             1,
         )
 
-        # --------------------------------------------------------------
-        # Main content
-        # --------------------------------------------------------------
+
+
+
 
         self.main_splitter.addWidget(
             content,
@@ -344,17 +344,17 @@ class ObservationWidget(QWidget):
             1,
         )
 
-        # --------------------------------------------------------------
-        # Activity -> Trace
-        # --------------------------------------------------------------
+
+
+
 
         self.activity.timeline.itemClicked.connect(
             self._activity_item_selected,
         )
 
-    # ==================================================================
-    # Responsive layout
-    # ==================================================================
+
+
+
 
     def _initialize_splitter_sizes(self) -> None:
         """Initialize splitter geometry from the current available size.
@@ -439,9 +439,9 @@ class ObservationWidget(QWidget):
 
         self._initialize_splitter_sizes()
 
-    # ==================================================================
-    # Refresh
-    # ==================================================================
+
+
+
 
     def refresh(self) -> None:
         try:
@@ -489,9 +489,9 @@ class ObservationWidget(QWidget):
         if not sessions:
             self._clear_display()
 
-    # ==================================================================
-    # Session loading
-    # ==================================================================
+
+
+
 
     def _load_session(
         self,
@@ -516,9 +516,9 @@ class ObservationWidget(QWidget):
             snapshot,
         )
 
-    # ==================================================================
-    # Snapshot
-    # ==================================================================
+
+
+
 
     def _display_snapshot(
         self,
@@ -563,9 +563,9 @@ class ObservationWidget(QWidget):
             f"● {status.upper()}",
         )
 
-    # ==================================================================
-    # Activity selection
-    # ==================================================================
+
+
+
 
     def _activity_item_selected(
         self,
@@ -583,9 +583,9 @@ class ObservationWidget(QWidget):
                 trace,
             )
 
-    # ==================================================================
-    # Session summary
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _session_summary(
@@ -607,9 +607,9 @@ class ObservationWidget(QWidget):
             "finished_at": snapshot.finished_at,
         }
 
-    # ==================================================================
-    # Empty/error state
-    # ==================================================================
+
+
+
 
     def _clear_display(self) -> None:
         self._snapshot = None
@@ -636,9 +636,9 @@ class ObservationWidget(QWidget):
             f"● ERROR: {message}",
         )
 
-    # ==================================================================
-    # Lifecycle
-    # ==================================================================
+
+
+
 
     def showEvent(
         self,

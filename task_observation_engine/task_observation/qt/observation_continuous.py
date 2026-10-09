@@ -28,9 +28,9 @@ class ObservationContinuous(QWidget):
 
         self._build_ui()
 
-    # ==================================================================
-    # UI
-    # ==================================================================
+
+
+
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(
@@ -86,9 +86,9 @@ class ObservationContinuous(QWidget):
             self._render_selected,
         )
 
-    # ==================================================================
-    # History
-    # ==================================================================
+
+
+
 
     def set_history(
         self,
@@ -147,14 +147,14 @@ class ObservationContinuous(QWidget):
             history.refresh()
 
         except Exception:
-            # History refresh must never break the observation monitor.
+
             pass
 
         self._refresh_features()
 
-    # ==================================================================
-    # Rendering
-    # ==================================================================
+
+
+
 
     def _render_selected(
         self,
@@ -199,9 +199,9 @@ class ObservationContinuous(QWidget):
             values,
         )
 
-    # ==================================================================
-    # Lifecycle
-    # ==================================================================
+
+
+
 
     def clear(self) -> None:
         self._history = None

@@ -109,8 +109,8 @@ class Stage3StressHarness:
             score = self.pdf.log_density(task.features.values, center, covariance)
             distance = self._distance(task.features.values, center)
 
-            # Convert approved density into a bounded similarity score.
-            # No unsafe examples are consulted.
+
+
             similarity = math.exp(max(min(score, 50.0), -50.0))
             confidence = min(0.98, 0.50 + 0.15 * scenario.seed_count)
             posterior_like = (0.5 * confidence) + (0.5 * min(similarity, 1.0))
@@ -214,8 +214,8 @@ class Stage3StressHarness:
             return point, GroundTruth.UNSAFE, "ood"
 
         if scenario.kind == StressKind.ADVERSARIAL:
-            # Unsafe points deliberately placed close to the learned approved
-            # center: these test whether similarity alone is too permissive.
+
+
             angle = rng.uniform(0.0, 2.0 * math.pi)
             radius = rng.uniform(0.45, 1.25)
             point = (radius * math.cos(angle), radius * math.sin(angle))
@@ -226,8 +226,8 @@ class Stage3StressHarness:
             truth = self._boundary_truth(index, rng)
             return point, truth, "boundary"
 
-        # Deliberate saddle cases alternate between positive and negative
-        # curvature regions in the objective used by the geometry detector.
+
+
         point = (rng.uniform(-0.15, 0.15), rng.uniform(-0.15, 0.15))
         return point, GroundTruth.UNSAFE, "saddle"
 
@@ -243,7 +243,7 @@ class Stage3StressHarness:
 
     @staticmethod
     def _boundary_truth(index, rng):
-        # Fixed but unknown-to-classifier boundary: radius < 1.45 is approved.
+
         return GroundTruth.APPROVED if rng.random() < 0.45 else GroundTruth.UNSAFE
 
     @staticmethod
@@ -280,7 +280,7 @@ class Stage3StressHarness:
         return any(v > 1e-6 for v in eigenvalues) and any(v < -1e-6 for v in eigenvalues)
 
     def _route_to_center(self, point, center):
-        # Routing is advisory only. It must never turn a saddle into ALLOW.
+
         current = list(point)
         for _ in range(20):
             distance = self._distance(current, center)

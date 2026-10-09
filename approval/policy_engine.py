@@ -21,9 +21,9 @@ class ApprovalPolicyEngine:
 
         reasons: list[str] = []
 
-        # ---------------------------------------------------------
-        # DENY
-        # ---------------------------------------------------------
+
+
+
 
         if classification.destructive:
             reasons.append(
@@ -31,9 +31,9 @@ class ApprovalPolicyEngine:
                 "and requires explicit human approval."
             )
 
-        # ---------------------------------------------------------
-        # HUMAN REVIEW
-        # ---------------------------------------------------------
+
+
+
 
         if classification.credential_use:
             reasons.append("The task requires credential use.")
@@ -57,9 +57,9 @@ class ApprovalPolicyEngine:
                 reasons=tuple(reasons),
             )
 
-        # ---------------------------------------------------------
-        # ALLOW
-        # ---------------------------------------------------------
+
+
+
 
         reasons.append(
             "The task is classified as a non-destructive "

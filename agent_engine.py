@@ -1,4 +1,4 @@
-# agent_engine.py
+
 import asyncio
 import os
 from PySide6.QtCore import QThread, Signal
@@ -29,7 +29,7 @@ class AgentExecutionWorker(QThread):
 
         self.state_manager = AgentStateManager(task)
 
-        # Cooperative cancellation flag.
+
         self._cancel_requested = False
 
     def get_status(self) -> dict:
@@ -100,32 +100,32 @@ class AgentExecutionWorker(QThread):
         browser = None
 
         try:
-            # ---------------------------------------------------------
-            # 1. Start canonical task lifecycle
-            # ---------------------------------------------------------
+
+
+
 
             self.state_manager.start_task()
 
             self.step_updated.emit(f" Starting task: '{self.task.prompt}'")
 
-            # ---------------------------------------------------------
-            # 2. Configure API credentials
-            # ---------------------------------------------------------
+
+
+
 
             if not self.api_key:
                 raise ValueError("   Google API key is missing.")
 
             os.environ["GOOGLE_API_KEY"] = self.api_key
 
-            # ---------------------------------------------------------
-            # 3. Initialize LLM
-            # ---------------------------------------------------------
+
+
+
 
             llm = ChatGoogle(model="gemini-3.5-flash-lite")
 
-            # ---------------------------------------------------------
-            # 4. Connect to browser
-            # ---------------------------------------------------------
+
+
+
 
             if self.cdp_url:
                 self.step_updated.emit(
@@ -139,9 +139,9 @@ class AgentExecutionWorker(QThread):
 
                 browser = Browser(headless=self.headless)
 
-            # ---------------------------------------------------------
-            # 5. Create agent
-            # ---------------------------------------------------------
+
+
+
 
             agent = Agent(
                 task=self.task.prompt,
@@ -157,15 +157,15 @@ class AgentExecutionWorker(QThread):
                 f"Initializing Agent for task: " f"'{self.task.prompt}'"
             )
 
-            # ---------------------------------------------------------
-            # 6. Execute agent
-            # ---------------------------------------------------------
+
+
+
 
             history = await agent.run(on_step_end=self._on_step_end_callback)
 
-            # ---------------------------------------------------------
-            # 7. Check cancellation before processing result
-            # ---------------------------------------------------------
+
+
+
 
             if self._cancel_requested:
                 self.state_manager.mark_cancelled()
@@ -174,15 +174,15 @@ class AgentExecutionWorker(QThread):
 
                 return
 
-            # ---------------------------------------------------------
-            # 8. Convert browser-use history into our domain result
-            # ---------------------------------------------------------
+
+
+
 
             parsed_result = AgentResultParser.parse(history)
 
-            # ---------------------------------------------------------
-            # 9. Determine actual execution outcome
-            # ---------------------------------------------------------
+
+
+
 
             if parsed_result.succeeded:
 
@@ -192,9 +192,9 @@ class AgentExecutionWorker(QThread):
 
                 return
 
-            # ---------------------------------------------------------
-            # 10. Agent finished but did not report success
-            # ---------------------------------------------------------
+
+
+
 
             error_message = (
                 parsed_result.errors[-1]
@@ -238,9 +238,9 @@ class AgentExecutionWorker(QThread):
 
         finally:
 
-            # ---------------------------------------------------------
-            # 11. Browser cleanup
-            # ---------------------------------------------------------
+
+
+
 
             if browser is not None:
 

@@ -40,9 +40,9 @@ class ObservationPlot(QWidget):
 
         self._values: list[float] = []
 
-    # ==================================================================
-    # Data
-    # ==================================================================
+
+
+
 
     def set_data(
         self,
@@ -80,18 +80,18 @@ class ObservationPlot(QWidget):
 
         self.update()
 
-    # ==================================================================
-    # Theme
-    # ==================================================================
+
+
+
 
     def _theme_palette(self):
         """Return the current global theme palette."""
 
         return ThemeManager.instance().palette
 
-    # ==================================================================
-    # Painting
-    # ==================================================================
+
+
+
 
     def paintEvent(
         self,
@@ -116,9 +116,9 @@ class ObservationPlot(QWidget):
                 -35,
             )
 
-            # ----------------------------------------------------------
-            # Empty state
-            # ----------------------------------------------------------
+
+
+
 
             if not self._values:
                 painter.setPen(
@@ -135,9 +135,9 @@ class ObservationPlot(QWidget):
 
                 return
 
-            # ----------------------------------------------------------
-            # Value range
-            # ----------------------------------------------------------
+
+
+
 
             minimum = min(
                 self._values,
@@ -159,9 +159,9 @@ class ObservationPlot(QWidget):
                 minimum -= padding
                 maximum += padding
 
-            # ----------------------------------------------------------
-            # Plot frame
-            # ----------------------------------------------------------
+
+
+
 
             frame_pen = QPen(
                 QColor(
@@ -182,9 +182,9 @@ class ObservationPlot(QWidget):
                 rect,
             )
 
-            # ----------------------------------------------------------
-            # Points
-            # ----------------------------------------------------------
+
+
+
 
             point_count = len(
                 self._values,
@@ -214,9 +214,9 @@ class ObservationPlot(QWidget):
                     ),
                 )
 
-            # ----------------------------------------------------------
-            # Observation line
-            # ----------------------------------------------------------
+
+
+
 
             line_pen = QPen(
                 QColor(
@@ -255,9 +255,9 @@ class ObservationPlot(QWidget):
                     3.0,
                 )
 
-            # ----------------------------------------------------------
-            # Y-axis labels
-            # ----------------------------------------------------------
+
+
+
 
             painter.setPen(
                 QColor(
@@ -277,9 +277,9 @@ class ObservationPlot(QWidget):
                 f"{minimum:.4g}",
             )
 
-            # ----------------------------------------------------------
-            # X-axis labels
-            # ----------------------------------------------------------
+
+
+
 
             painter.drawText(
                 rect.left(),

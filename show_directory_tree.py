@@ -1,16 +1,16 @@
 from pathlib import Path
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
 
-# Change this to the folder whose directory tree you want to see.
+
+
+
+
 ROOT_FOLDER = Path(r"X:\MOCKAPP\test_filesystem")
 
 
-# ============================================================
-# DIRECTORY TREE
-# ============================================================
+
+
+
 
 
 def print_tree(root: Path) -> None:
@@ -79,9 +79,9 @@ def _print_directory(directory: Path, prefix: str) -> None:
             print(f"{prefix}{branch}{entry.name}")
 
 
-# ============================================================
-# MAIN
-# ============================================================
+
+
+
 
 if __name__ == "__main__":
     print_tree(ROOT_FOLDER)

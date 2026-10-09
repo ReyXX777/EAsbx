@@ -139,7 +139,7 @@ def test_widget_displays_actual_event_and_trace_attributes(
             snapshot,
         )
 
-        # TaskEvent
+
         assert (
             widget.event_table.item(
                 0,
@@ -164,7 +164,7 @@ def test_widget_displays_actual_event_and_trace_attributes(
             == "filesystem_worker"
         )
 
-        # TracePoint
+
         assert (
             widget.event_table.item(
                 1,

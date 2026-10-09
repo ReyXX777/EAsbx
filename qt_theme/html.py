@@ -47,9 +47,9 @@ class ThemeHtml:
             typography=typography,
         )
 
-    # ------------------------------------------------------------------
-    # Typography
-    # ------------------------------------------------------------------
+
+
+
 
     @property
     def font_family(self) -> str:
@@ -76,9 +76,9 @@ class ThemeHtml:
         """Global title font size in points."""
         return self.typography.title_size
 
-    # ------------------------------------------------------------------
-    # Palette
-    # ------------------------------------------------------------------
+
+
+
 
     @property
     def window(self) -> str:
@@ -212,9 +212,9 @@ class ThemeHtml:
     def cancelled(self) -> str:
         return self.palette.cancelled
 
-    # ------------------------------------------------------------------
-    # Reusable HTML style fragments
-    # ------------------------------------------------------------------
+
+
+
 
     def body_style(self) -> str:
         """

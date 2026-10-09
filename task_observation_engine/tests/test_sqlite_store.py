@@ -68,7 +68,7 @@ def test_database_survives_store_restart(tmp_path: Path) -> None:
 
     assert database_path.exists()
 
-    # Simulate completely new application runtime.
+
     with SQLiteObservationStore(database_path) as store:
         session = store.repository.get_session("session-001")
 

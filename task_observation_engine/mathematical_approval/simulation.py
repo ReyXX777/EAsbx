@@ -39,7 +39,7 @@ def run_demo() -> dict[str, object]:
     engine = MathematicalApprovalEngine(min_samples_for_automatic=10)
     candidate = FeatureVector.from_sequence((0.1, -0.1))
 
-    # Simple bowl-shaped objective: useful for demonstrating Hessian behavior.
+
     def objective(x: tuple[float, ...]) -> float:
         return sum(v * v for v in x)
 

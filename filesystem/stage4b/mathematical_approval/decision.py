@@ -108,7 +108,7 @@ class MathematicalApprovalEngine:
                     "automatic approval is suppressed."
                 )
 
-        # Sparse history is deliberately conservative.
+
         if probability.sample_count < self.min_samples_for_automatic:
             reasons.append(
                 "Insufficient history for automatic approval; human review required."
@@ -134,8 +134,8 @@ class MathematicalApprovalEngine:
                 sample_count=probability.sample_count,
             )
 
-        # Confidence-adjusted probability avoids treating a tiny sample as
-        # equivalent to a mature historical distribution.
+
+
         effective_score = (
             probability.probability * confidence
             + 0.5 * (1.0 - confidence)
@@ -177,5 +177,5 @@ class MathematicalApprovalEngine:
 
 
 def _confidence_from_count(effective_count: float) -> float:
-    # Smoothly approaches 1 without ever claiming certainty.
+
     return 1.0 - math.exp(-effective_count / 20.0)

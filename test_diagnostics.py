@@ -1,4 +1,4 @@
-# test_diagnostics.py
+
 import asyncio
 import os
 import sys
@@ -17,7 +17,7 @@ def check_network_connectivity() -> bool:
             print(f"   ✅ Network reachable (HTTP Status: {response.status})")
             return True
     except urllib.error.HTTPError as e:
-        # HTTP 404/403 still means network and DNS are working properly
+
         print(f"   ✅ Network reachable (Server responded with HTTP {e.code})")
         return True
     except Exception as e:
@@ -43,7 +43,7 @@ async def check_gemini_api_key_async() -> bool:
         llm = ChatGoogle(model="gemini-3.5-flash-lite")
         print("   ⏳ Sending ping request to gemini-3.5-flash-lite...")
         
-        # Test using browser_use ChatGoogle async interface or a simple Agent ping
+
         from browser_use import Agent
         test_agent = Agent(task="Say OK", llm=llm)
         

@@ -116,9 +116,9 @@ class FilesystemToolAdapter:
             ),
         ]
 
-    # ==================================================================
-    # Tool handlers
-    # ==================================================================
+
+
+
 
     def list_directory(self, arguments: dict[str, Any]) -> ToolResult:
         operation = self._operation(
@@ -216,9 +216,9 @@ class FilesystemToolAdapter:
 
         return self._execute(operation)
 
-    # ==================================================================
-    # Operation conversion
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _operation(
@@ -270,9 +270,9 @@ class FilesystemToolAdapter:
             message=result.message,
         )
 
-    # ==================================================================
-    # Serialization
-    # ==================================================================
+
+
+
 
     @classmethod
     def _serialize(cls, value: Any) -> Any:
@@ -299,9 +299,9 @@ class FilesystemToolAdapter:
 
         return str(value)
 
-    # ==================================================================
-    # Gemini-neutral declarations
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _declaration_list_directory() -> dict:

@@ -1,4 +1,4 @@
-# browser_window.py
+
 
 from __future__ import annotations
 
@@ -27,9 +27,9 @@ from filesystem.filesystem_workspace import FilesWorkspace
 from filesystem.filesystem_agent_events import FilesystemToolActivity
 from qt_theme import ThemeManager
 
-# ---------------------------------------------------------
-# Qt WebEngine
-# ---------------------------------------------------------
+
+
+
 
 try:
     from PySide6.QtWebEngineCore import QWebEngineSettings
@@ -84,9 +84,9 @@ class BrowserTab(QWidget):
             layout.addWidget(self.browser_view)
 
         else:
-            # Development fallback only.
-            #
-            # The actual application should run with Qt WebEngine.
+
+
+
             from PySide6.QtWidgets import QTextEdit
 
             self.browser_view = QTextEdit()
@@ -174,9 +174,9 @@ class BrowserWindowWidget(QFrame):
     tab_created = Signal(int)
     tab_closed = Signal(int)
 
-    # -----------------------------------------------------
-    # Constructor
-    # -----------------------------------------------------
+
+
+
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -195,9 +195,9 @@ class BrowserWindowWidget(QFrame):
 
         self._create_initial_tab()
 
-    # =====================================================
-    # UI
-    # =====================================================
+
+
+
 
     def _build_ui(self):
 
@@ -212,9 +212,9 @@ class BrowserWindowWidget(QFrame):
 
         main_layout.setSpacing(0)
 
-        # -------------------------------------------------
-        # Workspace header
-        # -------------------------------------------------
+
+
+
 
         workspace_header = QFrame()
         workspace_header.setObjectName("workspaceHeader")
@@ -245,7 +245,7 @@ class BrowserWindowWidget(QFrame):
 
         header_layout.addStretch()
 
-        # Agent status indicator
+
 
         self.agent_status_dot = QLabel("●")
         self.agent_status_dot.setObjectName("agentStatusDot")
@@ -261,13 +261,13 @@ class BrowserWindowWidget(QFrame):
 
         main_layout.addWidget(workspace_header)
 
-        # -------------------------------------------------
-        # Browser workspace
-        # -------------------------------------------------
+
+
+
 
         self.workspace_stack = QStackedWidget()
 
-        # Browser page
+
 
         self.browser_workspace = QWidget()
 
@@ -282,9 +282,9 @@ class BrowserWindowWidget(QFrame):
 
         browser_layout.setSpacing(0)
 
-        # -------------------------------------------------
-        # Navigation toolbar
-        # -------------------------------------------------
+
+
+
 
         navigation_bar = QFrame()
         navigation_bar.setObjectName("navigationBar")
@@ -329,9 +329,9 @@ class BrowserWindowWidget(QFrame):
 
         navigation_layout.addWidget(self.stop_btn)
 
-        # -------------------------------------------------
-        # Address bar
-        # -------------------------------------------------
+
+
+
 
         self.url_bar = QLineEdit()
 
@@ -348,7 +348,7 @@ class BrowserWindowWidget(QFrame):
             stretch=1,
         )
 
-        # Security / page menu
+
 
         self.page_menu_btn = QToolButton()
 
@@ -362,7 +362,7 @@ class BrowserWindowWidget(QFrame):
 
         navigation_layout.addWidget(self.page_menu_btn)
 
-        # New tab
+
 
         self.new_tab_btn = QToolButton()
 
@@ -378,9 +378,9 @@ class BrowserWindowWidget(QFrame):
 
         browser_layout.addWidget(navigation_bar)
 
-        # -------------------------------------------------
-        # Browser tabs
-        # -------------------------------------------------
+
+
+
 
         self.browser_tabs = QTabWidget()
 
@@ -401,9 +401,9 @@ class BrowserWindowWidget(QFrame):
             stretch=1,
         )
 
-        # -------------------------------------------------
-        # Files workspace
-        # -------------------------------------------------
+
+
+
 
         filesystem_root = r"X:\MOCKAPP\test_filesystem"
 
@@ -427,9 +427,9 @@ class BrowserWindowWidget(QFrame):
             stretch=1,
         )
 
-        # -------------------------------------------------
-        # Browser status bar
-        # -------------------------------------------------
+
+
+
 
         status_bar = QFrame()
         status_bar.setObjectName("browserStatusBar")
@@ -483,9 +483,9 @@ class BrowserWindowWidget(QFrame):
         for tab in self._tabs:
             tab._apply_theme()
 
-    # =====================================================
-    # Signals
-    # =====================================================
+
+
+
 
     def _connect_signals(self):
 
@@ -498,9 +498,9 @@ class BrowserWindowWidget(QFrame):
 
         self.stop_btn.clicked.connect(self._stop)
 
-    # =====================================================
-    # Tabs
-    # =====================================================
+
+
+
 
     def _create_initial_tab(self):
 
@@ -562,9 +562,9 @@ class BrowserWindowWidget(QFrame):
 
         self.tab_closed.emit(index)
 
-    # =====================================================
-    # Navigation
-    # =====================================================
+
+
+
 
     def current_browser_tab(
         self,
@@ -599,9 +599,9 @@ class BrowserWindowWidget(QFrame):
 
         self.url_navigated.emit(url_text)
 
-    # =====================================================
-    # Navigation button handlers
-    # =====================================================
+
+
+
 
     def _go_back(self):
 
@@ -631,9 +631,9 @@ class BrowserWindowWidget(QFrame):
         if tab:
             tab.stop_loading()
 
-    # =====================================================
-    # Browser events
-    # =====================================================
+
+
+
 
     def _on_current_tab_changed(
         self,
@@ -701,9 +701,9 @@ class BrowserWindowWidget(QFrame):
         else:
             self.page_status_label.setText("Ready")
 
-    # =====================================================
-    # Filesystem workspace
-    # =====================================================
+
+
+
 
     def _on_file_opened(
         self,
@@ -717,9 +717,9 @@ class BrowserWindowWidget(QFrame):
     ):
         self.browser_error.emit(message)
 
-    # =====================================================
-    # Workspace
-    # =====================================================
+
+
+
 
     def _on_workspace_changed(
         self,
@@ -734,9 +734,9 @@ class BrowserWindowWidget(QFrame):
         elif index == self.files_workspace_index:
             self.workspace_changed.emit("files")
 
-    # =====================================================
-    # Agent state
-    # =====================================================
+
+
+
 
     def set_agent_status(
         self,
@@ -811,9 +811,9 @@ class BrowserWindowWidget(QFrame):
                 "failed",
             )
 
-    # =====================================================
-    # Context menu
-    # =====================================================
+
+
+
 
     def _show_page_menu(self):
 
@@ -876,9 +876,9 @@ class BrowserWindowWidget(QFrame):
 
         self.files_workspace.stop_agent_activity()
 
-    # =====================================================
-    # Helpers
-    # =====================================================
+
+
+
     @staticmethod
     def _set_theme_property(
         widget,

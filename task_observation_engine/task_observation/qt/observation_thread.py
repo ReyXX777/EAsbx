@@ -49,9 +49,9 @@ class ObservationWorker(QObject):
 
         self._session: TaskObservationSession | None = None
 
-    # ------------------------------------------------------------------
-    # Session lifecycle
-    # ------------------------------------------------------------------
+
+
+
 
     @Slot(str, str, object)
     def start_task(
@@ -127,9 +127,9 @@ class ObservationWorker(QObject):
                 f"Task finalization error: {type(exc).__name__}: {exc}"
             )
 
-    # ------------------------------------------------------------------
-    # Discrete observations
-    # ------------------------------------------------------------------
+
+
+
 
     @Slot(str, object)
     def record_discrete(
@@ -156,9 +156,9 @@ class ObservationWorker(QObject):
                 "Discrete observation error: " f"{type(exc).__name__}: {exc}"
             )
 
-    # ------------------------------------------------------------------
-    # Continuous observations
-    # ------------------------------------------------------------------
+
+
+
 
     @Slot(str, object)
     def record_continuous(
@@ -185,9 +185,9 @@ class ObservationWorker(QObject):
                 "Continuous observation error: " f"{type(exc).__name__}: {exc}"
             )
 
-    # ------------------------------------------------------------------
-    # Events
-    # ------------------------------------------------------------------
+
+
+
 
     @Slot(str, object)
     def record_event(
@@ -220,8 +220,8 @@ class ObservationWorker(QObject):
                 payload=normalized_payload,
             )
 
-            # Tool lifecycle events participate in both the event stream
-            # and the canonical trace stream.
+
+
             if event_type in {
                 "tool_started",
                 "tool_completed",
@@ -252,9 +252,9 @@ class ObservationWorker(QObject):
                 "Event observation error: " f"{type(exc).__name__}: {exc}"
             )
 
-    # ------------------------------------------------------------------
-    # Snapshot publication
-    # ------------------------------------------------------------------
+
+
+
 
     @Slot()
     def publish_current_state(self) -> None:
@@ -275,9 +275,9 @@ class ObservationWorker(QObject):
         except Exception as exc:
             self.worker_error.emit(f"Snapshot error: {type(exc).__name__}: {exc}")
 
-    # ------------------------------------------------------------------
-    # Shutdown
-    # ------------------------------------------------------------------
+
+
+
 
     @Slot()
     def shutdown(self) -> None:

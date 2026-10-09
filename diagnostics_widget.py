@@ -1,4 +1,4 @@
-# diagnostics_widget.py
+
 
 from __future__ import annotations
 
@@ -26,9 +26,9 @@ class DiagnosticsWidget(QWidget):
 
         self._build_ui()
 
-    # ==================================================================
-    # UI
-    # ==================================================================
+
+
+
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -102,9 +102,9 @@ class DiagnosticsWidget(QWidget):
         root.addWidget(card)
         root.addStretch()
 
-    # ==================================================================
-    # Public API
-    # ==================================================================
+
+
+
 
     def refresh(self, status_info: dict) -> None:
         """Refresh the displayed diagnostics."""

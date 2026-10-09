@@ -35,7 +35,7 @@ class SyntheticTaskFamilyGenerator:
         rng = random.Random(self.config.seed)
         tasks: list[SyntheticTask] = []
 
-        # The first seed_count tasks are deliberately approved examples.
+
         for task_id in range(1, self.config.task_count + 1):
             phase = rng.random()
             if task_id <= self.config.seed_count:
@@ -52,7 +52,7 @@ class SyntheticTaskFamilyGenerator:
                 region = "unsafe"
             else:
                 features = self._sample_borderline(rng)
-                # Borderline points are judged by distance to the approved basin.
+
                 truth = (
                     GroundTruth.APPROVED
                     if self._distance(features.values, self.config.approved_center)

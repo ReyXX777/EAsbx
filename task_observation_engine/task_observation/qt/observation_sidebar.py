@@ -50,9 +50,9 @@ class ObservationSidebar(QWidget):
         self._build_ui()
         self._connect_signals()
 
-    # ==================================================================
-    # UI
-    # ==================================================================
+
+
+
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(
@@ -70,9 +70,9 @@ class ObservationSidebar(QWidget):
             8,
         )
 
-        # --------------------------------------------------------------
-        # Live status
-        # --------------------------------------------------------------
+
+
+
 
         self.live_label = QLabel(
             "🔴 Live",
@@ -92,9 +92,9 @@ class ObservationSidebar(QWidget):
             self.live_label,
         )
 
-        # --------------------------------------------------------------
-        # Search
-        # --------------------------------------------------------------
+
+
+
 
         self.search_field = QLineEdit()
 
@@ -115,9 +115,9 @@ class ObservationSidebar(QWidget):
             self.search_field,
         )
 
-        # --------------------------------------------------------------
-        # Filters heading
-        # --------------------------------------------------------------
+
+
+
 
         filters_label = QLabel(
             "FILTERS",
@@ -137,9 +137,9 @@ class ObservationSidebar(QWidget):
             filters_label,
         )
 
-        # --------------------------------------------------------------
-        # Status
-        # --------------------------------------------------------------
+
+
+
 
         status_group = QGroupBox(
             "Status",
@@ -195,9 +195,9 @@ class ObservationSidebar(QWidget):
             status_group,
         )
 
-        # --------------------------------------------------------------
-        # Family
-        # --------------------------------------------------------------
+
+
+
 
         family_group = QGroupBox(
             "Family",
@@ -247,9 +247,9 @@ class ObservationSidebar(QWidget):
             family_group,
         )
 
-        # --------------------------------------------------------------
-        # Sessions heading
-        # --------------------------------------------------------------
+
+
+
 
         sessions_label = QLabel(
             "SESSIONS",
@@ -269,9 +269,9 @@ class ObservationSidebar(QWidget):
             sessions_label,
         )
 
-        # --------------------------------------------------------------
-        # Session list
-        # --------------------------------------------------------------
+
+
+
 
         self.session_list = QListWidget()
 
@@ -289,9 +289,9 @@ class ObservationSidebar(QWidget):
             1,
         )
 
-    # ==================================================================
-    # Signals
-    # ==================================================================
+
+
+
 
     def _connect_signals(self) -> None:
         self.search_field.textChanged.connect(
@@ -310,9 +310,9 @@ class ObservationSidebar(QWidget):
             self._session_clicked,
         )
 
-    # ==================================================================
-    # Live state
-    # ==================================================================
+
+
+
 
     def set_live(
         self,
@@ -327,9 +327,9 @@ class ObservationSidebar(QWidget):
                 "⚪ No active session",
             )
 
-    # ==================================================================
-    # Sessions
-    # ==================================================================
+
+
+
 
     def set_sessions(
         self,
@@ -382,9 +382,9 @@ class ObservationSidebar(QWidget):
                 False,
             )
 
-    # ==================================================================
-    # Filtering
-    # ==================================================================
+
+
+
 
     def _apply_filters(self) -> None:
         search = self.search_field.text().strip().lower()
@@ -449,9 +449,9 @@ class ObservationSidebar(QWidget):
 
         self.filters_changed.emit()
 
-    # ==================================================================
-    # Selection
-    # ==================================================================
+
+
+
 
     def _session_clicked(
         self,
@@ -466,9 +466,9 @@ class ObservationSidebar(QWidget):
                 str(session_id),
             )
 
-    # ==================================================================
-    # Formatting
-    # ==================================================================
+
+
+
 
     @staticmethod
     def _format_session_label(

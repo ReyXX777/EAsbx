@@ -135,12 +135,12 @@ class ChatMessageFormatter:
         typography = theme.typography
         mono = typography.monospace()
 
-        # Escape HTML tags to prevent XSS / render corruption.
+
         escaped_text = html.escape(text)
 
-        # ------------------------------------------------------------------
-        # 1. Multi-line code blocks
-        # ------------------------------------------------------------------
+
+
+
         code_block_pattern = re.compile(
             r"```(?:(\w+)\n)?(.*?)```",
             re.DOTALL,
@@ -188,9 +188,9 @@ class ChatMessageFormatter:
             escaped_text,
         )
 
-        # ------------------------------------------------------------------
-        # 2. Inline code
-        # ------------------------------------------------------------------
+
+
+
         inline_code_pattern = re.compile(r"`([^`]+)`")
 
         inline_code_html = (
@@ -210,27 +210,27 @@ class ChatMessageFormatter:
             escaped_text,
         )
 
-        # ------------------------------------------------------------------
-        # 3. Bold
-        # ------------------------------------------------------------------
+
+
+
         escaped_text = re.sub(
             r"\*\*(.*?)\*\*",
             r"<strong>\1</strong>",
             escaped_text,
         )
 
-        # ------------------------------------------------------------------
-        # 4. Italic
-        # ------------------------------------------------------------------
+
+
+
         escaped_text = re.sub(
             r"\*(.*?)\*",
             r"<em>\1</em>",
             escaped_text,
         )
 
-        # ------------------------------------------------------------------
-        # 5. Convert line breaks
-        # ------------------------------------------------------------------
+
+
+
         escaped_text = escaped_text.replace(
             "\n",
             "<br>",

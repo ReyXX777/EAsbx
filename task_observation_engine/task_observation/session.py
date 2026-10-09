@@ -54,44 +54,44 @@ class TaskObservationSession:
             self._finished_at = utc_now_iso()
             self._status = status
 
-            # --------------------------------------------------
-            # Build the complete raw observation snapshot first.
-            #
-            # All task events, traces, timestamps and raw
-            # observations are now available to the derivation
-            # layer.
-            # --------------------------------------------------
+
+
+
+
+
+
+
             raw_snapshot = self.snapshot()
 
-            # --------------------------------------------------
-            # Derive higher-level observations.
-            #
-            # FeatureDeriver coordinates the independent
-            # ToolObserver, NavigationObserver, TimingObserver,
-            # and OutcomeObserver components.
-            # --------------------------------------------------
+
+
+
+
+
+
+
             derived = self.feature_deriver.derive(raw_snapshot)
 
-            # --------------------------------------------------
-            # Persist derived continuous features.
-            # --------------------------------------------------
+
+
+
             self.continuous.record_many(
                 derived.continuous_features(),
                 source="feature_deriver",
             )
 
-            # --------------------------------------------------
-            # Persist derived discrete features.
-            # --------------------------------------------------
+
+
+
             self.discrete.record_many(
                 derived.discrete_features(),
                 source="feature_deriver",
             )
 
-            # --------------------------------------------------
-            # Rebuild the snapshot so the persisted observation
-            # contains both raw and derived observations.
-            # --------------------------------------------------
+
+
+
+
             snapshot = self.snapshot()
 
         if self.buckets is not None:

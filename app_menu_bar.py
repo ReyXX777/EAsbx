@@ -1,4 +1,4 @@
-# app_menu_bar.py
+
 from PySide6.QtWidgets import QMenuBar, QWidget
 
 
@@ -11,9 +11,9 @@ class AppMenuBar(QMenuBar):
         self._init_menus()
 
     def _init_menus(self):
-        # --------------------------------------------------------------
-        # Agent
-        # --------------------------------------------------------------
+
+
+
 
         agent_menu = self.addMenu("Agent")
 
@@ -23,9 +23,9 @@ class AppMenuBar(QMenuBar):
 
         status_action.triggered.connect(self.show_agent_status_dialog)
 
-        # --------------------------------------------------------------
-        # Observation
-        # --------------------------------------------------------------
+
+
+
 
         observation_action = agent_menu.addAction("Observation")
 

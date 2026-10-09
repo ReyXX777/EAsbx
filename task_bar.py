@@ -1,4 +1,4 @@
-# task_bar.py
+
 
 from __future__ import annotations
 
@@ -56,11 +56,11 @@ class TaskBarWidget(QFrame):
     task_selected = Signal(str)
     collapsed_changed = Signal(bool)
 
-    # Sidebar geometry.
+
     EXPANDED_WIDTH = 220
     COLLAPSED_WIDTH = 46
 
-    # Short, responsive animation.
+
     COLLAPSE_ANIMATION_MS = 90
 
     STATUS_QUEUED = "Queued"
@@ -86,9 +86,9 @@ class TaskBarWidget(QFrame):
         self._initialize_theme_roles()
         self._initialize_collapse_animation()
 
-    # =====================================================================
-    # UI construction
-    # =====================================================================
+
+
+
 
     def _build_ui(self):
         self.main_layout = QVBoxLayout(self)
@@ -102,9 +102,9 @@ class TaskBarWidget(QFrame):
 
         self.main_layout.setSpacing(8)
 
-        # -------------------------------------------------------------
-        # Sidebar control row
-        # -------------------------------------------------------------
+
+
+
 
         self.control_bar = QWidget()
         self.control_bar.setObjectName("TaskBarControlBar")
@@ -130,9 +130,9 @@ class TaskBarWidget(QFrame):
 
         self.main_layout.addWidget(self.control_bar)
 
-        # -------------------------------------------------------------
-        # Main sidebar content
-        # -------------------------------------------------------------
+
+
+
 
         self.content_widget = QWidget()
         self.content_widget.setObjectName("TaskBarContent")
@@ -148,9 +148,9 @@ class TaskBarWidget(QFrame):
 
         content_layout.setSpacing(12)
 
-        # -------------------------------------------------------------
-        # Header
-        # -------------------------------------------------------------
+
+
+
 
         header = QWidget()
         header.setObjectName("TaskBarHeader")
@@ -181,9 +181,9 @@ class TaskBarWidget(QFrame):
 
         content_layout.addWidget(header)
 
-        # -------------------------------------------------------------
-        # New Task button
-        # -------------------------------------------------------------
+
+
+
 
         self.new_task_btn = QPushButton()
         self.new_task_btn.setObjectName("NewTaskButton")
@@ -196,9 +196,9 @@ class TaskBarWidget(QFrame):
 
         content_layout.addWidget(self.new_task_btn)
 
-        # -------------------------------------------------------------
-        # Search / filter
-        # -------------------------------------------------------------
+
+
+
 
         search_container = QFrame()
         search_container.setObjectName("SearchContainer")
@@ -237,9 +237,9 @@ class TaskBarWidget(QFrame):
 
         content_layout.addWidget(search_container)
 
-        # -------------------------------------------------------------
-        # Active task section
-        # -------------------------------------------------------------
+
+
+
 
         self.active_header = self._create_section_header(
             "ACTIVE",
@@ -252,9 +252,9 @@ class TaskBarWidget(QFrame):
 
         content_layout.addWidget(self.active_task_card)
 
-        # -------------------------------------------------------------
-        # History section
-        # -------------------------------------------------------------
+
+
+
 
         history_header = QWidget()
         history_header.setObjectName("HistoryHeader")
@@ -282,9 +282,9 @@ class TaskBarWidget(QFrame):
 
         content_layout.addWidget(history_header)
 
-        # -------------------------------------------------------------
-        # Task list
-        # -------------------------------------------------------------
+
+
+
 
         self.task_list = QListWidget()
         self.task_list.setObjectName("TaskList")
@@ -305,9 +305,9 @@ class TaskBarWidget(QFrame):
             stretch=1,
         )
 
-        # -------------------------------------------------------------
-        # Bottom agent status
-        # -------------------------------------------------------------
+
+
+
 
         self.status_card = QFrame()
         self.status_card.setObjectName("StatusCard")
@@ -355,9 +355,9 @@ class TaskBarWidget(QFrame):
             stretch=1,
         )
 
-    # =====================================================================
-    # Theme roles
-    # =====================================================================
+
+
+
 
     def _initialize_theme_roles(self):
         """
@@ -436,9 +436,9 @@ class TaskBarWidget(QFrame):
             "tool",
         )
 
-    # =====================================================================
-    # Collapse / expand
-    # =====================================================================
+
+
+
 
     def _initialize_collapse_animation(self):
         self._width_animation = QPropertyAnimation(
@@ -584,9 +584,9 @@ class TaskBarWidget(QFrame):
 
             self.setMaximumWidth(target_width)
 
-    # =====================================================================
-    # Signals
-    # =====================================================================
+
+
+
 
     def _connect_signals(self):
         self.new_task_btn.clicked.connect(self._on_new_task_clicked)
@@ -609,9 +609,9 @@ class TaskBarWidget(QFrame):
 
         self.task_selected.emit(item.text())
 
-    # =====================================================================
-    # Helpers
-    # =====================================================================
+
+
+
 
     def _create_section_header(
         self,
@@ -708,9 +708,9 @@ class TaskBarWidget(QFrame):
 
         return card
 
-    # =====================================================================
-    # Task management
-    # =====================================================================
+
+
+
 
     def add_task(
         self,
@@ -989,12 +989,12 @@ class TaskBarWidget(QFrame):
 
         widget.update()
 
-    # =====================================================================
-    # Task item rendering
-    # =====================================================================
-    # =====================================================================
-    # Task item rendering
-    # =====================================================================
+
+
+
+
+
+
 
     def _set_task_item_widget(
         self,
@@ -1185,9 +1185,9 @@ class TaskBarWidget(QFrame):
 
         return "○"
 
-    # =====================================================================
-    # Filtering
-    # =====================================================================
+
+
+
 
     def _filter_tasks(
         self,
@@ -1211,16 +1211,16 @@ class TaskBarWidget(QFrame):
 
             item.setHidden(bool(query) and query not in visible_text.lower())
 
-    # =====================================================================
-    # Counters
-    # =====================================================================
+
+
+
 
     def _update_history_count(self):
         self.history_count.setText(str(self.task_list.count()))
 
-    # =====================================================================
-    # Public compatibility helpers
-    # =====================================================================
+
+
+
 
     def add_legacy_task(
         self,

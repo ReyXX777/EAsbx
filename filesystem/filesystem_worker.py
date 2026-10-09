@@ -97,9 +97,9 @@ class FilesystemExecutionWorker(QThread):
 
         self.agent: FilesystemAgent | None = None
 
-    # ==============================================================
-    # Public worker controls
-    # ==============================================================
+
+
+
 
     def get_status(self) -> dict:
         return self.state_manager.get_status()
@@ -114,9 +114,9 @@ class FilesystemExecutionWorker(QThread):
 
         self._cancel_requested = True
 
-    # ==============================================================
-    # QThread entry point
-    # ==============================================================
+
+
+
 
     def run(self) -> None:
 
@@ -144,36 +144,36 @@ class FilesystemExecutionWorker(QThread):
                 "task_started",
                 action="filesystem_task",
             )
-            # ------------------------------------------------------
-            # Validate API key
-            # ------------------------------------------------------
+
+
+
 
             if not self.api_key:
                 raise ValueError("Gemini API key is missing.")
 
-            # ------------------------------------------------------
-            # Create sandbox filesystem service
-            # ------------------------------------------------------
+
+
+
 
             self.step_updated.emit("Initializing sandboxed filesystem...")
 
             filesystem_service = SandboxFilesystemService(self.filesystem_root)
 
-            # ------------------------------------------------------
-            # Create deterministic compute service
-            # ------------------------------------------------------
+
+
+
 
             self.step_updated.emit("Initializing compute service...")
 
             compute_service = ComputeService()
 
-            # ------------------------------------------------------
-            # Create generic tool dispatcher
-            #
-            # The factory owns all tool registration and adapter
-            # composition. The worker does not know individual
-            # filesystem or compute tools.
-            # ------------------------------------------------------
+
+
+
+
+
+
+
 
             self.step_updated.emit("Initializing tool dispatcher...")
 
@@ -182,13 +182,13 @@ class FilesystemExecutionWorker(QThread):
                 compute_service=compute_service,
             )
 
-            # ------------------------------------------------------
-            # Create Gemini planner
-            #
-            # Gemini receives tool declarations from the generic
-            # dispatcher. It does not receive filesystem services
-            # or compute services directly.
-            # ------------------------------------------------------
+
+
+
+
+
+
+
 
             self.step_updated.emit("Initializing filesystem planner...")
 
@@ -197,9 +197,9 @@ class FilesystemExecutionWorker(QThread):
                 tool_dispatcher=tool_dispatcher,
             )
 
-            # ------------------------------------------------------
-            # Create filesystem agent
-            # ------------------------------------------------------
+
+
+
 
             self.agent = FilesystemAgent(
                 service=filesystem_service,
@@ -207,9 +207,9 @@ class FilesystemExecutionWorker(QThread):
                 tool_dispatcher=tool_dispatcher,
             )
 
-            # ------------------------------------------------------
-            # Execute Gemini/tool loop
-            # ------------------------------------------------------
+
+
+
 
             results, final_text = self.agent.run_interactive(
                 self.task.prompt,
@@ -218,9 +218,9 @@ class FilesystemExecutionWorker(QThread):
                 should_cancel=self._is_cancelled,
             )
 
-            # ------------------------------------------------------
-            # Cancellation check
-            # ------------------------------------------------------
+
+
+
 
             if self._cancel_requested:
 
@@ -238,9 +238,9 @@ class FilesystemExecutionWorker(QThread):
 
                 return
 
-            # ------------------------------------------------------
-            # Complete canonical task
-            # ------------------------------------------------------
+
+
+
 
             execution_result = {
                 "final_text": final_text,
@@ -294,9 +294,9 @@ class FilesystemExecutionWorker(QThread):
 
             self.error_occurred.emit(error_message)
 
-    # ==============================================================
-    # Generic tool start callback
-    # ==============================================================
+
+
+
 
     def _on_tool_call(
         self,
@@ -341,9 +341,9 @@ class FilesystemExecutionWorker(QThread):
 
         self.tool_started.emit(activity)
 
-    # ==============================================================
-    # Generic tool result callback
-    # ==============================================================
+
+
+
 
     def _on_tool_result(
         self,
@@ -441,9 +441,9 @@ class FilesystemExecutionWorker(QThread):
 
             self.step_updated.emit(f"❌ {call.name}: {error_text}")
 
-    # ==============================================================
-    # Observation lifecycle
-    # ==============================================================
+
+
+
 
     def _finish_observation(
         self,
@@ -477,9 +477,9 @@ class FilesystemExecutionWorker(QThread):
 
         self._observation_finished = True
 
-    # ==============================================================
-    # Cancellation
-    # ==============================================================
+
+
+
 
     def _is_cancelled(self) -> bool:
         return self._cancel_requested
